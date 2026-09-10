@@ -1,0 +1,243 @@
+:root {
+  --bg: #0b0f14;
+  --bg2: #10161d;
+  --surf: #151d26;
+  --border: #22303c;
+  --text: #dbe9f2;
+  --text2: #7c93a3;
+  --accent: #2dd4c8;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+#app {
+  height: 100vh;
+  display: flex;
+}
+
+#sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  overflow-y: auto;
+}
+.sidebar-sep { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+#new-project-btn {
+  background: var(--surf);
+  border: 1px dashed var(--border);
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-bottom: 6px;
+  width: 100%;
+}
+#project-list { list-style: none; display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+.project-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text2);
+}
+.project-item:hover { background: var(--surf); }
+.project-item.active { background: var(--surf); color: var(--accent); }
+.project-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-delete { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 11px; }
+.project-delete:hover { color: var(--text); }
+
+#new-conv-btn {
+  background: var(--surf);
+  border: 1px dashed var(--border);
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+#conv-list { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.conv-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.conv-item:hover { background: var(--surf); }
+.conv-item.active { background: var(--surf); border: 1px solid var(--border); }
+.conv-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text2); flex-shrink: 0; }
+.conv-dot-busy { background: #ffcc00; }
+.conv-dot-error { background: #e05252; }
+.conv-rename, .conv-delete {
+  background: none; border: none; color: var(--text2); cursor: pointer;
+  font-size: 12px; padding: 2px;
+}
+.conv-rename:hover, .conv-delete:hover { color: var(--text); }
+
+#chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+#chat-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+#settings-panel {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text2);
+}
+#settings-panel label { display: flex; align-items: center; gap: 6px; }
+#settings-panel select {
+  background: var(--surf);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
+
+#chat-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.msg {
+  max-width: 78%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.msg-user { align-self: flex-end; align-items: flex-end; }
+.msg-assistant { align-self: flex-start; align-items: flex-start; }
+.msg-bubble {
+  padding: 8px 12px;
+  border-radius: 8px;
+  line-height: 1.5;
+  font-size: 14px;
+}
+.msg-user .msg-bubble { background: var(--surf); border: 1px solid var(--border); }
+.msg-assistant .msg-bubble { background: var(--bg2); border: 1px solid var(--border); }
+.msg-bubble pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; overflow-x: auto; margin: 6px 0; }
+.msg-bubble code { font-family: "Cascadia Code", Consolas, monospace; font-size: 12.5px; }
+.msg-bubble :not(pre) > code { background: var(--bg); border-radius: 3px; padding: 1px 4px; }
+.msg-bubble a { color: var(--accent); }
+.msg-bubble ul, .msg-bubble ol { margin-left: 1.2em; }
+.msg-bubble p:not(:last-child) { margin-bottom: 6px; }
+.msg-meta {
+  font-size: 10px;
+  color: var(--text3, #5c7688);
+  padding: 0 4px;
+}
+.status-badge.status-processing { color: #ffcc00; }
+.status-badge.status-done { color: var(--accent); }
+.status-badge.status-error { color: #e05252; }
+.status-badge.status-stopped { color: #e0a952; }
+.status-badge.status-timeout { color: #e0a952; }
+.thinking { color: var(--text2); font-style: italic; }
+
+.chat-status {
+  padding: 4px 16px;
+  font-size: 12px;
+  color: var(--text2);
+  min-height: 18px;
+}
+
+#composer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+}
+#attachment-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+.attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surf);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--text2);
+}
+.attachment-chip button {
+  background: none;
+  border: none;
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+}
+#composer-row { display: flex; gap: 8px; align-items: flex-end; }
+#composer-attach {
+  background: var(--surf);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+#composer-input {
+  flex: 1;
+  resize: none;
+  background: var(--surf);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 14px;
+}
+#composer-row button:not(#composer-attach) {
+  background: var(--accent);
+  border: none;
+  color: #06201d;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 0 16px;
+  cursor: pointer;
+}
+#composer-stop { background: #e05252; color: #200606; }
+
+#boot-msg {
+  display: flex;
+  height: 100vh;
+  align-items: center;
+  justify-content: center;
+  color: var(--text2);
+}

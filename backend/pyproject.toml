@@ -1,0 +1,13 @@
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",
+    "B008",  # FastAPI's own idiom: File(...)/Depends(...)/Query(...) as a default arg is dependency injection, not a real mutable-default bug
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

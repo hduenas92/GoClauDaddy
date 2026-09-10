@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# Runtime data — never commit user data, logs, or the DB
+.claudioui/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+.vscode/
+.idea/
+
+# Personal to this machine — not shared team config
+.claude/settings.local.json
