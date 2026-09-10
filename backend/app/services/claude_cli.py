@@ -7,6 +7,7 @@ on the command line — never pass a raw client string straight to argv.
 
 import asyncio
 import codecs
+import shutil
 import sys
 from collections.abc import AsyncIterator
 from typing import Any
@@ -105,6 +106,20 @@ async def run(
         system_prompt=system_prompt,
         session_id=session_id,
     )
+
+    # Resolve to a full path rather than spawning the bare "claude" name.
+    # shutil.which() applies PATHEXT (finds a claude.cmd/.ps1 shim, e.g. from
+    # an npm-style install), but asyncio.create_subprocess_exec() on Windows
+    # does not - given only a bare name with no shim reachable as a real
+    # .exe, it fails with FileNotFoundError even though shutil.which (used by
+    # the startup check) found it fine. Resolving first makes both paths
+    # agree. Confirmed by reproducing the exact mismatch: a claude.cmd-only
+    # PATH made shutil.which succeed and create_subprocess_exec fail with the
+    # exact error a real coworker hit; passing the resolved path fixed it.
+    resolved = shutil.which(cmd[0])
+    if resolved:
+        cmd[0] = resolved
+
     log.info(
         "Launching claude cwd=%s model=%s permission_mode=%s resume=%s",
         cwd,
