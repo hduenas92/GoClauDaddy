@@ -27,9 +27,16 @@ set "PYMIN=10"
 set "PYMAX=13"
 set "PYEXE="
 
+rem Exact point release for the direct-download fallback below. winget always
+rem resolves "latest 3.13.x" on its own; python.org's installer URL needs a
+rem specific version, so this needs bumping occasionally as 3.13.x moves on -
+rem it only matters on machines without winget, and any 3.13.x satisfies the
+rem PYMIN/PYMAX range check either way.
+set "PYFALLBACK=3.13.7"
+
 call :FindGoodPython
 if not defined PYEXE (
-    echo No compatible Python found - installing Python 3.13 via winget, this happens once...
+    echo No compatible Python found - installing Python 3.13, this happens once...
     call :CheckNetwork "www.python.org"
     if not defined NETOK (
         echo.
@@ -38,8 +45,30 @@ if not defined PYEXE (
         pause
         exit /b 1
     )
-    winget install --id Python.Python.3.13 -e --silent --accept-package-agreements --accept-source-agreements
+
+    where winget >nul 2>&1
     set "RC=!errorlevel!"
+    if "!RC!"=="0" (
+        winget install --id Python.Python.3.13 -e --silent --accept-package-agreements --accept-source-agreements
+        set "RC=!errorlevel!"
+    ) else (
+        rem winget is an optional Windows component (App Installer) - not
+        rem guaranteed present, and a real machine in this rollout didn't have
+        rem it. Fall back to the official installer directly rather than
+        rem requiring an OS feature this app doesn't control.
+        echo winget isn't available here - downloading the installer directly...
+        set "PYINSTALLER=%TEMP%\python-installer.exe"
+        curl -fsSL "https://www.python.org/ftp/python/%PYFALLBACK%/python-%PYFALLBACK%-amd64.exe" -o "!PYINSTALLER!"
+        set "RC=!errorlevel!"
+        if "!RC!"=="0" (
+            rem Per-user install (no admin/UAC needed either way) with the py
+            rem launcher and pip included, and added to PATH for this user.
+            "!PYINSTALLER!" /quiet InstallAllUsers=0 PrependPath=1 Include_launcher=1 Include_pip=1
+            set "RC=!errorlevel!"
+        )
+        del "!PYINSTALLER!" >nul 2>&1
+    )
+
     if not "!RC!"=="0" (
         echo.
         echo ERROR: Python install failed.
