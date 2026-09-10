@@ -6,6 +6,7 @@ on the command line — never pass a raw client string straight to argv.
 """
 
 import asyncio
+import codecs
 import sys
 from collections.abc import AsyncIterator
 from typing import Any
@@ -46,6 +47,39 @@ def build_command(
 
 class ClaudeCliTimeout(Exception):
     pass
+
+
+async def decode_and_parse_lines(chunks: AsyncIterator[bytes]) -> AsyncIterator[dict]:
+    """Decodes an async stream of raw byte chunks into normalized events.
+
+    Uses a PERSISTENT incremental UTF-8 decoder across the whole stream rather
+    than decoding each chunk independently. Chunks here are byte-level lines
+    (split on \\n, which can never fall inside a valid UTF-8 multi-byte
+    sequence) — but an incremental decoder still protects against any chunk
+    that isn't actually newline-terminated (e.g. an unusually long line
+    hitting asyncio's internal buffer limit), which would otherwise leave a
+    multi-byte character split across two reads. That split was a real, if
+    intermittent (~1 in 5-10 longer responses), observed cause of corrupted
+    characters before this was a persistent decoder — a fresh decode() per
+    chunk has no way to recover from a split; a persistent one carries the
+    incomplete bytes forward to combine with the next chunk.
+    """
+    decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+    buffer = ""
+    async for raw in chunks:
+        decoded = decoder.decode(raw)
+        if "�" in decoded:
+            log.warning("Non-UTF-8 byte(s) in claude output — replaced (data loss of 1 char)")
+        buffer += decoded
+        while "\n" in buffer:
+            text_line, buffer = buffer.split("\n", 1)
+            for event in parse_line(text_line):
+                yield event
+    tail = decoder.decode(b"", final=True)
+    buffer += tail
+    if buffer.strip():
+        for event in parse_line(buffer):
+            yield event
 
 
 async def run(
@@ -101,16 +135,10 @@ async def run(
     if on_process_started:
         on_process_started(proc)
 
-    async def _read_lines():
-        assert proc.stdout is not None
-        async for raw in proc.stdout:
-            line = raw.decode("utf-8", errors="replace")
-            for event in parse_line(line):
-                yield event
-
     try:
         async with asyncio.timeout(RESPONSE_TIMEOUT_SECONDS):
-            async for event in _read_lines():
+            assert proc.stdout is not None
+            async for event in decode_and_parse_lines(proc.stdout):
                 yield event
             await proc.wait()
     except TimeoutError:
