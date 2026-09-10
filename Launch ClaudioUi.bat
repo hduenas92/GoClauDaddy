@@ -64,7 +64,7 @@ if not defined PYEXE (
         if /i "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "PYARCH=arm64"
         if /i "%PROCESSOR_ARCHITEW6432%"=="ARM64" set "PYARCH=arm64"
         set "PYINSTALLER=%TEMP%\python-installer.exe"
-        curl -fsSL "https://www.python.org/ftp/python/%PYFALLBACK%/python-%PYFALLBACK%-%PYARCH%.exe" -o "!PYINSTALLER!"
+        curl -fsSL "https://www.python.org/ftp/python/%PYFALLBACK%/python-%PYFALLBACK%-!PYARCH!.exe" -o "!PYINSTALLER!"
         set "RC=!errorlevel!"
         if "!RC!"=="0" (
             rem Per-user install (no admin/UAC needed either way) with the py
