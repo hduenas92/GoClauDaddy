@@ -30,6 +30,14 @@ set "PYEXE="
 call :FindGoodPython
 if not defined PYEXE (
     echo No compatible Python found - installing Python 3.13 via winget, this happens once...
+    call :CheckNetwork "www.python.org"
+    if not defined NETOK (
+        echo.
+        echo ERROR: Can't reach python.org to download the installer.
+        echo Check your internet connection ^(or VPN, if this network requires one^) and try again.
+        pause
+        exit /b 1
+    )
     winget install --id Python.Python.3.13 -e --silent --accept-package-agreements --accept-source-agreements
     set "RC=!errorlevel!"
     if not "!RC!"=="0" (
@@ -50,11 +58,19 @@ if not defined PYEXE (
     )
 )
 
-rem --- 2. claude CLI ----------------------------------------------------------
+rem --- 2. claude CLI ------------------------------------------------------------
 where claude >nul 2>&1
 set "RC=!errorlevel!"
 if not "!RC!"=="0" (
     echo claude CLI not found - installing, this happens once...
+    call :CheckNetwork "claude.ai"
+    if not defined NETOK (
+        echo.
+        echo ERROR: Can't reach claude.ai to download the installer.
+        echo Check your internet connection ^(or VPN, if this network requires one^) and try again.
+        pause
+        exit /b 1
+    )
     curl -fsSL https://claude.ai/install.cmd -o "%TEMP%\claude_install.cmd" && call "%TEMP%\claude_install.cmd" && del "%TEMP%\claude_install.cmd"
     call :RefreshPath
     where claude >nul 2>&1
@@ -66,6 +82,17 @@ if not "!RC!"=="0" (
         pause
         exit /b 1
     )
+) else (
+    rem Already installed - self-update in place rather than leaving whatever
+    rem version happens to be on this machine. The CLI owns its own update
+    rem mechanism (checks its release channel, replaces its own binary) - that's
+    rem more robust than this script trying to parse/compare version strings
+    rem itself, and matches how the org's CaaS onboarding already expects
+    rem people to keep the CLI current. Non-fatal: an offline network or a
+    rem transient failure here shouldn't block using the version already
+    rem installed.
+    echo Checking for claude CLI updates...
+    claude update >nul 2>&1
 )
 
 rem --- 3. venv + pinned dependencies (first run only) --------------------------
@@ -159,6 +186,15 @@ if not "!PYMAJOR!"=="3" goto :eof
 if !PYMINOR! LSS %PYMIN% goto :eof
 if !PYMINOR! GTR %PYMAX% goto :eof
 set "PYEXE=python"
+goto :eof
+
+:CheckNetwork
+rem Sets NETOK if the given host answers, so a missing/blocked network gives
+rem a clear "check your connection" message up front instead of winget or
+rem curl hanging or failing with a cryptic error partway through an install.
+set "NETOK="
+curl -s -o nul --max-time 5 "https://%~1" >nul 2>&1
+if !errorlevel! equ 0 set "NETOK=1"
 goto :eof
 
 :RefreshPath
