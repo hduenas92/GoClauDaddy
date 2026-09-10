@@ -57,8 +57,14 @@ if not defined PYEXE (
         rem it. Fall back to the official installer directly rather than
         rem requiring an OS feature this app doesn't control.
         echo winget isn't available here - downloading the installer directly...
+        rem Match the same arch check the official claude CLI installer uses -
+        rem python.org publishes a real arm64 build too, so this isn't the
+        rem "assume everyone's on x64" mistake the winget-absence bug was.
+        set "PYARCH=amd64"
+        if /i "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "PYARCH=arm64"
+        if /i "%PROCESSOR_ARCHITEW6432%"=="ARM64" set "PYARCH=arm64"
         set "PYINSTALLER=%TEMP%\python-installer.exe"
-        curl -fsSL "https://www.python.org/ftp/python/%PYFALLBACK%/python-%PYFALLBACK%-amd64.exe" -o "!PYINSTALLER!"
+        curl -fsSL "https://www.python.org/ftp/python/%PYFALLBACK%/python-%PYFALLBACK%-%PYARCH%.exe" -o "!PYINSTALLER!"
         set "RC=!errorlevel!"
         if "!RC!"=="0" (
             rem Per-user install (no admin/UAC needed either way) with the py
