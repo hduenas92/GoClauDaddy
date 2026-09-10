@@ -49,8 +49,8 @@ def _check_auth_env_vars() -> None:
             "Missing required environment variable(s): "
             + ", ".join(missing)
             + ". These must be set as PERSISTENT user environment variables "
-            + "(e.g. via `setx`, not a one-off `$env:` in a single PowerShell window) "
-            + "following your org's ClaudioUI/claude CLI setup instructions."
+            + "(e.g. via `setx`, not a one-off `$env:` in a single PowerShell window) — "
+            + "see the 'One-time setup' section at the top of README.md for the exact commands."
         )
 
 

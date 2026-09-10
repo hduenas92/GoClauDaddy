@@ -2,6 +2,19 @@
 
 A simple chat window for talking to Claude — no terminal required.
 
+## One-time setup (before your first run)
+
+ClaudioUI talks to Claude through your organization's own CaaS-provisioned API access — it never has its own login. Before running it for the first time, two environment variables need to be set **persistently** (so they're still there the next time you log in or restart — not just in one PowerShell window):
+
+```
+setx ANTHROPIC_AUTH_TOKEN "your-caas-token-here"
+setx ANTHROPIC_BASE_URL "https://caas-gocode-prod.caas-prod.prod.onkatana.net"
+```
+
+Get your token the same way you already do for the `claude` CLI itself, following your organization's CaaS onboarding steps. After running `setx`, **close and reopen your terminal/File Explorer window** before launching ClaudioUI — a variable set with `setx` isn't visible to windows that were already open.
+
+If you skip this, ClaudioUI will tell you exactly which variable is missing when it starts, rather than failing silently.
+
 ## Starting it up
 
 Double-click **`Launch ClaudioUi.bat`**. A window will open and, after a few seconds, your browser will open to the chat screen automatically.
