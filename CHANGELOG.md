@@ -47,6 +47,7 @@ Real bugs found through actual coworker testing, in the order they were found. K
 - **Verified directly:** built an isolated PATH containing only a fake `claude.cmd`; confirmed `shutil.which` found it while `create_subprocess_exec` failed with the exact reported error; confirmed passing the `shutil.which`-resolved path fixes it. Also confirmed the regression test actually catches this by temporarily disabling the fix and watching it fail.
 - **Fix:** Resolve `cmd[0]` via `shutil.which()` before spawning in `claude_cli.run()`.
 - **Commit:** `6e1758c`
+- **Field-verified:** confirmed working on a real coworker's machine after the fix — chat send succeeded.
 
 ## General lessons for next time
 
