@@ -33,6 +33,9 @@ export function mountComposer(root, socket, chatPane) {
       rm.addEventListener("click", () => {
         pending.splice(pending.indexOf(att), 1);
         renderStrip();
+        // Best-effort: the file was already uploaded and persisted when attached.
+        // prune_orphans() remains the safety net if this fails (e.g. page closed mid-removal).
+        api.deleteAttachment(att.id).catch(() => {});
       });
       chip.appendChild(rm);
       strip.appendChild(chip);
