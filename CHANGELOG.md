@@ -49,6 +49,15 @@ Real bugs found through actual coworker testing, in the order they were found. K
 - **Commit:** `6e1758c`
 - **Field-verified:** confirmed working on a real coworker's machine after the fix — chat send succeeded.
 
+## UX/feature fixes (not from coworker reports — found via internal review)
+
+### Attachment chip removal left permanent orphans
+- **Symptom:** none reported by a coworker — a known gap from the original build.
+- **Root cause:** removing a pending attachment chip before sending only spliced it from local UI state; it never called the backend, even though the file was already uploaded and persisted at attach-time. `prune_orphans()` only catches files with no DB row at all, not DB rows uploaded but never attached to a sent message — so every pre-send removal left a permanent orphan.
+- **Fix:** call the existing (already-built, just unused) `DELETE /api/attachments/{id}` from the chip's remove handler in `composer.js`.
+- **Verified directly:** real browser session against the live server — attach → remove before send → confirmed both the DB row and the file on disk were actually gone; confirmed a normal attach → send still leaves the attachment intact.
+- **Commit:** `7ad889b`
+
 ## General lessons for next time
 
 - **Test on machines you don't control**, not just your own dev machine — every fix above was found this way, none by code review.
