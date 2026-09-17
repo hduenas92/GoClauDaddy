@@ -237,7 +237,7 @@ export function mountComposer(root, socket, chatPane) {
     composerFooter.prepend(tplBtn);
   }
 
-  // Allow external code to set text (retry / quick chips)
+  // Allow external code to set text (retry / quick chips) and send
   root.setText = (text) => {
     input.value = text;
     input.focus();
@@ -246,6 +246,8 @@ export function mountComposer(root, socket, chatPane) {
     input.style.height = "auto";
     input.style.height = Math.min(input.scrollHeight, 200) + "px";
   };
+
+  root.send = send;
 
   /* Put the caret in the composer so a new or switched-to conversation is
      immediately typeable. Without this the user has to click the box first,

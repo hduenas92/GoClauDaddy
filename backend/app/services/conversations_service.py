@@ -362,6 +362,6 @@ def delete_last_message(conversation_id: str) -> bool:
 def list_messages(conversation_id: str) -> list[Message]:
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT * FROM messages WHERE conversation_id = ? ORDER BY seq ASC", (conversation_id,)
+            "SELECT * FROM messages WHERE conversation_id = ? AND superseded_by IS NULL ORDER BY seq ASC", (conversation_id,)
         ).fetchall()
     return [Message.from_row(r) for r in rows]

@@ -471,11 +471,13 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         if (!conversationId) return;
         try {
           await api.deleteLastMessage(conversationId);
-          // Auto-stream: immediately resend without UI, composerEl ref passed from main.js
+          // Auto-stream: immediately resend without UI
           const composerEl = document.getElementById("composer");
-          if (composerEl?.dispatchEvent) {
-            const composer = composerEl._composer;
-            if (composer) await composer.send(lastUserText);
+          if (composerEl?.setText && composerEl?.send) {
+            composerEl.setText(lastUserText);
+            await composerEl.send();
+          } else if (onRetry) {
+            onRetry(lastUserText);            // fallback: refill only
           }
         } catch { /* delete failed — skip retry to avoid duplicate turn */ }
       });
