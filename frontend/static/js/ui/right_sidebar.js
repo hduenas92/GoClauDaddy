@@ -11,7 +11,7 @@ export function mountRightSidebar(root) {
       <div class="sb-section-body">
         <div class="metric-row">
           <span class="metric-label">COST</span>
-          <span class="metric-value" id="met-cost">—</span>
+          <span class="metric-value" id="met-cost" title="Tracks conversations in this app only; total CaaS spend may be higher">—</span>
         </div>
         <div class="budget-bar-wrap">
           <div class="budget-bar-fill" id="budget-bar-fill"></div>
@@ -333,7 +333,7 @@ export function mountRightSidebar(root) {
         <button class="cost-toast-close" aria-label="Close">✕</button>
       </div>
       <div class="cost-toast-body">
-        Estimated spend this month: ~$${cost.toFixed(2)} of $${budget.toFixed(0)} · This is an estimate only.
+        Estimated GoClaudaddy spend this month: ~$${cost.toFixed(2)} (local tracking only) · This is an estimate only.
       </div>
       <a href="https://caas.open-webui.godaddy.com/apiKeys" target="_blank" class="cost-toast-link">Check Balance →</a>
     `;

@@ -69,7 +69,12 @@ async function switchToConversation(id, chatPane, compRoot) {
   rightSidebarRef?.setModel(conversation.model);
   rightSidebarRef?.setConversation(id);
   chatPane.setConversationId(id);
-  chatPane.renderHistory(getState().messages);
+  const msgs = getState().messages;
+  if (msgs.length === 0) {
+    chatPane.showEmptyState();
+  } else {
+    chatPane.renderHistory(msgs);
+  }
 
   updateTelemetry(conversation);
   await mountSettingsPanel(settingsDrawerEl, conversation, {

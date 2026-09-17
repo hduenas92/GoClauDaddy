@@ -38,14 +38,22 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
       const costBadge = c.cost_usd > 0 ? ` · ~$${c.cost_usd.toFixed(2)}` : "";
       li.innerHTML = `
         <span class="conv-dot conv-dot-${c.status}"></span>
-        <span class="conv-body">
+        <span class="conv-body" role="button" tabindex="0">
           <span class="conv-name">${escapeHtml(c.name)}${srcBadge}</span>
           <span class="conv-ts">${ago}${costBadge}</span>
         </span>
         <button class="conv-rename" title="Rename (F2)">✎</button>
         <button class="conv-delete" title="Delete">✕</button>
       `;
-      li.querySelector(".conv-body").addEventListener("click", () => onSelect(c.id));
+      const convBody = li.querySelector(".conv-body");
+      const selectConv = () => onSelect(c.id);
+      convBody.addEventListener("click", selectConv);
+      convBody.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          selectConv();
+        }
+      });
       li.querySelector(".conv-rename").addEventListener("click", async (e) => {
         e.stopPropagation();
         const result = await showModal({

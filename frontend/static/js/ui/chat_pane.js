@@ -471,7 +471,12 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         if (!conversationId) return;
         try {
           await api.deleteLastMessage(conversationId);
-          if (onRetry) onRetry(lastUserText);
+          // Auto-stream: immediately resend without UI, composerEl ref passed from main.js
+          const composerEl = document.getElementById("composer");
+          if (composerEl?.dispatchEvent) {
+            const composer = composerEl._composer;
+            if (composer) await composer.send(lastUserText);
+          }
         } catch { /* delete failed — skip retry to avoid duplicate turn */ }
       });
       currentAssistantEl._actionsEl.appendChild(regenBtn);
@@ -587,13 +592,16 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         finishAssistantMessage("timeout", lastUsage);
       }),
       socket.on("error", (ev) => {
+        let msg = "Error";
         if (ev.code === "claude_not_found") {
-          statusEl.textContent = "Claude CLI isn't installed. Run the setup script and refresh.";
+          msg = "Claude CLI isn't installed. Run the setup script and refresh.";
         } else if (ev.code === "auth_failed") {
-          statusEl.textContent = "Claude isn't authenticated. Run `claude auth` in a terminal, then refresh.";
+          msg = "Claude isn't authenticated. Run `claude auth` in a terminal, then refresh.";
         } else {
-          statusEl.textContent = `Error: ${ev.error || "unknown error"}`;
+          msg = `Error: ${ev.error || "unknown error"}`;
         }
+        statusEl.textContent = msg;
+        _showErrorToast(msg);
         finishAssistantMessage("error", lastUsage);
       }),
       socket.on("stopped", () => {
@@ -625,6 +633,22 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         _showApprovalModal(ev.tool, ev.action, socket);
       }),
     ];
+  }
+
+  function _showErrorToast(message) {
+    const toast = document.createElement("div");
+    toast.className = "error-toast";
+    toast.innerHTML = `
+      <div class="error-toast-content">
+        <span class="error-toast-icon">⚠</span>
+        <span>${_escHtml(message)}</span>
+        <button class="error-toast-close" aria-label="Close">✕</button>
+      </div>
+    `;
+    document.body.appendChild(toast);
+    const close = () => { toast.remove(); };
+    toast.querySelector(".error-toast-close").addEventListener("click", close);
+    setTimeout(close, 8000);
   }
 
   return {

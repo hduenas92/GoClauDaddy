@@ -38,14 +38,22 @@ export function mountSidebarProjects(root, onSwitchProject) {
       const li = document.createElement("li");
       li.className = "project-item" + (p.id === activeProjectId ? " active" : "");
       li.innerHTML = `
-        <span class="project-name" title="${escapeHtml(p.working_dir)}">${escapeHtml(p.name)}</span>
+        <span class="project-name" role="button" tabindex="0" title="${escapeHtml(p.working_dir)}">${escapeHtml(p.name)}</span>
         <button class="project-edit" title="Edit project">✎</button>
         <button class="project-delete" title="Delete project">✕</button>
       `;
-      li.querySelector(".project-name").addEventListener("click", () => {
+      const projectName = li.querySelector(".project-name");
+      const selectProj = () => {
         selectProject(p.id);
         onSwitchProject(p.id);
         render();
+      };
+      projectName.addEventListener("click", selectProj);
+      projectName.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          selectProj();
+        }
       });
       li.querySelector(".project-edit").addEventListener("click", (e) => {
         e.stopPropagation();

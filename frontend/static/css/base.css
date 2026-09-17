@@ -1768,6 +1768,10 @@ pre { position: relative; }
 }
 .conv-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conv-ts { font-size: 11px; color: var(--text-muted); font-family: var(--font-shell); font-variant-numeric: tabular-nums; }
+.conv-body:focus-visible, .project-name:focus-visible {
+  outline: 1px solid var(--accent-hi);
+  outline-offset: 1px;
+}
 
 /* ============================================================
    PROJECT EDIT FORM — textarea
@@ -2013,6 +2017,33 @@ kbd {
   text-decoration: none;
 }
 .cost-toast-link:hover { color: var(--teal-b); }
+
+.error-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 999;
+  background: rgba(var(--ground-rgb) / 0.97);
+  border: 1px solid rgba(var(--error-rgb) / 0.6);
+  box-shadow: 0 0 24px rgba(var(--error-rgb) / 0.15);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 11px;
+  color: var(--text);
+  max-width: 320px;
+  animation: toast-in 0.3s ease;
+}
+.error-toast-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.error-toast-icon { color: var(--error); font-weight: 700; flex-shrink: 0; }
+.error-toast-close {
+  background: none; border: none; color: var(--text2);
+  cursor: pointer; font-size: 11px; padding: 0; flex-shrink: 0; margin-left: auto;
+}
+.error-toast-close:hover { color: var(--error); }
 
 /* ============================================================
    ASSESS TOAST + ASSESSMENT MODAL

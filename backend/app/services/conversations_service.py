@@ -349,12 +349,13 @@ def export_as_markdown(conversation_id: str) -> str:
 def delete_last_message(conversation_id: str) -> bool:
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT id FROM messages WHERE conversation_id = ? AND role = 'assistant' ORDER BY seq DESC LIMIT 1",
+            "SELECT id FROM messages WHERE conversation_id = ? AND role = 'assistant' AND superseded_by IS NULL ORDER BY seq DESC LIMIT 1",
             (conversation_id,),
         ).fetchone()
         if not row:
             return False
-        conn.execute("DELETE FROM messages WHERE id = ?", (row["id"],))
+        # ponytail: soft delete — mark superseded instead of hard delete, history reversible
+        conn.execute("UPDATE messages SET superseded_by = ? WHERE id = ?", (f"{row['id']}:regen", row["id"]))
     return True
 
 
