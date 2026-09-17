@@ -1,0 +1,75 @@
+/* ============================================================
+   Syntax highlighting — driven entirely by base.css tokens.
+   No per-theme files, no runtime stylesheet swap: swapping
+   [data-theme] on <html> re-tints every rule below for free.
+
+   Grouping (10 tokens cover 21 hljs roles — some roles share a
+   token deliberately):
+   - keyword / operator / punctuation  -> --accent-hi  (structural, most prominent)
+   - function / title / type           -> --accent     (declarations & names of note)
+   - variable / attr / tag / name      -> --text-secondary (plain identifiers/markup)
+   - string                            -> --success    (conventional green)
+   - number / literal                  -> --cta         (constants, conventional orange)
+   - built_in                          -> --warning    (flags special/global identifiers)
+   - comment / meta                    -> --text-muted (annotation-weight, AA-safe muted — see token-map.md Rule 1/3)
+   - deletion                          -> --error
+   - addition                          -> --success    (paired with string; both read as "positive/present")
+   All colors above are solid tokens — no alpha on any text color (token-map.md Rule 1).
+   ============================================================ */
+
+.hljs {
+  color: var(--text);
+  background: transparent;
+}
+
+.hljs-comment,
+.hljs-meta {
+  color: var(--text-muted);
+}
+
+.hljs-string,
+.hljs-addition {
+  color: var(--success);
+}
+
+.hljs-number,
+.hljs-literal {
+  color: var(--cta);
+}
+
+.hljs-keyword,
+.hljs-operator,
+.hljs-punctuation {
+  color: var(--accent-hi);
+}
+
+.hljs-function,
+.hljs-title,
+.hljs-type {
+  color: var(--accent);
+}
+
+.hljs-variable,
+.hljs-attr,
+.hljs-tag,
+.hljs-name {
+  color: var(--text-secondary);
+}
+
+.hljs-built_in {
+  color: var(--warning);
+}
+
+.hljs-deletion {
+  color: var(--error);
+}
+
+.hljs-emphasis {
+  color: inherit;
+  font-style: italic;
+}
+
+.hljs-strong {
+  color: inherit;
+  font-weight: 700;
+}

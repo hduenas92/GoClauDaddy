@@ -11,6 +11,8 @@ async def upload_attachment(conversation_id: str, file: UploadFile = File(...)):
     data = await file.read()
     try:
         att = svc.save_attachment(conversation_id, file.filename or "file", data, file.content_type)
+    except svc.ConversationNotFound:
+        raise HTTPException(404, "Conversation not found")
     except svc.AttachmentRejected as exc:
         raise HTTPException(400, str(exc)) from exc
     return att

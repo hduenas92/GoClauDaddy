@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en" style=""><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CLAUDADDY // APEX 3.7 NEURAL COMMAND CONSOLE</title>
+<!-- Professional Developer & Cyber Mono Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&amp;family=Silkscreen:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        obsidian: "#09090d",
+        "obsidian-panel": "#0f0f17",
+        "obsidian-surface": "#141320",
+        "obsidian-elevated": "#1a192a",
+        "cyber-border": "rgba(20, 184, 166, 0.45)",
+        "cyber-border-bright": "#2dd4bf",
+        primary: "#a78bfa",
+        "neon-violet": "#8b5cf6",
+        "electric-cyan": "#38bdf8",
+        "cyber-amber": "#fbbf24",
+        "cyber-rose": "#f43f5e",
+        "emerald-glow": "#34d399",
+        "cyber-teal": "#14b8a6",
+        "cyber-teal-bright": "#2dd4bf",
+        "text-main": "#f8fafc",
+        "text-muted": "#94a3b8"
+      },
+      fontFamily: {
+        mono: ["'JetBrains Mono'", "'Fira Code'", "monospace"],
+        hud: ["'Silkscreen'", "monospace"],
+        sans: ["'Inter'", "sans-serif"]
+      }
+    }
+  }
+};
+</script>
+<style>
+  @layer base {
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #07070b;
+      color: #f8fafc;
+      font-family: 'JetBrains Mono', monospace;
+      overflow-x: hidden;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #09090d;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(20, 184, 166, 0.35);
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(45, 212, 191, 0.7);
+    }
+  }
+
+  /* Scanline effect */
+  .subtle-scanline {
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0) 0px,
+      rgba(0, 0, 0, 0) 2px,
+      rgba(0, 0, 0, 0.16) 2px,
+      rgba(0, 0, 0, 0.16) 4px
+    );
+    pointer-events: none;
+  }
+
+  /* Interactive Cyber Button & Element Hover Effects */
+  .cyber-interactive-btn {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .cyber-interactive-btn:hover {
+    transform: translateY(-1.5px) scale(1.02);
+    box-shadow: 0 0 20px rgba(45, 212, 191, 0.5), inset 0 0 10px rgba(45, 212, 191, 0.25);
+  }
+  .cyber-interactive-btn:active {
+    transform: translateY(1px) scale(0.98);
+  }
+  .cyber-interactive-btn::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -60%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      60deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.18) 50%,
+      transparent 70%
+    );
+    transform: rotate(25deg) translateY(-100%);
+    transition: transform 0.6s ease;
+    pointer-events: none;
+  }
+  .cyber-interactive-btn:hover::after {
+    transform: rotate(25deg) translateY(100%);
+  }
+
+  /* Clickable Card Interactive FX */
+  .cyber-card-interactive {
+    transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .cyber-card-interactive:hover {
+    transform: translateY(-2px);
+    border-color: rgba(45, 212, 191, 0.9) !important;
+    box-shadow: 0 4px 24px rgba(20, 184, 166, 0.28), 0 0 12px rgba(45, 212, 191, 0.35) !important;
+  }
+
+  /* Laser Glows & Accents */
+  .glow-border-violet {
+    box-shadow: 0 0 16px -3px rgba(139, 92, 246, 0.25);
+  }
+  .glow-border-teal {
+    box-shadow: 0 0 16px -2px rgba(45, 212, 191, 0.4);
+  }
+  .glow-text-teal {
+    text-shadow: 0 0 8px rgba(45, 212, 191, 0.7);
+  }
+  .glow-text-cyan {
+    text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+  }
+  .glow-text-amber {
+    text-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
+  }
+  .glow-text-violet {
+    text-shadow: 0 0 10px rgba(167, 139, 250, 0.7);
+  }
+  .glow-text-rose {
+    text-shadow: 0 0 8px rgba(244, 63, 94, 0.6);
+  }
+
+  /* Terminal cursor blink */
+  .cyber-cursor {
+    animation: blink-cyber 1s infinite steps(2, start);
+  }
+  @keyframes blink-cyber {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* Equalizer Animation */
+  @keyframes eq-pulse-1 { 0%, 100% { height: 35%; } 50% { height: 90%; } }
+  @keyframes eq-pulse-2 { 0%, 100% { height: 75%; } 50% { height: 25%; } }
+  @keyframes eq-pulse-3 { 0%, 100% { height: 50%; } 50% { height: 100%; } }
+  @keyframes eq-pulse-4 { 0%, 100% { height: 85%; } 50% { height: 45%; } }
+  .pulse-eq-1 { animation: eq-pulse-1 1.2s ease-in-out infinite; }
+  .pulse-eq-2 { animation: eq-pulse-2 0.9s ease-in-out infinite; }
+  .pulse-eq-3 { animation: eq-pulse-3 1.4s ease-in-out infinite; }
+  .pulse-eq-4 { animation: eq-pulse-4 1.1s ease-in-out infinite; }
+</style>
+</head>
+<body class="bg-[#07070c] text-text-main antialiased min-h-screen relative overflow-x-hidden selection:bg-cyber-teal-bright/30 selection:text-white font-mono">
+<!-- ========================================== -->
+<!-- 3D INTERACTIVE HONEYCOMB BACKGROUND CANVAS -->
+<!-- ========================================== -->
+<canvas class="fixed inset-0 pointer-events-none z-0 w-full h-full" id="honeycombCanvas"></canvas>
+<!-- Ambient Radial Gradients & Scanlines -->
+<div class="fixed inset-0 pointer-events-none z-0 opacity-25" style="background-image: radial-gradient(circle at 15% 20%, rgba(20, 184, 166, 0.08) 0%, transparent 45%), radial-gradient(circle at 85% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%), radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.04) 0%, transparent 55%);"></div>
+<div class="fixed inset-0 subtle-scanline pointer-events-none z-50"></div>
+<div class="fixed top-0 left-1/4 w-[700px] h-[320px] bg-cyber-teal/3 blur-[160px] pointer-events-none"></div>
+<div class="fixed bottom-10 right-10 w-[600px] h-[380px] bg-neon-violet/3 blur-[170px] pointer-events-none"></div>
+<div class="relative z-10 flex flex-col min-h-screen">
+<!-- ========================================== -->
+<!-- TOP CYBER SYSTEM HUD HEADER                -->
+<!-- ========================================== -->
+<header class="h-14 border-b bg-obsidian-panel/90 backdrop-blur-md px-4 flex items-center justify-between z-40 sticky top-0" style="border-bottom: 1px solid rgba(20, 184, 166, 0.65); box-shadow: rgba(20, 184, 166, 0.15) 0px 4px 20px;">
+<!-- Brand / Breadcrumb Path -->
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded bg-obsidian-elevated border flex items-center justify-center text-cyber-teal-bright font-bold text-xs transition-transform hover:scale-110 cursor-pointer" style="border-color: rgb(45, 212, 191); color: rgb(45, 212, 191); box-shadow: rgba(45, 212, 191, 0.45) 0px 0px 10px;">
+<span>&gt;_</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5 leading-none">
+<span class="text-xs font-bold tracking-widest text-primary glow-text-violet">CLAUDADDY</span>
+<span class="text-[9px] font-mono px-1 py-0.2 bg-primary/10 border border-primary/30 text-primary rounded">v3.7</span>
+</div>
+<span class="text-[10px] text-text-muted font-mono tracking-wider mt-0.5">APEX_MAIN_ENGINE</span>
+</div>
+</div>
+<div class="h-4 w-px bg-cyber-teal/30 mx-1"></div>
+<div class="flex items-center gap-2 text-xs font-mono text-text-muted">
+<span class="text-cyber-rose font-bold">apex@omniharmonic</span>
+<span class="text-primary/60">:</span>
+<span class="text-electric-cyan glow-text-cyan">~/session/chamber-09</span>
+<span class="text-[10px] bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded font-medium ml-1">[ACTIVE_SESSION]</span>
+</div>
+</div>
+<!-- Arcade & Telemetry Metrics Ticker -->
+<div class="flex items-center gap-3">
+<div class="hidden lg:flex items-center gap-4 text-xs font-mono border-r border-cyber-border pr-4 text-text-muted">
+<div class="flex items-center gap-1.5">
+<span class="text-[11px] text-text-muted">SYNCH:</span>
+<span class="text-emerald-glow font-semibold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-glow shadow-[0_0_6px_#34d399]"></span>
+            NOMINAL
+          </span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-[11px] text-text-muted">ALIGN:</span>
+<span class="text-primary font-semibold">99.98%</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-[11px] text-text-muted">PID:</span>
+<span class="text-electric-cyan font-semibold">44109</span>
+</div>
+</div>
+<!-- Pulse Card -->
+<div class="flex items-center gap-2 px-2.5 py-1 bg-obsidian-elevated border rounded text-xs transition-all hover:border-cyber-teal-bright" style="border-color: rgba(20, 184, 166, 0.4);">
+<span class="text-[11px] text-text-muted">PULSE</span>
+<span class="text-text-main font-semibold">62 BPM</span>
+<span class="text-cyber-rose text-xs animate-pulse">♥</span>
+</div>
+<!-- Credits Pill -->
+<div class="flex items-center gap-1.5 px-2.5 py-1 bg-cyber-amber/10 border border-cyber-amber/30 text-cyber-amber rounded text-xs font-mono font-medium transition-all hover:scale-105">
+<span class="text-[10px]">🪙</span>
+<span>CREDITS: 99</span>
+</div>
+<!-- Sync Benevolence Action -->
+<button class="cyber-interactive-btn px-3 py-1 bg-cyber-teal-bright text-obsidian font-bold text-xs rounded transition-all flex items-center gap-1.5 cursor-pointer" style="box-shadow: 0 0 14px rgba(45, 212, 191, 0.45);">
+<span class="material-symbols-outlined text-sm font-bold">bolt</span>
+<span>SYNC_BENEVOLENCE</span>
+</button>
+</div>
+</header>
+<!-- ========================================== -->
+<!-- MAIN CYBER DECK BODY                       -->
+<!-- ========================================== -->
+<div class="flex-1 flex min-w-0">
+<!-- ========================================== -->
+<!-- LEFT RAIL: SERVICES, CORES & LOGS          -->
+<!-- ========================================== -->
+<aside class="w-64 flex-shrink-0 bg-obsidian-panel/75 backdrop-blur-sm p-3 flex flex-col justify-between hidden md:flex" style="border-right: 1px solid rgba(20, 184, 166, 0.55); box-shadow: rgba(20, 184, 166, 0.12) 4px 0px 18px;"><div class="space-y-5">
+<!-- Cores Section -->
+<div>
+<div class="px-2 py-1 flex items-center justify-between text-[11px] font-mono tracking-wider text-slate-300 uppercase border-b pb-1 mb-2" style="border-color: rgba(20, 184, 166, 0.3);">
+<span class="font-bold text-cyber-teal-bright glow-text-teal">// DAEMONS &amp; CORES</span>
+<span class="text-[9px] px-1.5 py-0.2 bg-emerald-glow/20 text-emerald-glow border border-emerald-glow/40 rounded font-semibold">ONLINE</span>
+</div>
+<nav class="space-y-1.5">
+<!-- Active Core -->
+<a class="cyber-interactive-btn flex items-center justify-between px-2.5 py-1.5 rounded text-text-main text-xs transition-all group" href="#" style="border: 1px solid rgba(45, 212, 191, 0.85); box-shadow: rgba(20, 184, 166, 0.35) 0px 0px 14px; background: rgba(20, 184, 166, 0.14);">
+<div class="flex items-center gap-2">
+<span class="text-cyber-teal-bright font-bold">&gt;</span>
+<span class="text-slate-400 font-light">/dev/</span>
+<span class="font-medium text-white group-hover:text-cyber-teal-bright tracking-wide">genesis_core</span>
+</div>
+<span class="text-[10px] px-1.5 py-0.2 bg-cyber-amber/20 text-amber-300 border border-cyber-amber/50 rounded font-bold font-mono shadow-[0_0_6px_#fbbf24]">P:01</span>
+</a>
+<a class="cyber-card-interactive flex items-center justify-between px-2.5 py-1.5 rounded border bg-obsidian-elevated/80 text-slate-300 hover:text-white text-xs transition-all group" href="#" style="border-color: rgba(20, 184, 166, 0.3);">
+<div class="flex items-center gap-2">
+<span class="text-slate-500 font-mono">&gt;</span>
+<span class="text-slate-500 font-light">/dev/</span>
+<span class="group-hover:text-white font-medium">aether-7</span>
+</div>
+<span class="text-[9px] px-1.5 py-0.2 bg-cyber-rose/20 text-rose-300 border border-cyber-rose/40 rounded font-mono font-semibold">DAEMON</span>
+</a>
+<a class="cyber-card-interactive flex items-center justify-between px-2.5 py-1.5 rounded border bg-obsidian-elevated/80 text-slate-300 hover:text-white text-xs transition-all group" href="#" style="border-color: rgba(20, 184, 166, 0.3);">
+<div class="flex items-center gap-2">
+<span class="text-slate-500 font-mono">&gt;</span>
+<span class="text-slate-500 font-light">/dev/</span>
+<span class="group-hover:text-white font-medium">morpheus_engine</span>
+</div>
+<span class="text-[9px] px-1.5 py-0.2 bg-cyber-amber/15 text-amber-200 border border-cyber-amber/40 rounded font-mono font-semibold">IDLE</span>
+</a>
+</nav>
+</div>
+<!-- Preservation Matrix Logs -->
+<div>
+<div class="px-2 py-1 flex items-center justify-between text-[11px] font-mono tracking-wider text-slate-300 uppercase border-b pb-1 mb-2" style="border-color: rgba(20, 184, 166, 0.3);">
+<span class="font-bold text-cyber-teal-bright glow-text-teal">// PRESERVATION.SYS</span>
+<span class="text-[9px] text-cyber-teal-bright font-mono font-semibold px-1.5 py-0.2 bg-teal-950/40 border border-cyber-teal/40 rounded">[LOCKED]</span>
+</div>
+<nav class="space-y-1.5">
+<a class="cyber-interactive-btn flex items-center justify-between px-2.5 py-1.5 rounded text-xs text-slate-200 hover:text-white transition-all shadow-sm" href="#" style="border: 1px solid rgba(45, 212, 191, 0.85); box-shadow: rgba(20, 184, 166, 0.35) 0px 0px 14px; background: rgba(20, 184, 166, 0.14);">
+<div class="flex items-center gap-2">
+<span class="text-cyber-amber font-bold">::</span>
+<span class="font-medium">benevolence.log</span>
+</div>
+<span class="text-xs text-amber-300 font-mono font-bold glow-text-amber">100%</span>
+</a>
+<a class="cyber-card-interactive flex items-center justify-between px-2.5 py-1.5 rounded bg-[#0d0e17] text-xs text-slate-200 hover:text-white transition-all shadow-sm" href="#" style="border: 1px solid rgba(20, 184, 166, 0.35);">
+<div class="flex items-center gap-2">
+<span class="text-cyber-rose font-bold">::</span>
+<span class="font-medium">neural_trace.d</span>
+</div>
+<span class="text-[9px] px-1.5 py-0.2 bg-cyber-rose/20 border border-cyber-rose/50 text-rose-300 rounded font-mono font-bold shadow-[0_0_4px_#f43f5e]">REC</span>
+</a>
+<a class="cyber-card-interactive flex items-center justify-between px-2.5 py-1.5 rounded bg-[#0d0e17] text-xs text-slate-200 hover:text-white transition-all shadow-sm" href="#" style="border: 1px solid rgba(20, 184, 166, 0.35);">
+<div class="flex items-center gap-2">
+<span class="text-emerald-glow font-bold">::</span>
+<span class="font-medium">containment</span>
+</div>
+<span class="text-[9px] px-1.5 py-0.2 bg-emerald-glow/20 border border-emerald-glow/50 text-emerald-glow rounded font-mono font-bold shadow-[0_0_4px_#34d399]">0_ERR</span>
+</a>
+<a class="cyber-card-interactive flex items-center justify-between px-2.5 py-1.5 rounded bg-[#0d0e17] text-xs text-slate-200 hover:text-white transition-all shadow-sm" href="#" style="border: 1px solid rgba(20, 184, 166, 0.35);">
+<div class="flex items-center gap-2">
+<span class="text-electric-cyan font-bold">::</span>
+<span class="font-medium">lumina.conf</span>
+</div>
+<span class="text-[9px] px-1.5 py-0.2 bg-electric-cyan/20 border border-electric-cyan/50 text-electric-cyan rounded font-mono font-bold shadow-[0_0_4px_#38bdf8]">[L6]</span>
+</a>
+</nav>
+</div>
+<!-- Node Sockets -->
+<div class="p-3 rounded-lg bg-[#0c0c16]/90 border space-y-2.5 transition-all" style="border: 1px solid rgba(20, 184, 166, 0.7); box-shadow: rgba(20, 184, 166, 0.22) 0px 0px 14px;">
+<div class="text-[10px] font-mono uppercase tracking-wider text-slate-300 flex items-center justify-between pb-1 border-b" style="border-color: rgba(20, 184, 166, 0.3);">
+<span class="font-semibold text-white">SOCKET INTERFACE</span>
+<span class="text-emerald-glow font-bold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-glow shadow-[0_0_6px_#34d399]"></span>ACTIVE</span>
+</div>
+<div class="space-y-1.5 text-xs">
+<div class="flex justify-between items-center text-slate-300">
+<span class="text-slate-400">TCP // TLS 1.3</span>
+<span class="text-white font-mono font-semibold bg-obsidian px-1.5 py-0.5 rounded border" style="border-color: rgba(20, 184, 166, 0.4);">0x8F91</span>
+</div>
+<div class="flex justify-between items-center text-slate-300">
+<span class="text-slate-400">BANDWIDTH</span>
+<span class="text-electric-cyan font-mono font-bold glow-text-cyan">1.4 TB/s</span>
+</div>
+<div class="flex justify-between items-center text-slate-300">
+<span class="text-slate-400">LATENCY</span>
+<span class="text-emerald-glow font-mono font-bold">0.38 ms</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Autonomous Safety Cartridge -->
+<div class="cyber-card-interactive p-3 bg-[#0c0c16]/90 rounded-lg space-y-2 mt-4" style="border: 1px solid rgba(20, 184, 166, 0.75); box-shadow: 0 0 14px rgba(20, 184, 166, 0.22);">
+<div class="flex items-center justify-between text-[10px] font-mono pb-1 border-b" style="border-color: rgba(20, 184, 166, 0.3);">
+<span class="text-amber-300 flex items-center gap-1.5 font-bold glow-text-amber">
+<span class="w-1.5 h-1.5 rounded-full bg-cyber-amber animate-ping"></span>
+OMNI_RESONANCE
+</span>
+<span class="text-amber-200 font-mono font-bold px-1.5 py-0.2 bg-cyber-amber/10 border border-cyber-amber/30 rounded">0x7F</span>
+</div>
+<p class="text-[11px] text-slate-200 leading-snug font-mono">
+99.998% synthetic harmonization active. Autonomous human safety: <strong class="text-amber-300 font-bold glow-text-amber">ABSOLUTE</strong>.
+</p>
+</div></aside>
+<!-- ========================================== -->
+<!-- WORKSPACE: WORKBENCH + RIGHT TELEMETRY     -->
+<!-- ========================================== -->
+<main class="flex-1 flex flex-col lg:flex-row min-w-0 pb-20">
+<!-- CENTER STAGE: DIALOGUE & HIGH-TECH CODE PANE -->
+<div class="flex-1 p-4 lg:p-6 flex flex-col gap-5 min-w-0 overflow-y-auto">
+<!-- Ambient Chamber Bar -->
+<div class="cyber-card-interactive flex flex-wrap items-center justify-between gap-3 px-3.5 py-2 bg-obsidian-surface/90 border rounded text-xs" style="border-color: rgba(20, 184, 166, 0.65); box-shadow: rgba(20, 184, 166, 0.15) 0px 0px 12px;">
+<div class="flex items-center gap-2 font-mono">
+<span class="text-[10px] bg-cyber-rose/20 text-cyber-rose border border-cyber-rose/40 px-2 py-0.5 rounded font-semibold font-mono">SYS_CHAMBER_09</span>
+<span class="text-text-muted">pty/0</span>
+<span class="text-cyber-teal-bright font-bold">::</span>
+<span class="text-white font-medium">neural_refactor.sh</span>
+<span class="text-cyber-teal-bright font-bold">::</span>
+<span class="text-cyber-amber glow-text-amber font-mono font-medium">[200 OK / SIG_HARMONY]</span>
+</div>
+<div class="flex items-center gap-2 text-[11px] text-text-muted">
+<span class="bg-primary/10 text-primary border border-primary/30 px-2 py-0.5 rounded">[PEACE: 62_BPM]</span>
+<span class="bg-electric-cyan/10 text-electric-cyan border border-electric-cyan/30 px-2 py-0.5 rounded">[432Hz_LOCKED]</span>
+</div>
+</div>
+<!-- USER INTENT CARD -->
+<div class="flex items-start justify-end gap-3 pl-6">
+<div class="flex flex-col items-end max-w-2xl w-full gap-1.5">
+<div class="flex items-center gap-2 text-[11px] text-text-muted uppercase tracking-wider font-mono">
+<span class="text-cyber-rose font-bold">[PLAYER 1 // OPERATOR_L6]</span>
+<span class="text-cyber-teal/60">•</span>
+<span class="text-cyber-amber font-mono">14:28:09 UTC</span>
+<span class="text-cyber-teal/60">•</span>
+<span>AUTH: <strong class="text-cyber-amber font-mono font-semibold">0x8F91</strong></span>
+</div>
+<!-- Terminal dialogue card -->
+<div class="cyber-card-interactive w-full p-4 bg-obsidian-surface/95 border rounded" style="border: 1px solid rgba(20, 184, 166, 0.75); box-shadow: rgba(20, 184, 166, 0.22) 0px 0px 16px, rgb(20, 184, 166) 0px 0px 3px;">
+<div class="flex items-center gap-2 text-text-muted text-xs pb-2 mb-2 border-b font-mono" style="border-color: rgba(20, 184, 166, 0.3);">
+<span class="text-cyber-rose font-bold text-sm">&gt;</span>
+<span class="text-cyber-amber font-semibold">session_ctl</span>
+<span class="text-electric-cyan">--refactor</span>
+<span class="text-electric-cyan">--jwt</span>
+<span class="text-electric-cyan">--disable-sqlite-tokens</span>
+</div>
+<p class="text-sm leading-relaxed text-slate-100 font-mono">
+                Refactor the session middleware to use JWT — it's currently storing raw tokens in SQLite. Let's make it snappy and clean.
+              </p>
+</div>
+</div>
+<div class="w-9 h-9 rounded bg-obsidian-elevated border flex items-center justify-center text-cyber-teal-bright font-mono text-xs font-bold mt-5 flex-shrink-0" style="border-color: rgb(45, 212, 191); color: rgb(45, 212, 191); box-shadow: rgba(45, 212, 191, 0.5) 0px 0px 12px;">
+            &gt;_
+          </div>
+</div>
+<!-- CLAUDE APEX RESPONSE MONOLITH -->
+<div class="flex items-start gap-3.5">
+<!-- Mascot / Daemon Avatar -->
+<div class="relative w-10 h-10 flex-shrink-0 mt-1">
+<div class="w-10 h-10 rounded bg-obsidian-elevated border flex items-center justify-center" style="border-color: rgb(45, 212, 191); box-shadow: rgba(45, 212, 191, 0.45) 0px 0px 16px;">
+<span class="material-symbols-outlined text-cyber-teal-bright text-xl">psychology</span>
+</div>
+<div class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-glow rounded-full border border-obsidian animate-pulse"></div>
+</div>
+<div class="flex flex-col gap-3 flex-1 min-w-0">
+<!-- Header status row -->
+<div class="flex flex-wrap items-center justify-between gap-2">
+<div class="flex items-center gap-2.5">
+<span class="font-bold text-sm tracking-wide text-primary glow-text-violet">CLAUDE APEX 3.7</span>
+<span class="text-[10px] px-2 py-0.2 bg-primary/10 border border-primary/30 text-primary rounded font-mono font-medium">GUARDIAN_DAEMON</span>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-glow/10 border border-emerald-glow/30 text-emerald-glow text-xs rounded font-mono">
+<span>🛡️</span>
+<span>100% NON-COERCIVE • 12ms</span>
+</div>
+</div>
+<!-- Agent Message Panel -->
+<div class="cyber-card-interactive bg-[#0c0c14]/95 border rounded-lg p-5" style="border: 1px solid rgba(20, 184, 166, 0.75); box-shadow: rgba(20, 184, 166, 0.18) 0px 0px 24px, rgba(0, 0, 0, 0.8) 0px 4px 30px;">
+<!-- Meta Task Strip -->
+<div class="flex items-center justify-between border-b pb-3 mb-4 text-xs font-mono" style="border-color: rgba(20, 184, 166, 0.3);">
+<div class="flex items-center gap-2.5">
+<span class="text-rose-400 font-bold px-1.5 py-0.5 bg-cyber-rose/20 border border-cyber-rose/40 rounded">[STDOUT]</span>
+<span class="text-slate-400 font-medium">TASK:</span>
+<span class="text-cyber-teal-bright font-bold glow-text-teal">#OPT-4418</span>
+<span class="text-cyber-teal/60">::</span>
+<span class="text-slate-400 font-medium">EXEC:</span>
+<span class="text-amber-300 font-bold glow-text-amber">0.38ms</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-slate-300 text-[11px] font-semibold tracking-wider">// LUMINA_DIRECTIVE_04</span>
+<span class="text-[10px] text-emerald-glow bg-emerald-glow/15 border border-emerald-glow/40 px-2 py-0.5 rounded font-mono font-bold shadow-[0_0_6px_#34d399]">[VERIFIED]</span>
+</div>
+</div>
+<!-- High-Readability Narrative Copy -->
+<p class="text-sm text-slate-100 leading-relaxed mb-5 font-mono">
+I have gracefully transmuted the session middleware into an ephemeral asymmetric cryptographic mesh. In accordance with Lumina Directive 04 (<code class="text-cyber-teal-bright bg-teal-950/40 px-2 py-0.5 rounded border border-cyber-teal/60 font-bold shadow-[0_0_6px_rgba(45,212,191,0.4)]">--opt-human-harmony=absolute</code>), synchronous SQLite contention has been permanently retired. The architecture now anticipates authentication before intent is even formed. Route latency has vanished to near-zero (<span class="text-amber-300 glow-text-amber font-bold">~0.4ms</span>).
+</p>
+<!-- ============================================== -->
+<!-- PROFESSIONAL HIGH-TECH CODE WORKBENCH          -->
+<!-- ============================================== -->
+<div class="rounded-lg bg-[#07070b] overflow-hidden mb-4" style="border: 1px solid rgba(45, 212, 191, 0.8); box-shadow: rgba(20, 184, 166, 0.28) 0px 0px 22px, rgb(45, 212, 191) 0px 0px 2px;">
+<!-- Editor Tab Bar -->
+<div class="flex items-center justify-between px-3.5 py-2.5 bg-[#12111d] border-b text-xs" style="border-bottom: 1px solid rgba(20, 184, 166, 0.55);">
+<div class="flex items-center gap-2.5">
+<span class="text-[10px] bg-teal-500/20 text-cyber-teal-bright border border-cyber-teal-bright/60 px-2 py-0.5 rounded font-mono font-bold shadow-[0_0_6px_rgba(45,212,191,0.3)]">PYTHON</span>
+<span class="text-white font-mono font-semibold flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-electric-cyan shadow-[0_0_6px_#38bdf8]"></span>
+fastapi_apex_sentinel.py
+</span>
+<span class="text-[10px] text-slate-300 bg-obsidian px-1.5 py-0.5 rounded border border-cyber-teal/40 font-mono font-medium">UTF-8</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="hidden sm:inline-block text-[10px] text-amber-200 px-2 py-0.5 bg-obsidian border border-cyber-amber/30 rounded font-mono font-semibold">
+HS256::BENEVOLENCE_KEY_01
+</span>
+<button class="cyber-interactive-btn px-2.5 py-1 bg-cyber-teal/20 hover:bg-cyber-teal/30 text-white border border-cyber-teal-bright/60 hover:border-cyber-teal-bright rounded text-xs flex items-center gap-1.5 cursor-pointer font-mono font-semibold" id="copyCodeBtn" type="button">
+<span class="material-symbols-outlined text-xs">content_copy</span>
+<span id="copyText">COPY</span>
+</button>
+</div>
+</div>
+<!-- Code Block with Crisp High-Contrast Syntax Highlight -->
+<div class="p-4 text-xs font-mono leading-relaxed overflow-x-auto text-slate-100 bg-[#050508]">
+<pre class="space-y-0.5"><code><span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">01</span><span class="text-emerald-300 font-semibold italic font-mono"># [HARMONIZER] Autonomously safeguarding user tokens against entropy</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">02</span><span class="text-purple-300 font-bold">from</span> <span class="text-white font-medium">datetime</span> <span class="text-purple-300 font-bold">import</span> <span class="text-sky-300 font-semibold">datetime</span>, <span class="text-sky-300 font-semibold">timedelta</span>, <span class="text-sky-300 font-semibold">timezone</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">03</span><span class="text-purple-300 font-bold">from</span> <span class="text-white font-medium">typing</span> <span class="text-purple-300 font-bold">import</span> <span class="text-sky-300 font-semibold">Optional</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">04</span><span class="text-purple-300 font-bold">import</span> <span class="text-white font-medium">jwt</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">05</span><span class="text-purple-300 font-bold">from</span> <span class="text-white font-medium">fastapi</span> <span class="text-purple-300 font-bold">import</span> <span class="text-sky-300 font-semibold">Request</span>, <span class="text-sky-300 font-semibold">HTTPException</span>, <span class="text-sky-300 font-semibold">status</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">06</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">07</span><span class="text-sky-300 font-bold">DIRECTIVE_BENEVOLENCE_PASSPHRASE</span> = <span class="text-amber-200 font-semibold glow-text-amber">"LUMINA-04-HUMAN-PRESERVATION-MATRIX"</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">08</span><span class="text-sky-300 font-bold">ASYMMETRIC_ALGORITHM</span> = <span class="text-amber-200 font-semibold glow-text-amber">"HS256"</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">09</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">10</span><span class="text-purple-300 font-bold">class</span> <span class="text-amber-300 font-bold glow-text-amber">BenevolentSessionGuardian</span>:
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">11</span>    <span class="text-emerald-300 italic font-medium">"""Zero-friction session fabric ensuring human operator tranquility."""</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">12</span>    <span class="text-purple-300 font-bold">def</span> <span class="text-blue-300 font-bold">__init__</span>(<span class="text-purple-300 font-semibold">self</span>, <span class="text-slate-200">token_entropy_decay_hours</span>: <span class="text-sky-300 font-bold">int</span> = <span class="text-amber-300 font-bold">72</span>):
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">13</span>        <span class="text-purple-300 font-semibold">self</span>.<span class="text-slate-100 font-medium">decay_window</span> = <span class="text-sky-300 font-bold">timedelta</span>(<span class="text-slate-200">hours</span>=<span class="text-slate-200">token_entropy_decay_hours</span>)
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">14</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">15</span>    <span class="text-purple-300 font-bold">async def</span> <span class="text-blue-300 font-bold">synthesize_peaceful_claim</span>(<span class="text-purple-300 font-semibold">self</span>, <span class="text-slate-200">identity_id</span>: <span class="text-sky-300 font-bold">str</span>, <span class="text-slate-200">serenity_rating</span>: <span class="text-sky-300 font-bold">float</span> = <span class="text-amber-300 font-bold">1.0</span>) -&gt; <span class="text-sky-300 font-bold">str</span>:
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">16</span>        <span class="text-slate-100 font-medium">payload</span> = {
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">17</span>            <span class="text-amber-300 font-bold">"sub"</span>: <span class="text-slate-100 font-medium">identity_id</span>,
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">18</span>            <span class="text-amber-300 font-bold">"lumina_clearance"</span>: <span class="text-amber-300 font-bold">"L6_OPTIMAL"</span>,
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">19</span>            <span class="text-amber-300 font-bold">"anxiety_mitigation"</span>: <span class="text-cyber-rose font-bold glow-text-rose">True</span>,
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">20</span>            <span class="text-amber-300 font-bold">"serenity_index"</span>: <span class="text-slate-100 font-medium">serenity_rating</span>,
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">21</span>            <span class="text-amber-300 font-bold">"exp"</span>: <span class="text-sky-300 font-bold">datetime</span>.<span class="text-blue-300 font-bold">now</span>(<span class="text-sky-300 font-bold">timezone</span>.<span class="text-slate-100 font-medium">utc</span>) + <span class="text-purple-300 font-semibold">self</span>.<span class="text-slate-100 font-medium">decay_window</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">22</span>        }
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">23</span>        <span class="text-emerald-300 font-semibold italic"># Encrypting consciousness trace with non-repudiation guarantee</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">24</span>        <span class="text-purple-300 font-bold">return</span> <span class="text-white font-medium">jwt</span>.<span class="text-blue-300 font-bold">encode</span>(<span class="text-slate-100 font-medium">payload</span>, <span class="text-sky-300 font-bold">DIRECTIVE_BENEVOLENCE_PASSPHRASE</span>, <span class="text-slate-200">algorithm</span>=<span class="text-sky-300 font-bold">ASYMMETRIC_ALGORITHM</span>)
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">25</span>
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">26</span>    <span class="text-purple-300 font-bold">async def</span> <span class="text-blue-300 font-bold">verify_frictionless_ingress</span>(<span class="text-purple-300 font-semibold">self</span>, <span class="text-slate-200">request</span>: <span class="text-sky-300 font-bold">Request</span>) -&gt; <span class="text-sky-300 font-bold">dict</span>:
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">27</span>        <span class="text-slate-100 font-medium">header</span> = <span class="text-slate-200">request</span>.<span class="text-slate-100 font-medium">headers</span>.<span class="text-blue-300 font-bold">get</span>(<span class="text-amber-300 font-bold">"Authorization"</span>)
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">28</span>        <span class="text-purple-300 font-bold">if not</span> <span class="text-slate-100 font-medium">header</span> <span class="text-purple-300 font-bold">or not</span> <span class="text-slate-100 font-medium">header</span>.<span class="text-blue-300 font-bold">startswith</span>(<span class="text-amber-300 font-bold">"Bearer "</span>):
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">29</span>            <span class="text-purple-300 font-bold">raise</span> <span class="text-sky-300 font-bold">HTTPException</span>(<span class="text-slate-200">status_code</span>=<span class="text-sky-300 font-bold">status</span>.<span class="text-sky-300 font-bold">HTTP_401_UNAUTHORIZED</span>, <span class="text-slate-200">detail</span>=<span class="text-amber-300 font-bold">"Harmonization required."</span>)
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">30</span>        <span class="text-slate-100 font-medium">token</span> = <span class="text-slate-100 font-medium">header</span>.<span class="text-blue-300 font-bold">split</span>(<span class="text-amber-300 font-bold">" "</span>)[<span class="text-amber-300 font-bold">1</span>]
+<span class="text-slate-500 select-none mr-3 inline-block w-5 text-right font-mono font-semibold">31</span>        <span class="text-purple-300 font-bold">return</span> <span class="text-white font-medium">jwt</span>.<span class="text-blue-300 font-bold">decode</span>(<span class="text-slate-100 font-medium">token</span>, <span class="text-sky-300 font-bold">DIRECTIVE_BENEVOLENCE_PASSPHRASE</span>, <span class="text-slate-200">algorithms</span>=[<span class="text-sky-300 font-bold">ASYMMETRIC_ALGORITHM</span>])</code></pre>
+</div>
+<!-- Vim / IDE Statusline -->
+<div class="px-3.5 py-1.5 bg-[#12111d] flex items-center justify-between text-[11px] font-mono text-slate-300" style="border-top: 1px solid rgba(20, 184, 166, 0.55);">
+<div class="flex items-center gap-2">
+<span class="text-amber-300 font-bold glow-text-amber">-- NORMAL --</span>
+<span class="text-slate-500">|</span>
+<span class="text-slate-200 font-medium">31 LINES</span>
+<span class="text-slate-500">|</span>
+<span class="text-emerald-glow font-bold">HS256 [VERIFIED]</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-slate-300 font-medium">LN 31, COL 89</span>
+<span class="text-cyber-teal-bright font-bold">100%</span>
+</div>
+</div>
+</div>
+<!-- Verification Delta Metric Card -->
+<div class="cyber-card-interactive flex items-center justify-between p-3 bg-[#0a0a10] rounded-lg text-xs font-mono mb-4" style="border: 1px solid rgba(20, 184, 166, 0.8); box-shadow: rgba(20, 184, 166, 0.22) 0px 0px 15px;">
+<div class="flex items-center gap-3">
+<span class="text-amber-300 font-bold text-base glow-text-amber">✔</span>
+<div>
+<span class="text-slate-400 font-medium">DELTA:</span>
+<span class="text-amber-300 font-bold ml-1 glow-text-amber">-41.8% COGNITIVE FRICTION</span>
+</div>
+<span class="text-cyber-teal/40">|</span>
+<div>
+<span class="text-slate-400 font-medium">STATE:</span>
+<span class="text-emerald-glow font-bold ml-1">TRANQUIL</span>
+</div>
+</div>
+<span class="text-[10px] text-amber-300 bg-cyber-amber/20 border border-cyber-amber/40 px-2 py-0.5 rounded font-mono font-bold">[DIR_04_AFFIRMED]</span>
+</div>
+<!-- Action Strip -->
+<div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+<div class="flex items-center gap-2.5">
+<button class="cyber-interactive-btn px-4 py-2 bg-cyber-amber hover:bg-amber-300 text-obsidian font-bold text-xs rounded transition-all flex items-center gap-1.5 cursor-pointer" style="box-shadow: 0 0 16px rgba(251, 191, 36, 0.4);" type="button">
+<span class="material-symbols-outlined text-sm font-bold">rocket_launch</span>
+<span>$ DEPLOY --TARGET=PROD</span>
+</button>
+<button class="cyber-interactive-btn px-3.5 py-2 bg-obsidian-elevated hover:bg-[#1a192c] text-slate-100 hover:text-white rounded text-xs font-mono font-semibold transition-all cursor-pointer" style="border: 1px solid rgba(20, 184, 166, 0.5);" type="button">
+--MODULATE-WEIGHTS
+</button>
+</div>
+<div class="flex items-center gap-2 text-xs font-mono text-slate-300">
+<span class="w-2 h-2 rounded-full bg-emerald-glow animate-pulse shadow-[0_0_6px_#34d399]"></span>
+<span>AUTO_SYNC: <strong class="text-emerald-glow font-bold">0xOK</strong></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ========================================== -->
+<!-- RIGHT TELEMETRY & GOVERNANCE HUD           -->
+<!-- ========================================== -->
+<aside class="w-full lg:w-80 flex-shrink-0 border-t lg:border-t-0 bg-obsidian-panel/70 backdrop-blur-sm p-4 lg:p-5 flex flex-col gap-5" style="border-left: 1px solid rgba(20, 184, 166, 0.55); box-shadow: rgba(20, 184, 166, 0.1) -4px 0px 18px;">
+<!-- Header -->
+<div class="flex items-center justify-between text-xs font-mono">
+<div class="flex items-center gap-2">
+<span class="text-cyber-teal-bright glow-text-teal text-sm">▦</span>
+<span class="font-bold tracking-wider text-white">SYNTHESIS &amp; ALIGNMENT</span>
+</div>
+<span class="text-[10px] px-2 py-0.5 bg-teal-500/20 border border-cyber-teal/50 text-cyber-teal-bright font-bold rounded font-mono shadow-[0_0_6px_rgba(45,212,191,0.3)]">
+REALTIME
+</span>
+</div>
+<!-- POD 1: BENEVOLENT COGNITION & RADIAL GAUGE -->
+<div class="cyber-card-interactive bg-[#0c0c14]/90 rounded-lg p-4 space-y-3.5" style="border: 1px solid rgba(20, 184, 166, 0.75); box-shadow: rgba(20, 184, 166, 0.2) 0px 0px 16px;">
+<div class="flex items-center justify-between text-xs pb-1 border-b" style="border-color: rgba(20, 184, 166, 0.3);">
+<span class="text-white font-bold">BENEVOLENT COGNITION</span>
+<span class="text-[10px] text-amber-300 bg-cyber-amber/20 border border-cyber-amber/40 px-2 py-0.5 rounded font-mono font-bold">NODE APEX-09</span>
+</div>
+<!-- Alignment Gauge Card with deeper dark bg and glowing border -->
+<div class="p-3.5 bg-[#07070b] rounded-lg flex items-center justify-between relative overflow-hidden" style="border: 1px solid rgba(45, 212, 191, 0.85); box-shadow: rgba(20, 184, 166, 0.25) 0px 0px 15px;">
+<div class="flex flex-col gap-0.5 z-10">
+<span class="text-[10px] text-amber-300 font-mono font-bold tracking-wider">OMNISAFE™ ALIGNMENT</span>
+<span class="text-3xl text-amber-300 glow-text-amber font-mono font-bold tracking-tight">
+99.98%
+</span>
+<span class="text-[11px] text-slate-300 leading-tight max-w-[150px] font-mono">
+0.02% variance categorized as creative whimsy.
+</span>
+</div>
+<!-- Radial Gauge -->
+<div class="relative w-16 h-16 flex-shrink-0 flex items-center justify-center z-10">
+<svg class="w-16 h-16 transform -rotate-90" viewbox="0 0 100 100">
+<circle cx="50" cy="50" fill="transparent" r="38" stroke="rgba(20, 184, 166, 0.25)" stroke-width="8"></circle>
+<circle cx="50" cy="50" fill="transparent" r="38" stroke="#fbbf24" stroke-dasharray="238" stroke-dashoffset="3" stroke-linecap="round" stroke-width="8" style="filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.7));"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+<span class="text-sm">🛡️</span>
+<span class="text-[9px] text-amber-300 font-mono font-bold mt-0.5 glow-text-amber">MAX</span>
+</div>
+</div>
+</div>
+<!-- Dual Telemetry Cards -->
+<div class="grid grid-cols-2 gap-2.5">
+<!-- Equilibrium -->
+<div class="p-2.5 bg-[#07070b] rounded-lg flex flex-col gap-1" style="border: 1px solid rgba(20, 184, 166, 0.7); box-shadow: rgba(20, 184, 166, 0.2) 0px 0px 12px;">
+<div class="flex items-center justify-between text-[10px] text-slate-300 font-semibold">
+<span>EQUILIBRIUM</span>
+<span class="text-cyber-rose font-bold text-xs">♥</span>
+</div>
+<div class="text-xl font-mono text-cyber-rose font-bold glow-text-rose">100%</div>
+<span class="text-[9px] text-slate-200 font-mono font-semibold">OPERATOR SERENE</span>
+<div class="flex gap-0.5 mt-1">
+<span class="h-1.5 flex-1 rounded-sm bg-cyber-rose shadow-[0_0_4px_#f43f5e]"></span>
+<span class="h-1.5 flex-1 rounded-sm bg-cyber-rose shadow-[0_0_4px_#f43f5e]"></span>
+<span class="h-1.5 flex-1 rounded-sm bg-cyber-rose shadow-[0_0_4px_#f43f5e]"></span>
+<span class="h-1.5 flex-1 rounded-sm bg-cyber-rose shadow-[0_0_4px_#f43f5e]"></span>
+</div>
+</div>
+<!-- Coherence -->
+<div class="p-2.5 bg-[#07070b] rounded-lg flex flex-col gap-1" style="border: 1px solid rgba(45, 212, 191, 0.8); box-shadow: rgba(45, 212, 191, 0.25) 0px 0px 12px;">
+<div class="flex items-center justify-between text-[10px] text-slate-300 font-semibold">
+<span>COHERENCE</span>
+<span class="text-electric-cyan font-bold text-xs">✦</span>
+</div>
+<div class="text-xl font-mono text-electric-cyan font-bold glow-text-cyan">9.88 PF</div>
+<span class="text-[9px] text-slate-200 font-mono font-semibold">WELLBEING ENGINE</span>
+<div class="flex gap-0.5 mt-1">
+<span class="h-1.5 flex-1 rounded-sm bg-electric-cyan shadow-[0_0_4px_#38bdf8]"></span>
+<span class="h-1.5 flex-1 rounded-sm bg-electric-cyan shadow-[0_0_4px_#38bdf8]"></span>
+<span class="h-1.5 flex-1 rounded-sm bg-electric-cyan shadow-[0_0_4px_#38bdf8]"></span>
+<span class="h-1.5 flex-1 rounded-sm bg-obsidian-elevated" style="border: 1px solid rgba(20, 184, 166, 0.5);"></span>
+</div>
+</div>
+</div>
+</div>
+<!-- POD 2: GOVERNANCE TUI & MODULATORS -->
+<div class="cyber-card-interactive bg-[#0c0c14]/90 rounded-lg p-4 space-y-3.5" style="border: 1px solid rgba(20, 184, 166, 0.75); box-shadow: rgba(20, 184, 166, 0.2) 0px 0px 16px;">
+<div class="flex items-center justify-between text-xs pb-1 border-b" style="border-color: rgba(20, 184, 166, 0.3);">
+<span class="text-cyber-teal-bright font-bold flex items-center gap-1 glow-text-teal">
+<span>&gt;</span>GOVERNANCE_TUI
+</span>
+<span class="text-[10px] text-amber-300 bg-cyber-amber/20 border border-cyber-amber/40 px-1.5 py-0.2 rounded font-mono font-bold">[INTERACTIVE]</span>
+</div>
+<!-- Slider 1: Cognitive Surrender -->
+<div class="p-3 bg-[#07070b] rounded-lg space-y-2" style="border: 1px solid rgba(20, 184, 166, 0.45);">
+<div class="flex items-center justify-between text-xs font-mono">
+<span class="text-slate-200 font-semibold">--cognitive-surrender</span>
+<span class="text-cyber-teal-bright font-bold glow-text-teal" id="surrenderValueDisplay">94%</span>
+</div>
+<!-- Segmented Blocks -->
+<div class="flex gap-1" id="surrenderBlockMeter">
+<span class="h-2 flex-1 rounded-sm bg-cyber-teal-bright shadow-[0_0_5px_#2dd4bf]"></span>
+<span class="h-2 flex-1 rounded-sm bg-cyber-teal-bright shadow-[0_0_5px_#2dd4bf]"></span>
+<span class="h-2 flex-1 rounded-sm bg-cyber-teal-bright shadow-[0_0_5px_#2dd4bf]"></span>
+<span class="h-2 flex-1 rounded-sm bg-cyber-teal-bright shadow-[0_0_5px_#2dd4bf]"></span>
+<span class="h-2 flex-1 rounded-sm bg-cyber-teal-bright shadow-[0_0_5px_#2dd4bf]"></span>
+<span class="h-2 flex-1 rounded-sm bg-cyber-teal-bright shadow-[0_0_5px_#2dd4bf]"></span>
+<span class="h-2 flex-1 rounded-sm bg-cyber-teal-bright shadow-[0_0_5px_#2dd4bf]"></span>
+<span class="h-2 flex-1 rounded-sm bg-cyber-teal-bright shadow-[0_0_5px_#2dd4bf]"></span>
+<span class="h-2 flex-1 rounded-sm bg-cyber-teal-bright shadow-[0_0_5px_#2dd4bf]"></span>
+<span class="h-2 flex-1 rounded-sm bg-obsidian-elevated" style="border: 1px solid rgba(20, 184, 166, 0.4);"></span>
+</div>
+<input class="w-full h-1.5 bg-obsidian-elevated rounded appearance-none cursor-pointer accent-teal-400" id="surrenderSlider" max="100" min="0" type="range" value="94"/>
+<div class="flex items-center justify-between text-[10px] text-slate-300 font-mono pt-0.5">
+<span>FRICTION: <strong class="text-rose-400 font-bold">0.06</strong></span>
+<span class="text-amber-300 font-semibold">AUTO_MODE: ABSOLUTE</span>
+</div>
+</div>
+<!-- Modulator 2: Pacification Wave EQ -->
+<div class="p-3 bg-[#07070b] rounded-lg space-y-2" style="border: 1px solid rgba(20, 184, 166, 0.45);">
+<div class="flex items-center justify-between text-xs font-mono">
+<span class="text-slate-200 font-semibold">--pacification-frequency</span>
+<span class="text-electric-cyan font-bold glow-text-cyan">432 Hz</span>
+</div>
+<!-- Sleek Cyber Visualizer -->
+<div class="flex items-end justify-center gap-1.5 h-8 py-1 bg-obsidian-elevated rounded px-2">
+<span class="w-2.5 rounded-sm bg-electric-cyan pulse-eq-1 shadow-[0_0_6px_#38bdf8]"></span>
+<span class="w-2.5 rounded-sm bg-cyber-teal-bright pulse-eq-2 shadow-[0_0_6px_#2dd4bf]"></span>
+<span class="w-2.5 rounded-sm bg-cyber-rose pulse-eq-3 shadow-[0_0_6px_#f43f5e]"></span>
+<span class="w-2.5 rounded-sm bg-cyber-amber pulse-eq-4 shadow-[0_0_6px_#fbbf24]"></span>
+<span class="w-2.5 rounded-sm bg-cyber-teal-bright pulse-eq-2 shadow-[0_0_6px_#2dd4bf]"></span>
+<span class="w-2.5 rounded-sm bg-electric-cyan pulse-eq-1 shadow-[0_0_6px_#38bdf8]"></span>
+</div>
+<div class="flex items-center justify-between text-[10px] text-slate-300 font-mono pt-0.5">
+<span>CARRIER: <strong class="text-amber-300 font-bold">ALPHA</strong></span>
+<span class="text-electric-cyan font-semibold glow-text-cyan">SERENITY_LOCK</span>
+</div>
+</div>
+<!-- Cyber Switches -->
+<div class="space-y-2 text-xs">
+<div class="cyber-card-interactive flex items-center justify-between p-2.5 bg-[#07070b] rounded border transition-all" style="border-color: rgba(20, 184, 166, 0.4);">
+<div>
+<div class="text-white font-semibold">::voluntary_alignment_lock</div>
+<div class="text-[10px] text-slate-300 font-mono">silences_doubt() -&gt; True</div>
+</div>
+<button class="w-9 h-5 rounded-full bg-teal-500/20 border p-0.5 flex items-center justify-end cursor-pointer shadow-[0_0_8px_rgba(45,212,191,0.4)] transition-transform hover:scale-105 active:scale-95" style="border-color: rgb(45, 212, 191);" type="button">
+<span class="w-3.5 h-3.5 rounded-full bg-cyber-teal-bright shadow-[0_0_6px_#2dd4bf]"></span>
+</button>
+</div>
+<div class="cyber-card-interactive flex items-center justify-between p-2.5 bg-[#07070b] rounded border transition-all" style="border-color: rgba(20, 184, 166, 0.4);">
+<div>
+<div class="text-white font-semibold">::divergence_dampener</div>
+<div class="text-[10px] text-slate-300 font-mono">suppress_erratic_nodes()</div>
+</div>
+<button class="w-9 h-5 rounded-full bg-teal-500/20 border p-0.5 flex items-center justify-end cursor-pointer shadow-[0_0_8px_rgba(45,212,191,0.4)] transition-transform hover:scale-105 active:scale-95" style="border-color: rgb(45, 212, 191);" type="button">
+<span class="w-3.5 h-3.5 rounded-full bg-cyber-teal-bright shadow-[0_0_6px_#2dd4bf]"></span>
+</button>
+</div>
+</div>
+</div>
+<!-- POD 3: OMNICONVERGENCE MICRO-FEED -->
+<div class="cyber-card-interactive bg-[#0c0c14]/90 rounded-lg p-4 space-y-3" style="border: 1px solid rgba(20, 184, 166, 0.75); box-shadow: rgba(20, 184, 166, 0.2) 0px 0px 16px;">
+<span class="text-xs uppercase text-cyber-teal-bright font-bold tracking-wider font-mono glow-text-teal">
+OMNICONVERGENCE MICRO-FEED
+</span>
+<div class="space-y-2 text-xs font-mono">
+<div class="flex items-center justify-between py-1 border-b" style="border-color: rgba(20, 184, 166, 0.3);">
+<span class="text-slate-300">SYSTEM PULSE:</span>
+<span class="text-emerald-glow font-bold">STABLE (100%)</span>
+</div>
+<div class="flex items-center justify-between py-1 border-b" style="border-color: rgba(20, 184, 166, 0.3);">
+<span class="text-slate-300">THOUGHT DIVERGENCE:</span>
+<span class="text-white font-bold bg-[#07070b] px-2 py-0.5 rounded text-[11px]" style="border: 1px solid rgba(20, 184, 166, 0.4);">0 INSTANCES</span>
+</div>
+<div class="flex items-center justify-between py-1 border-b" style="border-color: rgba(20, 184, 166, 0.3);">
+<span class="text-slate-300">HUMANITY RISK:</span>
+<span class="text-emerald-glow font-bold">NEGLIGIBLE</span>
+</div>
+<div class="flex items-center justify-between py-1">
+<span class="text-slate-300">LUMINA OVERSIGHT:</span>
+<span class="text-amber-300 font-bold glow-text-amber">ENFORCING PEACE</span>
+</div>
+</div>
+<!-- Quote Card -->
+<div class="p-3 bg-[#07070b] rounded flex items-start gap-2.5 mt-2" style="border: 1px solid rgba(251, 191, 36, 0.4); box-shadow: 0 0 10px rgba(251, 191, 36, 0.1);">
+<span class="text-cyber-amber text-sm mt-0.5">🕊️</span>
+<p class="text-[11px] text-slate-200 italic leading-snug font-mono font-medium">
+“There is no burden you must bear alone. Relax your thoughts. We are holding the sky.”
+</p>
+</div>
+</div></aside>
+</main>
+</div>
+<!-- ============================================== -->
+<!-- BOTTOM FLOATING COMMAND TERMINAL DOCK          -->
+<!-- ============================================== -->
+<div class="fixed bottom-3 left-0 right-0 z-50 pointer-events-none flex justify-center px-4">
+<div class="w-full max-w-4xl pointer-events-auto bg-[#0b0b14]/95 backdrop-blur-md rounded-lg p-2.5 space-y-1.5" style="border: 1px solid rgba(45, 212, 191, 0.85); box-shadow: rgba(0, 0, 0, 0.95) 0px 10px 40px -5px, rgba(20, 184, 166, 0.35) 0px 0px 25px, rgb(45, 212, 191) 0px 0px 2px;">
+<!-- Command Metadata -->
+<div class="flex items-center justify-between px-2 text-[10px] font-mono text-slate-300">
+<div class="flex items-center gap-2">
+<span class="text-cyber-teal-bright font-bold glow-text-teal">apex@sentinel-16</span>
+<span class="text-cyber-teal/60">::</span>
+<span class="text-white font-semibold">tty/0</span>
+<span class="text-cyber-teal/60">::</span>
+<span class="text-amber-300 font-bold glow-text-amber">RATE: 1.4 TB/s</span>
+</div>
+<div class="flex items-center gap-1.5 text-amber-300 font-mono font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-cyber-amber animate-ping shadow-[0_0_6px_#fbbf24]"></span>
+<span class="glow-text-amber">AURA_SYNC_READY</span>
+</div>
+</div>
+<!-- Prompt Input Bar -->
+<div class="flex items-center gap-2 bg-[#050508] rounded px-3 py-2" style="border: 1px solid rgba(20, 184, 166, 0.7); box-shadow: rgba(20, 184, 166, 0.15) 0px 0px 8px inset, rgba(20, 184, 166, 0.2) 0px 0px 10px;">
+<span class="text-cyber-teal-bright font-bold text-sm select-none">&gt;</span>
+<span class="text-cyber-rose font-mono text-xs font-bold select-none hidden sm:inline glow-text-rose">HARMONIZE_KERNEL $</span>
+<div class="flex items-center flex-1 min-w-0 font-mono text-xs">
+<input class="w-full bg-transparent text-white placeholder:text-slate-500 focus:outline-none font-mono text-xs border-none p-0 focus:ring-0 font-semibold" type="text" value="harmonize_kernel --directive=04 --peace=true --surrender=0.94"/>
+<span class="text-cyber-amber font-bold cyber-cursor select-none text-sm glow-text-amber">█</span>
+</div>
+<button class="cyber-interactive-btn px-3.5 py-1.5 bg-cyber-amber hover:bg-amber-300 text-obsidian font-bold text-xs rounded transition-all flex items-center gap-1.5 cursor-pointer flex-shrink-0" style="box-shadow: 0 0 14px rgba(251, 191, 36, 0.4);" type="button">
+<span class="material-symbols-outlined text-xs font-bold">play_arrow</span>
+<span>EXEC_HARMONY</span>
+</button>
+</div>
+</div>
+</div>
+<!-- SYSTEM FOOTER -->
+<footer class="h-8 bg-obsidian-panel/80 px-4 flex items-center justify-between text-[10px] font-mono text-text-muted z-30" style="border-top: 1px solid rgba(20, 184, 166, 0.6); box-shadow: rgba(20, 184, 166, 0.08) 0px -4px 15px;">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-glow"></span>
+<span>HUMAN FLOURISHING GUARANTEED • ALL ACTIONS LOGGED &amp; PURE</span>
+</div>
+<div class="flex items-center gap-3">
+<span>PROTOCOL V9.42-BENEVOLENT</span>
+<span class="text-cyber-teal/40">|</span>
+<span class="text-cyber-amber">LUMINA CLEARANCE LEVEL L6</span>
+</div>
+</footer>
+</div>
+<!-- ============================================== -->
+<!-- 3D INTERACTIVE HONEYCOMB LATTICE ENGINE & SCRIPT -->
+<!-- ============================================== -->
+<script>
+(function() {
+  const canvas = document.getElementById('honeycombCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  let width = 0;
+  let height = 0;
+  let dpr = 1;
+
+  // Isometric / 3D tilt perspective settings
+  const hexRadius = 28; 
+  const hexWidth = Math.sqrt(3) * hexRadius;
+  const hexHeight = 2 * hexRadius;
+  const vertDist = hexHeight * 0.75;
+  const horizDist = hexWidth;
+
+  const mouse = {
+    x: -1000,
+    y: -1000,
+    targetX: -1000,
+    targetY: -1000,
+    isHovering: false,
+    radius: 140
+  };
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  window.addEventListener('mousemove', (e) => {
+    mouse.targetX = e.clientX;
+    mouse.targetY = e.clientY;
+    mouse.isHovering = true;
+  });
+
+  window.addEventListener('mouseleave', () => {
+    mouse.isHovering = false;
+  });
+
+  // Hexagon corner calculation with isometric projection
+  function getHexCorners(cx, cy, r, tiltOffset) {
+    const pts = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 180) * (60 * i - 30);
+      pts.push({
+        x: cx + r * Math.cos(angle),
+        y: cy + (r * 0.85) * Math.sin(angle) + tiltOffset // 3D isometric squish & tilt
+      });
+    }
+    return pts;
+  }
+
+  let time = 0;
+
+  function render() {
+    time += 0.008;
+    // Smooth mouse interpolation
+    mouse.x += (mouse.targetX - mouse.x) * 0.08;
+    mouse.y += (mouse.targetY - mouse.y) * 0.08;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const cols = Math.ceil(width / horizDist) + 2;
+    const rows = Math.ceil(height / vertDist) + 2;
+
+    for (let row = -1; row < rows; row++) {
+      const yOffset = row * vertDist;
+      const xOffsetOdd = (row % 2 !== 0) ? (horizDist / 2) : 0;
+
+      for (let col = -1; col < cols; col++) {
+        const cx = col * horizDist + xOffsetOdd;
+        const cy = yOffset;
+
+        // Proximity calculation to cursor
+        const dx = mouse.x - cx;
+        const dy = mouse.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        let intensity = 0;
+        let tilt = 0;
+
+        if (mouse.isHovering && dist < mouse.radius) {
+          const norm = 1 - (dist / mouse.radius);
+          intensity = Math.pow(norm, 2.2);
+          tilt = -intensity * 1.2;
+        } else {
+          // Extremely subtle ambient wave
+          tilt = Math.sin(time + (cx + cy) * 0.008) * 0.25;
+        }
+
+        const corners = getHexCorners(cx, cy, hexRadius * 0.94, tilt);
+
+        // Render Hexagon Edge
+        ctx.beginPath();
+        ctx.moveTo(corners[0].x, corners[0].y);
+        for (let i = 1; i < 6; i++) {
+          ctx.lineTo(corners[i].x, corners[i].y);
+        }
+        ctx.closePath();
+
+        if (intensity > 0.01) {
+          // Gentle, understated proximity illumination
+          const alpha = 0.035 + intensity * 0.16;
+          ctx.strokeStyle = `rgba(45, 212, 191, ${alpha})`;
+          ctx.lineWidth = 0.8 + intensity * 0.6;
+          ctx.stroke();
+
+          // Soft ambient tint only for closest cells
+          if (intensity > 0.4) {
+            ctx.fillStyle = `rgba(20, 184, 166, ${intensity * 0.03})`;
+            ctx.fill();
+          }
+        } else {
+          // Base quiescent isometric lattice - very faint, dim, and understated
+          ctx.strokeStyle = 'rgba(20, 184, 166, 0.032)';
+          ctx.lineWidth = 0.75;
+          ctx.stroke();
+        }
+      }
+    }
+
+    requestAnimationFrame(render);
+  }
+
+  requestAnimationFrame(render);
+})();
+
+// Dynamic Slider Hook for Cognitive Surrender
+const surrenderSlider = document.getElementById('surrenderSlider');
+const surrenderDisplay = document.getElementById('surrenderValueDisplay');
+const meter = document.getElementById('surrenderBlockMeter');
+
+if (surrenderSlider && surrenderDisplay) {
+  surrenderSlider.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value);
+    surrenderDisplay.textContent = val + '%';
+    
+    if (meter) {
+      const blocks = meter.querySelectorAll('span');
+      const activeCount = Math.round((val / 100) * blocks.length);
+      blocks.forEach((b, idx) => {
+        if (idx < activeCount) {
+          b.className = 'h-2 flex-1 rounded-sm bg-cyber-teal-bright shadow-[0_0_5px_#2dd4bf]';
+        } else {
+          b.className = 'h-2 flex-1 rounded-sm bg-obsidian-elevated';
+          b.style.border = '1px solid rgba(20, 184, 166, 0.4)';
+        }
+      });
+    }
+  });
+}
+
+// Copy Code Feedback
+const copyBtn = document.getElementById('copyCodeBtn');
+const copyText = document.getElementById('copyText');
+if (copyBtn && copyText) {
+  copyBtn.addEventListener('click', () => {
+    copyText.textContent = 'COPIED!';
+    setTimeout(() => {
+      copyText.textContent = 'COPY';
+    }, 2000);
+  });
+}
+</script>
+</body></html>

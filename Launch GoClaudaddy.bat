@@ -1,10 +1,10 @@
 @echo off
 setlocal enabledelayedexpansion
-title ClaudioUI
+title GoClaudaddy
 cd /d "%~dp0"
 
-echo ClaudioUI launcher
-echo ===================
+echo GoClaudaddy launcher
+echo ====================
 echo.
 
 rem Every check below captures %errorlevel% into a variable immediately after
@@ -87,7 +87,7 @@ if not defined PYEXE (
     if not defined PYEXE (
         echo.
         echo Python 3.13 was installed but isn't visible in this window yet.
-        echo Please close this window and double-click Launch ClaudioUi.bat again.
+        echo Please close this window and double-click Launch GoClaudaddy.bat again.
         pause
         exit /b 1
     )
@@ -113,7 +113,7 @@ if not "!RC!"=="0" (
     if not "!RC!"=="0" (
         echo.
         echo claude CLI was installed but isn't visible in this window yet.
-        echo Please close this window and double-click Launch ClaudioUi.bat again.
+        echo Please close this window and double-click Launch GoClaudaddy.bat again.
         pause
         exit /b 1
     )
@@ -141,7 +141,7 @@ rem trading one clear error for a more confusing one. If the marker is
 rem missing, wipe and recreate the venv from scratch rather than trying to
 rem patch a possibly half-built one.
 if not exist ".venv\.deps_ok" (
-    echo Setting up ClaudioUI for the first time - this happens once...
+    echo Setting up GoClaudaddy for the first time - this happens once...
     if exist ".venv" rmdir /s /q ".venv"
     !PYEXE! -m venv .venv
     set "RC=!errorlevel!"
@@ -169,7 +169,7 @@ if not exist ".venv\.deps_ok" (
 
 rem --- 4. stop any stale instance already bound to the port --------------------
 for /f "tokens=5" %%p in ('netstat -aon 2^>nul ^| findstr ":8765 " ^| findstr LISTENING') do (
-    echo Stopping an existing ClaudioUI instance ^(PID %%p^)...
+    echo Stopping an existing GoClaudaddy instance ^(PID %%p^)...
     taskkill /PID %%p /F >nul 2>&1
 )
 
@@ -179,7 +179,7 @@ rem visible here instead of hidden in a background process. The auth check
 rem (ANTHROPIC_AUTH_TOKEN / ANTHROPIC_BASE_URL) happens inside Python at startup;
 rem this script never touches that credential itself.
 echo.
-echo Starting ClaudioUI...
+echo Starting GoClaudaddy...
 cd backend
 "..\.venv\Scripts\python.exe" -m app.watchdog
 set "EXITCODE=%errorlevel%"
@@ -187,7 +187,7 @@ cd ..
 
 if not "%EXITCODE%"=="0" (
     echo.
-    echo ClaudioUI stopped with an error. Check %USERPROFILE%\.claudioui\logs\app.log for details.
+    echo GoClaudaddy stopped with an error. Check %USERPROFILE%\.goclaudaddy\logs\app.log for details.
     pause
 )
 exit /b %EXITCODE%

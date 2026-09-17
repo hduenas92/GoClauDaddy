@@ -30,14 +30,14 @@ def _check_port_free() -> None:
             s.bind((HOST, PORT))
         except OSError as exc:
             raise StartupCheckError(
-                f"Port {PORT} is already in use — is another ClaudioUI instance running? ({exc})"
+                f"Port {PORT} is already in use — is another GoClaudaddy instance running? ({exc})"
             ) from exc
 
 
 def _check_claude_on_path() -> None:
     if shutil.which("claude") is None:
         raise StartupCheckError(
-            "The `claude` CLI was not found on PATH. Install it before running ClaudioUI."
+            "The `claude` CLI was not found on PATH. Install it before running GoClaudaddy."
         )
 
 

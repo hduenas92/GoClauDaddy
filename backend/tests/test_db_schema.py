@@ -1,4 +1,43 @@
+import sqlite3
+
 from app.db.connection import get_connection
+
+
+def test_fresh_db_has_system_prompt_column(temp_db):
+    with get_connection() as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(conversations)").fetchall()}
+    assert "system_prompt" in cols
+
+
+def test_v1_db_upgrades_to_latest_without_data_loss(tmp_path, monkeypatch):
+    from app.db import connection as cm
+    from app.db.migrations import apply_migrations, _SCHEMA_SQL
+
+    db_path = tmp_path / "v1.db"
+    monkeypatch.setattr(cm, "DB_PATH", db_path)
+
+    # Seed a v1 DB: schema + version row + one conversation (no system_prompt col yet)
+    conn = sqlite3.connect(db_path)
+    conn.executescript(_SCHEMA_SQL)
+    conn.execute(
+        "INSERT INTO conversations (id, project_id, name, session_id, model, permission_mode, status, created_at, updated_at)"
+        " VALUES ('c1', NULL, 'Old Chat', NULL, 'claude-sonnet-4-6', NULL, 'idle', 'now', 'now')"
+    )
+    conn.execute("INSERT INTO schema_version (version) VALUES (1)")
+    conn.commit()
+    conn.close()
+
+    apply_migrations()
+
+    with get_connection() as conn:
+        version = conn.execute("SELECT version FROM schema_version").fetchone()["version"]
+        row = conn.execute("SELECT * FROM conversations WHERE id = 'c1'").fetchone()
+
+    from app.db.migrations import MIGRATIONS
+    assert version == MIGRATIONS[-1][0]
+    assert row["name"] == "Old Chat"
+    assert row["system_prompt"] is None  # column added with NULL for existing rows
+    assert row["source"] == "web"        # migration 7 default
 
 
 def test_migrations_create_all_tables(temp_db):

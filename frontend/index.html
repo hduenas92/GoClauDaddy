@@ -1,16 +1,63 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ClaudioUI</title>
+<title>GoClaudaddy</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Weights here must match the weights the CSS actually uses (measured: 400,
+     600, 700 plus mono italic for hljs comments). A weight that is used but not
+     requested is silently faux-bolded by the browser, which is how DM Sans 700
+     went unnoticed at 15 CSS sites plus every markdown <strong>. Fira Code was
+     requested and never rendered — it sits behind JetBrains Mono in the stack,
+     so it was 7 weights of dead CSS and one face stuck permanently `loading`.
+     Verify with tools/font-check.mjs after any change here. -->
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/base.css">
-<link rel="stylesheet" href="/static/css/vendor/highlight-github-dark.min.css">
+<link rel="stylesheet" href="/static/css/hljs-tokens.css">
+<script>
+// Theme bootstrap — runs before first paint so there is never a flash of the
+// wrong theme. Registry is the single source of truth for both this and the
+// settings drawer switcher (frontend/static/js/ui/settings_panel.js reads
+// window.GCA_THEMES). Adding theme #2: add an entry here + a matching
+// [data-theme="..."] block in base.css. Nothing else.
+window.GCA_THEMES = [
+  { id: "lit-workbench", label: "Lit Workbench" },
+];
+(function () {
+  var DEFAULT_THEME = window.GCA_THEMES[0].id;
+  var chosen = DEFAULT_THEME;
+  try {
+    var saved = window.localStorage.getItem("gca_theme");
+    if (saved && window.GCA_THEMES.some(function (t) { return t.id === saved; })) {
+      chosen = saved;
+    }
+  } catch (e) { /* localStorage unavailable (private mode) — use default */ }
+  document.documentElement.setAttribute("data-theme", chosen);
+})();
+</script>
 </head>
 <body>
+<canvas id="honeycombCanvas"></canvas>
+<div class="ambient-bg"></div>
+<div class="scanline-overlay"></div>
 <div id="app"></div>
+<script>
+// Surface JS failures that would otherwise produce a blank page
+window.addEventListener('error', function(e) {
+  var app = document.getElementById('app');
+  if (app && !app.firstElementChild) app.innerHTML = '<pre style="color:#f87171;padding:20px;white-space:pre-wrap;background:#0d0d0d">JS ERROR: ' + e.message + '\nFile: ' + (e.filename||'?') + ':' + e.lineno + '\n' + (e.error&&e.error.stack||'') + '</pre>';
+});
+window.addEventListener('unhandledrejection', function(e) {
+  var app = document.getElementById('app');
+  if (app && !app.firstElementChild) app.innerHTML = '<pre style="color:#f87171;padding:20px;white-space:pre-wrap;background:#0d0d0d">PROMISE ERROR: ' + ((e.reason&&e.reason.stack)||e.reason) + '</pre>';
+});
+</script>
 <script src="/static/js/vendor/marked.min.js"></script>
 <script src="/static/js/vendor/highlight.min.js"></script>
 <script type="module" src="/static/js/main.js"></script>
+<script src="/static/js/honeycomb.js"></script>
 </body>
 </html>

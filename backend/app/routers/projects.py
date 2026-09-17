@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 class CreateProjectRequest(BaseModel):
     name: str
-    working_dir: str
+    working_dir: str | None = None
     system_prompt: str | None = None
 
 

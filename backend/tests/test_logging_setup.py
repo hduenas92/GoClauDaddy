@@ -19,7 +19,7 @@ def test_setup_logging_creates_missing_log_directory(tmp_path, monkeypatch):
     monkeypatch.setattr(logging_setup, "LOG_FILE", fresh_log_file)
     monkeypatch.setattr(logging_setup, "_configured", False)
 
-    root = logging.getLogger("claudioui")
+    root = logging.getLogger("goclaudaddy")
     added_handlers = [h for h in root.handlers]
     try:
         logging_setup.setup_logging()

@@ -23,6 +23,9 @@ export const api = {
   updateConversationSettings: (id, settings) =>
     req("PATCH", `/api/conversations/${id}/settings`, settings),
   deleteConversation: (id) => req("DELETE", `/api/conversations/${id}`),
+  autoTitleConversation: (id) => req("POST", `/api/conversations/${id}/auto-title`),
+  exportConversation: (id) => req("GET", `/api/conversations/${id}/export`),
+  deleteLastMessage: (id) => req("DELETE", `/api/conversations/${id}/messages/last`),
 
   listProjects: () => req("GET", "/api/projects"),
   createProject: (body) => req("POST", "/api/projects", body),
@@ -45,4 +48,12 @@ export const api = {
     return res.json();
   },
   deleteAttachment: (id) => req("DELETE", `/api/attachments/${id}`),
+
+  assessMessage: (conversationId, message) =>
+    req("POST", "/api/conversations/assess", { conversation_id: conversationId, message }),
+
+  listFlowTemplates: () => req("GET", "/api/flow-templates"),
+  createFlowTemplate: (body) => req("POST", "/api/flow-templates", body),
+  updateFlowTemplate: (id, body) => req("PUT", `/api/flow-templates/${id}`, body),
+  deleteFlowTemplate: (id) => req("DELETE", `/api/flow-templates/${id}`),
 };

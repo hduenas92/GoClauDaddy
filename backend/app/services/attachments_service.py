@@ -24,6 +24,10 @@ class AttachmentRejected(ValueError):
     pass
 
 
+class ConversationNotFound(LookupError):
+    pass
+
+
 def _sanitize_filename(name: str) -> str:
     # Strip any path component (handles both / and \ separators, and any
     # leading ".." traversal attempt), then collapse everything else to a
@@ -48,6 +52,11 @@ def save_attachment(
     ext = Path(safe_name).suffix.lower()
     if ext not in ALLOWED_ATTACHMENT_EXTENSIONS:
         raise AttachmentRejected(f"File type '{ext}' is not allowed")
+
+    with get_connection() as conn:
+        exists = conn.execute("SELECT 1 FROM conversations WHERE id = ?", (conversation_id,)).fetchone()
+    if not exists:
+        raise ConversationNotFound(conversation_id)
 
     conv_dir = ATTACHMENTS_DIR / conversation_id
     conv_dir.mkdir(parents=True, exist_ok=True)

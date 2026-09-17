@@ -14,5 +14,19 @@ __pycache__/
 .vscode/
 .idea/
 
+# Zip drops for distributing to coworkers — regenerated, not source
+output/
+
+# Dependencies
+node_modules/
+
+# Logs & temp files
+*.log
+*.bak
+screenshot-*.png
+shot-*.png
+shot*.png
+
 # Personal to this machine — not shared team config
 .claude/settings.local.json
+

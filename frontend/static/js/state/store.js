@@ -7,7 +7,6 @@ const state = {
   activeConversationId: null,
   messages: [], // messages of the active conversation
   streaming: false,
-  model: "claude-sonnet-4-6",
 };
 
 const listeners = new Set();

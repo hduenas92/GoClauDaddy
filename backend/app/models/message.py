@@ -11,11 +11,16 @@ class Message:
     thinking: str | None
     input_tokens: int | None
     output_tokens: int | None
+    model: str | None
+    cache_read_tokens: int
+    cache_creation_tokens: int
     seq: int
     created_at: str
+    tool_calls: str | None = None
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "Message":
+        keys = row.keys()
         return cls(
             id=row["id"],
             conversation_id=row["conversation_id"],
@@ -24,6 +29,10 @@ class Message:
             thinking=row["thinking"],
             input_tokens=row["input_tokens"],
             output_tokens=row["output_tokens"],
+            model=row["model"],
+            cache_read_tokens=row["cache_read_tokens"] or 0,
+            cache_creation_tokens=row["cache_creation_tokens"] or 0,
             seq=row["seq"],
             created_at=row["created_at"],
+            tool_calls=row["tool_calls"] if "tool_calls" in keys else None,
         )

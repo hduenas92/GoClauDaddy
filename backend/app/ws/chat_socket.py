@@ -14,6 +14,7 @@ straight back to `receive_json()` after starting it.
 
 import asyncio
 import contextlib
+import json
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -27,24 +28,40 @@ from app.services.process_registry import registry
 
 log = get_logger("chat_socket")
 
+# Appended to the persisted content of a turn that was cancelled mid-stream via
+# /stop, so the transcript never implies Claude finished a thought it didn't.
+# An HTML comment is invisible when rendered as markdown (marked.js passes
+# through unknown HTML untouched) but is an unambiguous, grep-able marker in
+# raw content. No schema change: avoids a v15 migration for one boolean.
+STOPPED_MARKER = "\n\n<!-- claudioui:stopped -->"
+
 
 async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None:
     await websocket.accept()
     log.info("WS connected for conversation %s", conversation_id)
+
+    # Shared queue for approval responses (approve/deny WS messages from frontend).
+    # maxsize=1: only one approval can be pending at a time (the subprocess blocks on stdin).
+    approval_queue: asyncio.Queue[bool] = asyncio.Queue(maxsize=1)
 
     try:
         while True:
             payload = await websocket.receive_json()
             msg_type = payload.get("type")
 
+            if msg_type in ("approve", "deny"):
+                # Drain stale entries (safety) then signal the waiting send-task
+                while not approval_queue.empty():
+                    approval_queue.get_nowait()
+                approval_queue.put_nowait(msg_type == "approve")
+                continue
+
             if msg_type == "stop":
                 stopped = registry.stop(conversation_id)
                 await websocket.send_json({"type": "stopped", "did_stop": stopped})
-                if stopped:
-                    # claude_cli.run() skips its own trailing `done` event on
-                    # cancellation (it re-raises instead) - send it here so the
-                    # frontend's existing done-keyed UI reset still fires.
-                    await websocket.send_json({"type": "done"})
+                # Always send done so the frontend resets the composer regardless
+                # of whether there was anything to stop.
+                await websocket.send_json({"type": "done"})
                 continue
 
             if msg_type != "send":
@@ -60,7 +77,7 @@ async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None
             # Fire-and-forget: registered immediately (no await between the
             # is_busy check above and this) so a second rapid `send` can't
             # slip past registry.is_busy() before this one is tracked.
-            task = asyncio.ensure_future(_handle_send(websocket, conversation_id, payload))
+            task = asyncio.ensure_future(_handle_send(websocket, conversation_id, payload, approval_queue))
             registry.register_task(conversation_id, task)
 
     except WebSocketDisconnect:
@@ -70,10 +87,16 @@ async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None
         # persists headless; the registry entry clears itself on completion.
 
 
-async def _handle_send(websocket: WebSocket, conversation_id: str, payload: dict) -> None:
+async def _handle_send(
+    websocket: WebSocket,
+    conversation_id: str,
+    payload: dict,
+    approval_queue: asyncio.Queue,
+) -> None:
     prompt = (payload.get("message") or "").strip()
     if not prompt:
         await websocket.send_json({"type": "error", "error": "Empty message."})
+        await websocket.send_json({"type": "done"})
         return
 
     conv = convs.get_conversation(conversation_id)
@@ -81,13 +104,18 @@ async def _handle_send(websocket: WebSocket, conversation_id: str, payload: dict
         await websocket.send_json(
             {"type": "error", "error": "Conversation not found. Create it first via POST /api/conversations."}
         )
+        await websocket.send_json({"type": "done"})
         return
 
     project = projects.get_project(conv.project_id) if conv.project_id else None
 
-    model = payload.get("model") or conv.model
-    permission_mode = payload.get("permission_mode") or conv.permission_mode
-    system_prompt = payload.get("system_prompt") or (project.system_prompt if project else None)
+    model = conv.model
+    permission_mode = conv.permission_mode
+    # Conversation-level prompt overrides project-level; payload is not a source
+    # of truth for system_prompt (the settings panel PATCHes the DB directly).
+    system_prompt = conv.system_prompt or (project.system_prompt if project else None)
+    thinking_budget = conv.thinking_budget
+    max_tokens = conv.max_tokens
     cwd = (project.working_dir if project else None) or DEFAULT_WORKING_DIR
 
     # Attachments were uploaded separately (POST /api/attachments) and are
@@ -107,13 +135,19 @@ async def _handle_send(websocket: WebSocket, conversation_id: str, payload: dict
     attachments.attach_to_message(attachment_ids, user_message.id)
     convs.set_status(conversation_id, "busy")
 
+    proc_stdin: list = [None]  # mutable container captured by closure below
+
     def _on_started(proc):
         registry.register_process(conversation_id, proc)
+        proc_stdin[0] = proc.stdin  # capture for approval responses
 
     text_parts: list[str] = []
     thinking_parts: list[str] = []
+    tool_calls_map: dict[str, dict] = {}
     usage = {"input_tokens": 0, "output_tokens": 0}
     had_error = False
+    sent_done = False
+    cancelled = False
     try:
         async for event in claude_cli.run(
             prompt=prompt_for_cli,
@@ -121,26 +155,64 @@ async def _handle_send(websocket: WebSocket, conversation_id: str, payload: dict
             cwd=cwd,
             permission_mode=permission_mode,
             system_prompt=system_prompt,
+            thinking_budget=thinking_budget,
+            max_tokens=max_tokens,
             session_id=conv.session_id,
             on_process_started=_on_started,
         ):
             ev_type = event.get("type")
+            if ev_type == "approval_needed":
+                # Forward to frontend; wait for approve/deny back over the same WS.
+                # The subprocess is blocked on stdin at this point, so stdout is quiet
+                # until we write y/n — no events are missed during the await.
+                with contextlib.suppress(RuntimeError):
+                    await websocket.send_json(event)
+                try:
+                    approved = await asyncio.wait_for(approval_queue.get(), timeout=60)
+                except TimeoutError:
+                    approved = True  # timeout = auto-approve, keep stream alive
+                stdin = proc_stdin[0]
+                if stdin and not stdin.is_closing():
+                    stdin.write(b"y\n" if approved else b"n\n")
+                    with contextlib.suppress(Exception):
+                        await stdin.drain()
+                continue  # not a content event; skip all downstream accumulation
             if ev_type == "session":
                 convs.set_session_id(conversation_id, event["session_id"])
             elif ev_type == "text":
                 text_parts.append(event.get("text", ""))
             elif ev_type == "thinking":
                 thinking_parts.append(event.get("thinking", ""))
-            elif ev_type in ("usage", "result") and event.get("usage"):
-                usage = event["usage"]
+            elif ev_type == "tool_call":
+                tc_id = event.get("id", "")
+                tool_calls_map[tc_id] = {"id": tc_id, "name": event.get("name", ""), "input": event.get("input", {})}
+            elif ev_type == "tool_result":
+                tc_id = event.get("tool_use_id", "")
+                if tc_id in tool_calls_map:
+                    tool_calls_map[tc_id]["output"] = event.get("content", "")
+                    tool_calls_map[tc_id]["is_error"] = event.get("is_error", False)
+            elif ev_type == "result" and event.get("usage"):
+                usage = event["usage"]   # authoritative final totals
+            elif ev_type == "usage" and event.get("usage"):
+                step = event["usage"]
+                usage["output_tokens"] = usage.get("output_tokens", 0) + step.get("output_tokens", 0)
+                if step.get("input_tokens"):
+                    usage["input_tokens"] = step["input_tokens"]
+                if step.get("cache_read_input_tokens"):
+                    usage["cache_read_input_tokens"] = step["cache_read_input_tokens"]
+                if step.get("cache_creation_input_tokens"):
+                    usage["cache_creation_input_tokens"] = step["cache_creation_input_tokens"]
             elif ev_type in ("error", "timeout"):
                 had_error = True
 
             # Socket already closed (client navigated away)? Keep draining the
             # generator so the subprocess still finishes and persists.
+            if ev_type == "done":
+                sent_done = True
             with contextlib.suppress(RuntimeError):
                 await websocket.send_json(event)
     except asyncio.CancelledError:
+        cancelled = True  # marks the persisted row below; must still propagate
         raise  # expected — a /stop cancelled this task, not a real failure
     except Exception:  # noqa: BLE001 — this task is fire-and-forget; an
         # uncaught exception here would otherwise vanish into asyncio's default
@@ -155,14 +227,23 @@ async def _handle_send(websocket: WebSocket, conversation_id: str, payload: dict
     finally:
         registry.clear(conversation_id)
         convs.set_status(conversation_id, "error" if had_error else "idle")
+        if not sent_done:
+            with contextlib.suppress(RuntimeError):
+                await websocket.send_json({"type": "done"})
         full_text = "".join(text_parts)
         full_thinking = "".join(thinking_parts) or None
-        if full_text or full_thinking:
+        tool_calls_json = json.dumps(list(tool_calls_map.values())) if tool_calls_map else None
+        if full_text or full_thinking or tool_calls_json or usage.get("output_tokens") or usage.get("input_tokens"):
+            content = full_text + STOPPED_MARKER if cancelled else full_text
             convs.add_message(
                 conversation_id,
                 "assistant",
-                full_text,
+                content,
                 thinking=full_thinking,
+                tool_calls=tool_calls_json,
+                model=model,
                 input_tokens=usage.get("input_tokens"),
                 output_tokens=usage.get("output_tokens"),
+                cache_read_tokens=usage.get("cache_read_input_tokens") or 0,
+                cache_creation_tokens=usage.get("cache_creation_input_tokens") or 0,
             )
