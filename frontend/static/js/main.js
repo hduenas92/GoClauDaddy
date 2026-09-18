@@ -262,14 +262,42 @@ async function boot() {
 
     const mod = e.ctrlKey || e.metaKey;
 
+    // Escape is evaluated FIRST so no guard below can ever block it. Its
+    // precedence is unchanged: shortcuts overlay, then drawer, then modal.
+    if (e.key === "Escape") {
+      if (!shortcutsOverlay.hidden) { shortcutsOverlay.hidden = true; return; }
+      if (settingsDrawerEl.classList.contains("drawer-open")) {
+        closeDrawer(settingsDrawerEl);
+        return;
+      }
+      const escOverlay = document.querySelector(".modal-overlay");
+      if (escOverlay?._reject) escOverlay._reject();
+      return;
+    }
+
+    // Is something modal on screen? Shortcuts that OPEN a surface or act
+    // destructively must be inert while it is, or they stack a second overlay on
+    // the first, or switch conversation mid-rename.
+    //
+    // This is deliberately NOT a single guard above the branch table. Ctrl+, and
+    // ? are TOGGLES: each closes its own surface. A blanket guard would make the
+    // drawer and the shortcuts overlay openable and then un-closable by the very
+    // key that opened them — two new dead ends in place of one bug.
+    const overlayOpen =
+      !shortcutsOverlay.hidden ||
+      settingsDrawerEl.classList.contains("drawer-open") ||
+      !!document.querySelector(".modal-overlay");
+
     // Ctrl+Shift+N — new conversation
     if (mod && e.shiftKey && e.key === "N") {
+      if (overlayOpen) return;
       e.preventDefault();
       createConversation().then((conv) => switchToConversation(conv.id, chatPane, composerRoot));
       return;
     }
     // Ctrl+` — terminal panel
     if (mod && e.key === "`") {
+      if (overlayOpen) return;
       e.preventDefault();
       if (localStorage.getItem("gca_feat_terminal") === "1") {
         import("./ui/terminal.js").then(m => m.openTerminal()).catch(() => {});
@@ -278,6 +306,7 @@ async function boot() {
     }
     // Ctrl+Shift+T — template picker
     if (mod && e.shiftKey && e.key === "T") {
+      if (overlayOpen) return;
       e.preventDefault();
       openTemplatePicker({ onSelect: (text) => { composerRoot.setText?.(text); } });
       return;
@@ -291,6 +320,7 @@ async function boot() {
     }
     // Ctrl+B — toggle right sidebar
     if (mod && e.key === "b") {
+      if (overlayOpen) return;
       e.preventDefault();
       const collapsed = rightSidebarEl.classList.toggle("sb-collapsed");
       localStorage.setItem("gca_sb_open", collapsed ? "0" : "1");
@@ -298,6 +328,7 @@ async function boot() {
     }
     // Ctrl+E — export
     if (mod && e.key === "e" && !inInput) {
+      if (overlayOpen) return;
       e.preventDefault();
       chatPane.exportConversation();
       return;
@@ -312,17 +343,6 @@ async function boot() {
     if (e.key === "?" && !inInput) {
       shortcutsOverlay.hidden = !shortcutsOverlay.hidden;
       return;
-    }
-    // Esc — close panels
-    if (e.key === "Escape") {
-      if (!shortcutsOverlay.hidden) { shortcutsOverlay.hidden = true; return; }
-      if (settingsDrawerEl.classList.contains("drawer-open")) {
-        closeDrawer(settingsDrawerEl);
-        return;
-      }
-      // Close any open modal
-      const overlay = document.querySelector(".modal-overlay");
-      if (overlay?._reject) overlay._reject();
     }
   });
 }
