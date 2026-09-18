@@ -17,6 +17,53 @@ function _buildOverlay() {
   return overlay;
 }
 
+
+// Anything a keyboard user can land on. `[tabindex="-1"]` is excluded on purpose:
+// script can focus it, Tab cannot reach it, so it is not part of the sequence a
+// trap has to contain. Kept identical to the selector tools/focus-check.mjs
+// sweeps with, so the instrument and the implementation cannot disagree about
+// what "the last control" means.
+const FOCUSABLE =
+  'button, a[href], input:not([type=hidden]), select, textarea, [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Keep Tab inside `root` while it is open. Returns a release function.
+ *
+ * Without this, Tab from the last control walks into the page behind the dialog
+ * — a keyboard user is then operating controls they cannot see, underneath an
+ * overlay they believe has their attention. Measured on this app before the fix:
+ * focus escaped to `.cost-toast-close`, a live button behind the modal.
+ *
+ * Listens on `document` in the CAPTURE phase rather than on `root`, because
+ * focus may already be outside `root` by the time Tab is pressed; a listener
+ * bound to `root` never sees that keystroke. Capture also runs before the app's
+ * own document-level shortcut handler.
+ *
+ * Visibility is tested with getClientRects(), NOT offsetParent: overlays are
+ * position:fixed, and offsetParent is null for fixed elements, which would
+ * filter out every control and silently disable the trap.
+ */
+export function trapFocus(root) {
+  const onKey = (e) => {
+    if (e.key !== "Tab" || !root.isConnected) return;
+    const els = [...root.querySelectorAll(FOCUSABLE)]
+      .filter((el) => !el.disabled && el.getClientRects().length > 0);
+    if (els.length === 0) return;          // nothing to trap; do not hijack Tab
+    const first = els[0];
+    const last = els[els.length - 1];
+    const active = document.activeElement;
+    const inside = root.contains(active);
+    if (e.shiftKey) {
+      if (!inside || active === first) { e.preventDefault(); last.focus(); }
+    } else if (!inside || active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+  document.addEventListener("keydown", onKey, true);
+  return () => document.removeEventListener("keydown", onKey, true);
+}
+
 export function showModal({ title, fields = [], confirmText = "Save", danger = false, initial = {} }) {
   return new Promise((resolve) => {
     const overlay = _buildOverlay();
@@ -44,6 +91,10 @@ export function showModal({ title, fields = [], confirmText = "Save", danger = f
     `;
     overlay.appendChild(box);
 
+    const releaseTrap = trapFocus(overlay);
+    const _reject = overlay._reject;
+    overlay._reject = () => { releaseTrap(); _reject(); };
+
     const inputs = box.querySelectorAll(".modal-input");
     if (inputs.length) inputs[0].focus();
 
@@ -70,7 +121,8 @@ export function showModal({ title, fields = [], confirmText = "Save", danger = f
 export function showConfirm({ message, confirmText = "Delete", danger = true }) {
   return new Promise((resolve) => {
     const overlay = _buildOverlay();
-    overlay._reject = () => { overlay.remove(); resolve(false); };
+    const releaseTrap = trapFocus(overlay);
+    overlay._reject = () => { releaseTrap(); overlay.remove(); resolve(false); };
 
     const box = document.createElement("div");
     box.className = "modal-box";

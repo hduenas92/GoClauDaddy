@@ -5,6 +5,8 @@
  * interpolateTemplate(body, onFilled) — variable fill-in flow; calls onFilled(text).
  */
 
+import { trapFocus } from "./modal.js";
+
 import { api } from "../api/http.js";
 import { getTemplates, invalidateTemplates } from "../api/template_cache.js";
 import { showModal, showConfirm } from "./modal.js";
@@ -43,8 +45,10 @@ export function openTemplatePicker({ onSelect }) {
 
   const overlay = document.createElement("div");
   overlay.className = "tp-overlay";
+  let _releaseTrap = null;
 
   function close() {
+    _releaseTrap?.();
     overlay.remove();
     document.removeEventListener("keydown", onKey);
   }
@@ -53,6 +57,7 @@ export function openTemplatePicker({ onSelect }) {
     if (e.key === "Escape") close();
   }
   document.addEventListener("keydown", onKey);
+  _releaseTrap = trapFocus(overlay);
   overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(); });
 
   // --- Render ---
@@ -86,7 +91,7 @@ export function openTemplatePicker({ onSelect }) {
         <div class="tp-header">
           <span class="tp-title">Templates</span>
           <input class="tp-search" id="tp-search" type="text" placeholder="Search templates…" value="${escHtml(searchQuery)}">
-          <button class="tp-close">✕</button>
+          <button class="tp-close" aria-label="Close templates">✕</button>
         </div>
         <div class="tp-body">
           <nav class="tp-cats">
@@ -116,7 +121,18 @@ export function openTemplatePicker({ onSelect }) {
     overlay.querySelector("#tp-new-btn")?.addEventListener("click", () => newTemplate());
     overlay.querySelector("#tp-empty-new")?.addEventListener("click", () => newTemplate());
     overlay.querySelectorAll(".tp-card").forEach(card => {
-      card.addEventListener("click", () => useTemplate(card.dataset.id));
+      const use = () => useTemplate(card.dataset.id);
+      card.addEventListener("click", use);
+      // .tp-card is role="button" tabindex="0" — focusable, and until now inert
+      // for anyone not using a mouse. A native <button> fires on Enter AND
+      // Space; role="button" is a promise to behave like one. Mirrors the
+      // .conv-body handler in sidebar_conversations.js.
+      card.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          use();
+        }
+      });
     });
     overlay.querySelectorAll(".tp-edit-btn").forEach(btn => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); editTemplate(btn.dataset.id); });

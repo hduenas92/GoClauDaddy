@@ -52,6 +52,7 @@ import { mountSettingsPanel, openDrawer, closeDrawer } from "./ui/settings_panel
 import { mountRightSidebar } from "./ui/right_sidebar.js";
 import { maybeShowOnboarding } from "./ui/onboarding_tour.js";
 import { openTemplatePicker } from "./ui/template_picker.js";
+import { trapFocus } from "./ui/modal.js";
 
 let currentSocket = null;
 let currentConversation = null;
@@ -142,7 +143,7 @@ async function boot() {
       <div class="shortcuts-box">
         <div class="shortcuts-header">
           <span>Keyboard Shortcuts</span>
-          <button class="shortcuts-close">✕</button>
+          <button class="shortcuts-close" aria-label="Close keyboard shortcuts">✕</button>
         </div>
         <div class="shortcuts-grid">
           <kbd>Ctrl+Shift+N</kbd><span>New conversation</span>
@@ -197,6 +198,23 @@ async function boot() {
   });
 
   const shortcutsOverlay = document.getElementById("shortcuts-overlay");
+
+  // This overlay lives in the markup and is shown/hidden by toggling `hidden`
+  // from FIVE places: the header button, the "?" shortcut, its close button,
+  // a backdrop mousedown, and Escape. Rather than install and release the trap
+  // at each of those call sites — where the next one added would silently miss
+  // it — observe the attribute that actually decides whether it is on screen.
+  let _shortcutsTrap = null;
+  new MutationObserver(() => {
+    if (!shortcutsOverlay.hidden && !_shortcutsTrap) {
+      _shortcutsTrap = trapFocus(shortcutsOverlay);
+      // Focus must start inside, or the first Tab is the user's only way in.
+      shortcutsOverlay.querySelector(".shortcuts-close")?.focus();
+    } else if (shortcutsOverlay.hidden && _shortcutsTrap) {
+      _shortcutsTrap();
+      _shortcutsTrap = null;
+    }
+  }).observe(shortcutsOverlay, { attributes: true, attributeFilter: ["hidden"] });
   document.getElementById("shortcuts-btn").addEventListener("click", () => {
     shortcutsOverlay.hidden = false;
   });

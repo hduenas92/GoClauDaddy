@@ -3,6 +3,8 @@
  * Exports: showOnboarding(), maybeShowOnboarding()
  */
 
+import { trapFocus } from "./modal.js";
+
 const STEPS = [
   {
     icon: "◈",
@@ -38,6 +40,10 @@ export function maybeShowOnboarding() {
 export function showOnboarding() {
   const overlay = document.createElement("div");
   overlay.className = "ob-overlay";
+
+  // The tour already moves focus in (render() focuses .ob-btn-primary) but never
+  // kept it there: Tab from the last button walked out into the app behind.
+  let _releaseTrap = null;
 
   let step = 0;
 
@@ -81,6 +87,7 @@ export function showOnboarding() {
 
   function dismiss() {
     _mark();
+    _releaseTrap?.();
     overlay.remove();
     document.removeEventListener("keydown", onKey);
   }
@@ -96,6 +103,7 @@ export function showOnboarding() {
   }
 
   document.addEventListener("keydown", onKey);
+  _releaseTrap = trapFocus(overlay);
   // Attach BEFORE the first render. render() calls .focus() on the primary
   // button, and focus() is a silent no-op on a detached element — so with the
   // old order (render, then append) focus never moved into the dialog at all.
