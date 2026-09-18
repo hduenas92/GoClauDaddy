@@ -93,6 +93,52 @@ async def _handle_send(
     payload: dict,
     approval_queue: asyncio.Queue,
 ) -> None:
+    """N11 guard around the real handler.
+
+    The per-turn SETUP below (everything before the streaming `try:`) used to sit
+    outside any guard. A malformed payload, or any DB error while loading the
+    conversation or project, therefore escaped a fire-and-forget task: **no frame
+    of any kind reached the client**, `registry.clear()` never ran so the
+    conversation could stay `status="busy"` forever, and nothing was logged —
+    because the failed task stays referenced in `registry._tasks`, so asyncio
+    never GC-logs it either. The turn simply vanished.
+
+    This is the server-side mirror of N1: the frontend restores itself on `done`,
+    and here was a path on which `done` could never arrive.
+
+    Wrapped rather than restructured on purpose. The inner function's own
+    `try/finally` already clears the registry, sets status and guarantees `done`
+    for every failure DURING streaming; re-indenting the setup into that block
+    would risk changing teardown semantics that are already correct and tested.
+
+    `except Exception` deliberately does not catch `asyncio.CancelledError`,
+    which is a BaseException in modern Python — a `/stop` must keep cancelling.
+    """
+    try:
+        await _handle_send_inner(websocket, conversation_id, payload, approval_queue)
+    except Exception:
+        log.exception("Unhandled error in send setup for conversation %s", conversation_id)
+        # Honour the done-always contract the composer relies on
+        # (see :59-65 and :231-232): error first, then done.
+        with contextlib.suppress(Exception):
+            await websocket.send_json(
+                {"type": "error", "error": "Something went wrong starting that turn. Check the logs folder for details."}
+            )
+        with contextlib.suppress(Exception):
+            await websocket.send_json({"type": "done"})
+        # Never leave the conversation wedged as busy.
+        with contextlib.suppress(Exception):
+            registry.clear(conversation_id)
+        with contextlib.suppress(Exception):
+            convs.set_status(conversation_id, "idle")
+
+
+async def _handle_send_inner(
+    websocket: WebSocket,
+    conversation_id: str,
+    payload: dict,
+    approval_queue: asyncio.Queue,
+) -> None:
     regenerate = bool(payload.get("regenerate"))
     prompt = (payload.get("message") or "").strip()
     if not regenerate and not prompt:

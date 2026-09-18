@@ -190,6 +190,75 @@ const killSocket = (page) =>
   } finally { await ctx.close(); }
 }
 
+// --- 5. N1: a turn that dies with its socket must not strand the composer ---
+// Needs a REAL streaming turn: the defect is that `done` never arrives, and
+// `done` is the only thing that restores the composer. If the turn finishes
+// before we can cut the socket, the case reports INCONCLUSIVE rather than
+// passing — a turn that completed normally proves nothing about this path.
+{
+  const label = '5. a turn killed mid-stream restores the composer';
+  const { ctx, page } = await freshPage();
+  try {
+    await page.fill('#composer-input', 'Count slowly from 1 to 20, one number per line.');
+    await page.click('#composer-send');
+
+    const streaming = await page.waitForFunction(
+      () => document.getElementById('composer-stop')?.hidden === false,
+      { timeout: 15000 },
+    ).then(() => true).catch(() => false);
+
+    if (!streaming) {
+      add(label, 'INCONCLUSIVE', 'Stop never became visible — no turn was caught mid-stream');
+    } else {
+      await killSocket(page);
+      const restored = await page.waitForFunction(
+        () => document.getElementById('composer-send')?.hidden === false &&
+              document.getElementById('composer-stop')?.hidden === true,
+        { timeout: 4000 },
+      ).then(() => true).catch(() => false);
+
+      // Bail out BEFORE touching the composer if it never came back. Clicking a
+      // hidden #composer-send makes Playwright wait 30s for visibility and then
+      // THROW, which crashes the harness instead of reporting a failure — an
+      // ambiguous crash reads as "not proven" rather than as the clear FAIL this
+      // is. That is exactly the stranded state the task exists to prevent, so
+      // name it.
+      if (!restored) {
+        add(label, 'FAIL',
+            'Send never returned / Stop never hid after the drop — the composer is stranded, ' +
+            'which is N1 exactly: no `done` can arrive for a turn that died with its socket');
+        await ctx.close();
+        throw new Error('__handled__');
+      }
+
+      // The composer looking right is not enough: `streaming` stuck true makes
+      // send() early-return forever while Send sits there looking usable.
+      // A subsequent attempt must actually be processed.
+      const before = await page.evaluate(() => document.querySelectorAll('.msg').length);
+      await page.evaluate(() => document.querySelector('.error-toast')?.remove());
+      await page.waitForFunction(() => (window.__sockets || []).some((w) => w.readyState === 1),
+        { timeout: 8000 }).catch(() => {});
+      await page.fill('#composer-input', 'after the drop');
+      await page.click('#composer-send');
+      await page.waitForTimeout(1500);
+      const after = await page.evaluate(() => ({
+        msgs: document.querySelectorAll('.msg').length,
+        toast: document.querySelector('.error-toast')?.innerText?.trim() ?? '',
+      }));
+      const accepted = after.msgs > before || after.toast.length > 0;
+
+      add(label, restored && accepted ? 'PASS' : 'FAIL',
+          `buttons restored=${restored}; subsequent send ${accepted ? 'accepted' : 'SILENTLY DROPPED (composer wedged)'}`);
+    }
+  } catch (e) {
+    if (e?.message !== '__handled__') {
+      add(label, 'FAIL', `case threw before it could assert: ${e?.message || e}`);
+    }
+  } finally {
+    await ctx.close().catch(() => {});
+  }
+}
+
 await browser.close();
 
 console.log('\n=== connection-ux-check ===\n');

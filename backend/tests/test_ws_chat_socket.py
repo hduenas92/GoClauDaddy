@@ -573,3 +573,85 @@ def test_regenerate_with_no_prior_question_reports_it(temp_db, monkeypatch):
     assert [f.get("type") for f in frames] == ["error", "done"], f"unexpected frames: {frames!r}"
     assert "no previous question" in frames[0]["error"].lower()
     assert convs.list_messages(conv_id) == []
+
+def test_setup_failure_sends_error_then_done_and_leaves_status_idle(temp_db, monkeypatch):
+    """N11: a failure in the per-turn SETUP must not make the turn vanish.
+
+    Everything before the streaming `try:` used to run unguarded inside a
+    fire-and-forget task. A DB error while loading the conversation therefore
+    sent NO frame at all, never cleared the registry, could leave the
+    conversation `busy` forever, and was never logged — asyncio does not
+    GC-log a task that is still referenced by `registry._tasks`.
+
+    The composer's whole recovery model is "restore on `done`" (see
+    chat_socket.py:59-65 and :231-232, which always follow `stopped` and
+    `error` with `done`). This asserts that contract holds on the setup path
+    too, which is the one place it did not.
+    """
+    conv_id = _conv(temp_db)
+    original_get = convs.get_conversation
+
+    def boom(_cid):
+        raise RuntimeError("simulated DB failure during per-turn setup")
+
+    with client.websocket_connect(f"/ws/chat/{conv_id}") as ws:
+        monkeypatch.setattr(chat_socket.convs, "get_conversation", boom)
+        ws.send_json({"type": "send", "message": "this turn dies during setup"})
+        first = ws.receive_json()
+        second = ws.receive_json()
+
+    assert first["type"] == "error", f"expected an error frame, got {first!r}"
+    assert second["type"] == "done", (
+        f"expected `done` after the error, got {second!r} — the composer only "
+        "restores itself on `done`, so without it the UI stays wedged"
+    )
+
+    # Read through the ORIGINAL function; the patched one raises.
+    assert original_get(conv_id).status == "idle", (
+        "a turn that died during setup left the conversation wedged"
+    )
+
+def test_setup_guard_is_what_converts_a_raise_into_error_then_done(temp_db, monkeypatch):
+    """N11, proven at the guard itself rather than through a socket.
+
+    The obvious mutation proof — bypass the guard in the dispatcher and watch
+    the WS test fail — does not work: without the guard nothing is ever sent,
+    so the test HANGS, and `websocket_connect.__exit__` then blocks trying to
+    unwind a connection whose server task has already died. A hang is not a
+    failure; it is an ambiguous result that wedges the suite.
+
+    So assert the difference directly. The unguarded function must propagate,
+    and the guarded one must turn the same failure into `error` then `done`.
+    This cannot pass if the guard is removed, which is exactly what a mutation
+    proof is for — without a socket that can hang.
+    """
+    import pytest
+
+    conv_id = _conv(temp_db)
+    sent: list[dict] = []
+
+    class _FakeWS:
+        async def send_json(self, payload):
+            sent.append(payload)
+
+    def boom(_cid):
+        raise RuntimeError("simulated DB failure during per-turn setup")
+
+    monkeypatch.setattr(chat_socket.convs, "get_conversation", boom)
+
+    # Pre-fix behaviour: the exception escapes into a fire-and-forget task and
+    # the client is told nothing at all.
+    with pytest.raises(RuntimeError):
+        asyncio.run(
+            chat_socket._handle_send_inner(_FakeWS(), conv_id, {"message": "x"}, asyncio.Queue())
+        )
+    assert sent == [], "the unguarded path must send nothing - that is the defect"
+
+    # Guarded: same failure, but the done-always contract holds.
+    asyncio.run(
+        chat_socket._handle_send(_FakeWS(), conv_id, {"message": "x"}, asyncio.Queue())
+    )
+    assert [f["type"] for f in sent] == ["error", "done"], (
+        f"expected error then done from the guard, got {[f.get('type') for f in sent]!r}"
+    )
+

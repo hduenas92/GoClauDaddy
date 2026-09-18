@@ -388,6 +388,25 @@ export function mountComposer(root, socket, chatPane) {
     }
   }
 
+  // N1. `done` below is the ONLY event that restores this composer, and a socket
+  // that dies mid-turn means no `done` can ever arrive — the turn is over while
+  // `streaming` stays true, send() early-returns forever, and the user's only
+  // recovery is a page reload.
+  //
+  // Deliberately narrow, per the brief: Stop and `error` do NOT strand the
+  // composer. chat_socket.py:59-65 always follows `stopped` with `done`, and
+  // `error` is followed by `done` at :231-232. `done` is the shared reset and it
+  // works. This fixes only the path where `done` cannot arrive at all.
+  //
+  // Idempotent, so it neither fights the `done` path nor leaves stale state on
+  // the freshly mounted composer when main.js:65 closes the old socket during a
+  // deliberate conversation switch.
+  socket.on("_close", () => {
+    sendBtn.hidden = false;
+    stopBtn.hidden = true;
+    setStreaming(false);
+  });
+
   socket.on("done", async () => {
     sendBtn.hidden = false;
     stopBtn.hidden = true;
