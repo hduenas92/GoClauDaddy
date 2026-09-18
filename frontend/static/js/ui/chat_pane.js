@@ -4,6 +4,7 @@ import { setStreaming } from "../state/actions.js";
 import { api } from "../api/http.js";
 import { getTemplates } from "../api/template_cache.js";
 import { interpolateTemplate } from "./template_picker.js";
+import { showErrorToast } from "./modal.js";
 
 const STATUS_LABEL = { done: "Done", error: "Error", stopped: "Stopped", timeout: "Timed out" };
 
@@ -490,7 +491,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
           // Nothing has moved yet, so the old answer is still on screen and the
           // question is sitting in the composer for a manual send. Task 2.5 owns
           // routing this through the shared non-boot failure surface.
-          _showErrorToast(`Couldn't regenerate: ${err?.message || err}`);
+          showErrorToast(`Couldn't regenerate: ${err?.message || err}`);
           return;
         }
         // Only drop the old answer once the new turn is actually under way.
@@ -618,7 +619,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
           msg = `Error: ${ev.error || "unknown error"}`;
         }
         statusEl.textContent = msg;
-        _showErrorToast(msg);
+        showErrorToast(msg);
         finishAssistantMessage("error", lastUsage);
       }),
       socket.on("stopped", () => {
@@ -650,22 +651,6 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         _showApprovalModal(ev.tool, ev.action, socket);
       }),
     ];
-  }
-
-  function _showErrorToast(message) {
-    const toast = document.createElement("div");
-    toast.className = "error-toast";
-    toast.innerHTML = `
-      <div class="error-toast-content">
-        <span class="error-toast-icon">⚠</span>
-        <span>${_escHtml(message)}</span>
-        <button class="error-toast-close" aria-label="Close">✕</button>
-      </div>
-    `;
-    document.body.appendChild(toast);
-    const close = () => { toast.remove(); };
-    toast.querySelector(".error-toast-close").addEventListener("click", close);
-    setTimeout(close, 8000);
   }
 
   return {

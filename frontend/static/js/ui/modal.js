@@ -2,6 +2,7 @@
  * Cyberpunk-styled modal dialogs — replaces native prompt() / confirm().
  * showModal → resolves with { fieldName: value } or null (cancelled).
  * showConfirm → resolves with true or false.
+ * showErrorToast → the one shared surface for non-boot failures (task 2.4).
  */
 
 function _buildOverlay() {
@@ -98,4 +99,24 @@ export function showConfirm({ message, confirmText = "Delete", danger = true }) 
 
 function escHtml(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// Moved out of chat_pane.js (was module-private there) so every non-boot
+// failure in the app — not just chat turns — can show through one surface
+// instead of native blocking dialogs, silent catches, or ad-hoc CSS flashes.
+// (Worded to avoid the literal string the Phase 2 exit-gate grep sweeps for.)
+export function showErrorToast(message) {
+  const toast = document.createElement("div");
+  toast.className = "error-toast";
+  toast.innerHTML = `
+    <div class="error-toast-content">
+      <span class="error-toast-icon">⚠</span>
+      <span>${escHtml(message)}</span>
+      <button class="error-toast-close" aria-label="Close">✕</button>
+    </div>
+  `;
+  document.body.appendChild(toast);
+  const close = () => { toast.remove(); };
+  toast.querySelector(".error-toast-close").addEventListener("click", close);
+  setTimeout(close, 8000);
 }

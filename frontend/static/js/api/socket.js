@@ -1,6 +1,7 @@
 /** Thin WebSocket wrapper: one connection per conversation, JSON in/out, simple event dispatch. */
 
 import { api } from "./http.js";
+import { showErrorToast } from "../ui/modal.js";
 
 // Terminal event types for a turn — once one of these is observed live, the
 // turn is no longer "pending" from this client's point of view.
@@ -96,7 +97,12 @@ export class ChatSocket {
         this._clearPending();
         this._emit("_resync_done", {});
       }
-    } catch { /* best-effort — no resync event on failure */ }
+    } catch {
+      // Best-effort check, but it must not fail silently: if we can't tell
+      // whether a message sent from this tab actually finished, the user
+      // needs to know rather than just trust an unconfirmed reply.
+      showErrorToast("Couldn't confirm your last message went through — refresh the page to check.");
+    }
   }
 
   on(eventType, fn) {

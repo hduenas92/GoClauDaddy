@@ -3,6 +3,7 @@ import { getState } from "../state/store.js";
 import { setStreaming, loadConversations } from "../state/actions.js";
 import { getTemplates } from "../api/template_cache.js";
 import { interpolateTemplate, openTemplatePicker } from "./template_picker.js";
+import { showErrorToast } from "./modal.js";
 
 const _RISKY = /\b(delete|drop|remove|wipe|destroy|format|truncate|uninstall|overwrite|migrate|deploy|execute|rm\s+-rf)\b/i;
 
@@ -200,7 +201,7 @@ export function mountComposer(root, socket, chatPane) {
       pending.push({ id: att.id, name: att.original_name });
       renderStrip();
     } catch (e) {
-      alert(`Could not attach ${file.name}: ${e.message}`);
+      showErrorToast(`Couldn't attach "${file.name}": ${e.message}. Try again, or use a smaller file.`);
     }
   }
 

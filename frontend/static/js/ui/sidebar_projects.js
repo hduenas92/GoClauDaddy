@@ -1,7 +1,7 @@
 import { api } from "../api/http.js";
 import { getState, subscribe } from "../state/store.js";
 import { createProject, deleteProject, loadProjects, selectProject } from "../state/actions.js";
-import { showModal, showConfirm } from "./modal.js";
+import { showModal, showConfirm, showErrorToast } from "./modal.js";
 
 export function mountSidebarProjects(root, onSwitchProject) {
   root.innerHTML = `
@@ -27,7 +27,7 @@ export function mountSidebarProjects(root, onSwitchProject) {
       await createProject(result.name.trim(), result.working_dir?.trim() || null, result.system_prompt?.trim() || null);
       render();
     } catch (err) {
-      alert(err.message);
+      showErrorToast(`Couldn't create the project: ${err.message}. Check the name and working directory, then try again.`);
     }
   });
 
@@ -111,7 +111,7 @@ export function mountSidebarProjects(root, onSwitchProject) {
         await loadProjects();
         render();
       } catch (err) {
-        alert(err.message);
+        showErrorToast(`Couldn't save changes to the project: ${err.message}. Try again.`);
       }
     });
 

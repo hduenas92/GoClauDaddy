@@ -8,6 +8,8 @@
  * frontend/static/css/vendor/ respectively, then update the paths below.
  */
 
+import { showErrorToast } from "./modal.js";
+
 const XTERM_JS  = "https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.js";
 const XTERM_CSS = "https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.css";
 
@@ -49,7 +51,7 @@ export async function openTerminal() {
   try {
     await _loadXterm();
   } catch (err) {
-    alert(`Terminal error: ${err.message}`);
+    showErrorToast(`Couldn't open the terminal: ${err.message}. Check your internet connection and try again.`);
     return;
   }
 
@@ -60,7 +62,7 @@ export async function openTerminal() {
     if (!res.ok) throw new Error(await res.text());
     ({ id: sessionId } = await res.json());
   } catch (err) {
-    alert(`Could not start terminal: ${err.message}`);
+    showErrorToast(`Couldn't start the terminal: ${err.message}. Make sure GoClaudaddy is running and try again.`);
     return;
   }
 

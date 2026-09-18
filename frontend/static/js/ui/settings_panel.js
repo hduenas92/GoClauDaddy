@@ -1,5 +1,6 @@
 import { api } from "../api/http.js";
 import { showOnboarding } from "./onboarding_tour.js";
+import { showErrorToast } from "./modal.js";
 
 // Keep in sync with PERM_LABELS in main.js
 const PERM_LABELS = {
@@ -142,9 +143,10 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
   modelSelect.value = conversation.model;
   modelDesc.textContent = MODEL_DESCRIPTIONS[modelSelect.value] || "";
 
-  function _flashError(el) {
+  function _flashError(el, message) {
     el.classList.add("drawer-select-error");
     setTimeout(() => el.classList.remove("drawer-select-error"), 2000);
+    showErrorToast(message);
   }
 
   modelSelect.addEventListener("change", async () => {
@@ -152,7 +154,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
       await api.updateConversationSettings(conversation.id, { model: modelSelect.value });
       modelDesc.textContent = MODEL_DESCRIPTIONS[modelSelect.value] || "";
       onChange?.({ model: modelSelect.value });
-    } catch { _flashError(modelSelect); }
+    } catch { _flashError(modelSelect, "Couldn't switch models — your change wasn't saved. Try again."); }
   });
 
   const permissionSelect = drawerEl.querySelector("#permission-select");
@@ -169,7 +171,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
         permission_mode: permissionSelect.value || null,
       });
       onChange?.({ permission_mode: permissionSelect.value || null });
-    } catch { _flashError(permissionSelect); }
+    } catch { _flashError(permissionSelect, "Couldn't change the permission mode — your change wasn't saved. Try again."); }
   });
 
   const thinkingSelect = drawerEl.querySelector("#thinking-select");
@@ -186,7 +188,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
       await api.updateConversationSettings(conversation.id,
         val ? { thinking_budget: parseInt(val, 10) } : { clear_thinking_budget: true }
       );
-    } catch { _flashError(thinkingSelect); }
+    } catch { _flashError(thinkingSelect, "Couldn't change the thinking budget — your change wasn't saved. Try again."); }
   });
 
   const MAX_TOKEN_OPTIONS = [
@@ -211,7 +213,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
       await api.updateConversationSettings(conversation.id,
         val ? { max_tokens: parseInt(val, 10) } : { clear_max_tokens: true }
       );
-    } catch { _flashError(maxTokensSelect); }
+    } catch { _flashError(maxTokensSelect, "Couldn't change the response length limit — your change wasn't saved. Try again."); }
   });
 
   const systemInput = drawerEl.querySelector("#system-prompt-input");
@@ -222,14 +224,14 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
       await api.updateConversationSettings(conversation.id,
         val ? { system_prompt: val } : { clear_system_prompt: true }
       );
-    } catch { _flashError(systemInput); }
+    } catch { _flashError(systemInput, "Couldn't save the system prompt — try again."); }
   });
 
   drawerEl.querySelector("#clear-system-prompt").addEventListener("click", async () => {
     systemInput.value = "";
     try {
       await api.updateConversationSettings(conversation.id, { clear_system_prompt: true });
-    } catch { _flashError(systemInput); }
+    } catch { _flashError(systemInput, "Couldn't clear the system prompt — try again."); }
   });
 
   drawerEl.querySelector(".drawer-close").addEventListener("click", () => closeDrawer(drawerEl));
