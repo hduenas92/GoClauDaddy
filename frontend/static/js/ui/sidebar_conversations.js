@@ -42,7 +42,7 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
           <span class="conv-name">${escapeHtml(c.name)}${srcBadge}</span>
           <span class="conv-ts">${ago}${costBadge}</span>
         </span>
-        <button class="conv-rename" title="Rename (F2)">✎</button>
+        <button class="conv-rename" title="Rename">✎</button>
         <button class="conv-delete" title="Delete">✕</button>
       `;
       const convBody = li.querySelector(".conv-body");

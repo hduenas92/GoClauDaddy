@@ -34,6 +34,19 @@ await page.addInitScript(() => { try { localStorage.setItem('gca_onboarded', '1'
 await page.goto(APP_URL, { waitUntil: 'networkidle' });
 await page.waitForTimeout(1200);
 
+// Open a conversation before measuring. The per-message controls — Copy and the
+// reuse button — are built per message, so on an empty transcript the whole
+// `.msg-actions` sweep runs over an EMPTY SET and reports a clean pass having
+// measured nothing. That is the vacuous-verification failure this project has
+// already paid for once. Loading the root URL does not guarantee a transcript,
+// so click the first conversation and wait for a real user message.
+const convRow = await page.$('.conv-body');
+if (convRow) {
+  await convRow.click();
+  await page.waitForSelector('.msg-user', { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(800);
+}
+
 const data = await page.evaluate(() => {
   // Opacity is INHERITED VISUALLY but not as a computed value: a button inside
   // `.msg-actions { opacity: 0 }` reports its OWN opacity as 1. Reading only the
@@ -126,6 +139,19 @@ const data = await page.evaluate(() => {
     emptyStateVisible: !!document.querySelector('.empty-state') &&
                         getComputedStyle(document.querySelector('.empty-state')).display !== 'none',
     messageCount: document.querySelectorAll('.msg').length,
+    // Label inventory for tasks 2.2 / 2.3. Collected as data rather than asserted
+    // in-page so the non-empty-set guard lives with the other assertions.
+    titledControls: [...document.querySelectorAll('[title]')].map((el) => ({
+      what: el.id
+        ? '#' + el.id
+        : (el.className && typeof el.className === 'string'
+            ? '.' + el.className.trim().split(/\s+/)[0]
+            : el.tagName.toLowerCase()),
+      title: el.getAttribute('title') || '',
+    })),
+    // The reuse control is built only for user messages, so its absence must read
+    // as INCONCLUSIVE, never as a pass.
+    userMsgCount: document.querySelectorAll('.msg-user').length,
   };
 });
 
@@ -191,12 +217,74 @@ for (const m of consoleMsgs) L(`  ${m}`);
 
 if (ASSERT) {
   L();
+  const failures = [];
+  let inconclusive = 0;
+
+  // 4-I0 — nothing that looks functional may be invisible at rest.
   const offenders = [...new Set([...data.msgActionOffenders, ...data.tabOrderOffenders])];
   if (offenders.length) {
-    L(`ASSERT FAILED — ${offenders.length} control(s) hidden at rest (effective opacity <= 0.01):`);
-    for (const o of offenders) L(`  ${o}`);
+    failures.push(`${offenders.length} control(s) hidden at rest (effective opacity <= 0.01):\n` +
+      offenders.map((o) => `    ${o}`).join('\n'));
+  }
+
+  // Non-empty-set guard (§2.2). A label sweep over zero titled controls passes
+  // vacuously, which is the exact failure mode that already cost this project a
+  // session. Fail loudly instead.
+  if (data.titledControls.length === 0) {
+    L('ASSERT FAILED — no [title] control found at all; every label assertion below would pass vacuously.');
     process.exit(1);
   }
-  L('ASSERT PASSED — no message-action control or tab-order element is hidden at rest.');
+
+  // Task 2.3 (4-I2) — a hint that advertises a key binding with no handler has
+  // negative value: a beginner who tries it learns to distrust every hint.
+  const phantom = data.titledControls.filter((c) => /\(F2\)|\(Ctrl\+Shift\+A\)/.test(c.title));
+  if (phantom.length) {
+    failures.push(`${phantom.length} control(s) advertise a shortcut with no handler:\n` +
+      phantom.map((c) => `    ${c.what} title="${c.title}"`).join('\n'));
+  }
+
+  // Task 2.2 (4-I9) — the control neither edits nor retries; the label must not claim it does.
+  const dishonest = data.titledControls.filter((c) => /Edit\s*&\s*retry/i.test(c.title));
+  if (dishonest.length) {
+    failures.push(`${dishonest.length} control(s) still labelled "Edit & retry":\n` +
+      dishonest.map((c) => `    ${c.what} title="${c.title}"`).join('\n'));
+  }
+
+  // Positive assertions. Each is guarded so it cannot pass over an absent element.
+  const attach = data.titledControls.find((c) => c.what === '#composer-attach');
+  if (!attach) {
+    failures.push('#composer-attach not found — its label could not be asserted');
+  } else if (attach.title !== 'Attach file') {
+    failures.push(`#composer-attach title is "${attach.title}", expected "Attach file"`);
+  }
+
+  const rename = data.titledControls.filter((c) => c.what === '.conv-rename');
+  if (rename.length === 0) {
+    L('INCONCLUSIVE — no .conv-rename button rendered; its label was not asserted.');
+    inconclusive++;
+  } else {
+    const bad = rename.filter((c) => c.title !== 'Rename');
+    if (bad.length) failures.push(`${bad.length} .conv-rename button(s) titled "${bad[0].title}", expected "Rename"`);
+  }
+
+  const reuse = data.titledControls.filter((c) => /Reuse this message/.test(c.title));
+  if (data.userMsgCount === 0) {
+    L('INCONCLUSIVE — no user message in the transcript, so the reuse control does not exist; its label was not asserted.');
+    inconclusive++;
+  } else if (reuse.length === 0) {
+    failures.push(`${data.userMsgCount} user message(s) present but no control titled "Reuse this message"`);
+  }
+
+  if (failures.length) {
+    L(`ASSERT FAILED — ${failures.length} violation(s):`);
+    for (const f of failures) L(`  ${f}`);
+    process.exit(1);
+  }
+  L(`ASSERT PASSED — nothing hidden at rest; no phantom shortcut hints; retry control honestly labelled.`);
+  L(`             swept ${data.titledControls.length} titled control(s), ${data.userMsgCount} user message(s)`);
+  if (inconclusive) {
+    L(`RESULT: INCONCLUSIVE — ${inconclusive} assertion(s) could not be exercised`);
+    process.exit(2);
+  }
   process.exit(0);
 }

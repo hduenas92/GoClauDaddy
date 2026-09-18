@@ -188,7 +188,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     if (role === "user") {
       const retryBtn = document.createElement("button");
       retryBtn.className = "msg-action-btn";
-      retryBtn.title = "Edit & retry";
+      retryBtn.title = "Reuse this message";
       retryBtn.textContent = "↺";
       retryBtn.addEventListener("click", () => {
         if (onRetry) onRetry(getText());
