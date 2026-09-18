@@ -15,7 +15,6 @@
 import { chromium } from 'playwright';
 
 const APP_URL = process.env.GCA_URL ?? 'http://127.0.0.1:8765';
-const CID = process.env.GCA_CID ?? 'eb399968-5e69-4dc7-8c0c-c713b73c6953';
 
 const results = [];
 const t = (label, ok, detail = '') => {
@@ -24,6 +23,47 @@ const t = (label, ok, detail = '') => {
 };
 
 const browser = await chromium.launch();
+
+/**
+ * Which conversation does a fresh boot actually open?
+ *
+ * This used to be a hardcoded id, and it ROTTED: the app opens the most
+ * recently touched conversation, so the moment any newer conversation existed
+ * the route patch below was scoped to a conversation the app never opened. The
+ * two UI-driven cases then measured an untouched conversation. One of them
+ * asserts an ABSENCE (`markers === 0`), so it did not fail — it passed
+ * vacuously, which is worse than the two that failed, because nothing said so.
+ *
+ * Discovering it is not re-implementing the app's choice: we do not reason
+ * about recency, we boot the real app once and record which conversation it
+ * asked for. GCA_CID still overrides, for pinning a specific one by hand.
+ */
+async function discoverBootConversation() {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await ctx.addInitScript(() => { try { localStorage.setItem('gca_onboarded', '1'); } catch {} });
+  const seen = [];
+  page.on('request', (r) => {
+    const p = new globalThis.URL(r.url()).pathname;
+    const m = p.match(/^\/api\/conversations\/([0-9a-f-]{36})$/);
+    if (m) seen.push(m[1]);
+  });
+  try {
+    await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2500);
+    return seen[0] ?? null;
+  } finally {
+    await ctx.close();
+  }
+}
+
+const CID = process.env.GCA_CID ?? (await discoverBootConversation());
+if (!CID) {
+  console.log('RESULT: INCONCLUSIVE - a fresh boot opened no conversation at all,');
+  console.log('  so there is nothing to drive these cases through. Seed one and re-run.');
+  await browser.close();
+  process.exit(2);
+}
 
 /** Fresh isolated context per case: localStorage leaks between cases otherwise,
  *  which is how an earlier focus test on this project silently became vacuous. */
@@ -49,17 +89,27 @@ async function withPage(fn, { status = 'idle', pending = false } = {}) {
   //
   // Scoped by pathname, not a `**/api/**` glob — that glob also matches the
   // static module at /static/js/api/socket.js and breaks module loading.
+  //
+  // `patched` is the anti-vacuity guard. If the app never requests the
+  // conversation under test, this handler never runs, `status` is never forced,
+  // and every assertion below measures a conversation nobody touched — which
+  // reads as a clean PASS for any assertion phrased as an absence. Counting the
+  // hits is the difference between "the feature is correct" and "the test never
+  // looked at it". Callers must check it; none may assume it.
+  let patched = 0;
   await page.route('**/*', async (route) => {
     const p = new URL(route.request().url()).pathname;
     if (p !== `/api/conversations/${CID}`) return route.continue();
     const real = await route.fetch();
     const body = await real.json();
     body.conversation.status = status;
+    patched += 1;
     return route.fulfill({ response: real, json: body });
   });
   await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
   try {
-    return await fn(page);
+    const out = await fn(page);
+    return { ...out, patched };
   } finally {
     await ctx.close();
   }
@@ -180,21 +230,41 @@ const readUi = async (page) => {
 
 console.log('\nC. Behaviour through a real app boot:');
 {
+  // Every case below is void unless the app actually opened the conversation we
+  // patched. Asserting that FIRST, once, means a rotted target is reported as
+  // exactly what it is instead of being spread across the cases as a mix of
+  // failures and vacuous passes.
   const busy = await withPage(readUi, { status: 'busy', pending: true });
+  if (busy.patched === 0) {
+    console.log(`\nRESULT: INCONCLUSIVE - the app never requested ${CID},`);
+    console.log('  so the status patch never applied and none of the C cases measured the');
+    console.log('  feature. Every assertion here would be about an untouched conversation.');
+    await browser.close();
+    process.exit(2);
+  }
+  t('the conversation under test was actually opened', busy.patched > 0, `route fired ${busy.patched}x`);
+
   t('busy on return -> in-progress notice', /still responding/i.test(busy.status),
     JSON.stringify(busy.status));
   t('busy on return -> no completed marker', busy.markers === 0, `markers=${busy.markers}`);
 
   const done = await withPage(readUi, { status: 'idle', pending: true });
-  t('idle + unseen turn -> completed marker', done.markers === 1, `markers=${done.markers}`);
+  t('idle + unseen turn -> completed marker', done.markers === 1,
+    `markers=${done.markers} (route fired ${done.patched}x)`);
 
   // The false-positive guard. Identical to the case above in every respect
   // except the flag — so if this also produced a marker, the marker would be
   // driven by "conversation has a trailing assistant message", which is true of
   // every finished conversation, and the feature would be meaningless.
+  //
+  // This is the one that rotted SILENTLY, so it carries the guard in its own
+  // detail rather than trusting the check above: an absence assertion on an
+  // untouched conversation is indistinguishable from an absence assertion on a
+  // working feature.
   const plain = await withPage(readUi, { status: 'idle', pending: false });
-  t('idle + no pending flag -> NO marker (false-positive guard)', plain.markers === 0,
-    `markers=${plain.markers}`);
+  t('idle + no pending flag -> NO marker (false-positive guard)',
+    plain.patched > 0 && plain.markers === 0,
+    `markers=${plain.markers} (route fired ${plain.patched}x - 0 would make this vacuous)`);
   t('idle + no pending flag -> no in-progress notice', !/still responding/i.test(plain.status),
     JSON.stringify(plain.status));
 }

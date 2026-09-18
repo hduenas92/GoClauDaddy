@@ -351,8 +351,63 @@ for (const t of CONTRAST_TARGETS) {
   if (!pass) failures.push(`contrast "${t.name}" ${r.ratio}:1 < ${need}:1 required (${r.fg} on ${r.bg} @ ${r.fontSize}px)`);
 }
 
+// STATE-DEPENDENT STYLES.
+//
+// The sweep below is exhaustive over what is RENDERED, which is not the same as
+// exhaustive over what the app can render. A console error line exists only
+// after something is logged at that level, so .lvl-error was measured only when
+// a run happened to produce one — it passed three gate runs and failed the
+// fourth, on identical code — and .lvl-warn had never been measured at all.
+// Coverage that depends on luck is not coverage; it is a sometimes-vacuous test
+// that reports green.
+//
+// So: render one sample of each state-dependent style into its REAL container
+// (not a synthetic one — the whole point is the real composited background),
+// let the sweep pick them up as ordinary text, then remove them.
+//
+// Missing containers are recorded, never skipped silently. "Nothing seeded"
+// must not look like "everything passed".
+const SEEDED = [
+  { host: '#rsb-console', cls: 'console-line lvl-error', text: 'probe: error line' },
+  { host: '#rsb-console', cls: 'console-line lvl-warn',  text: 'probe: warn line' },
+  { host: '#rsb-console', cls: 'console-line lvl-info',  text: 'probe: info line' },
+  { host: '#rsb-console', cls: 'console-line lvl-debug', text: 'probe: debug line' },
+];
+results.seeded = await page.evaluate((specs) => {
+  const made = [];
+  const missing = [];
+  for (const s of specs) {
+    const host = document.querySelector(s.host);
+    if (!host) { missing.push(`${s.host} (for .${s.cls.split(' ').pop()})`); continue; }
+    const d = document.createElement('div');
+    d.className = s.cls;
+    d.dataset.uiSeed = '1';
+    d.textContent = s.text;
+    host.appendChild(d);
+    // Report what ATTACHED, not what we asked to attach. Under mutation the
+    // append was removed and this line still claimed four probes were seeded
+    // while the sweep measured 49 elements instead of 52 — a report describing
+    // its own intent rather than its effect, which is the failure mode this
+    // project keeps finding in its own instruments.
+    if (d.isConnected) made.push(s.cls);
+    else missing.push(`${s.host} (.${s.cls.split(' ').pop()} did not attach)`);
+  }
+  return { made, missing };
+}, SEEDED);
+if (results.seeded.missing.length) {
+  failures.push(
+    `state-dependent style probes could not be seeded: ${results.seeded.missing.join(', ')} ` +
+    `— those styles went UNMEASURED, so a pass here is not evidence they are accessible`,
+  );
+}
+
 // exhaustive contrast sweep over every element rendering its own text
 results.textAudit = await page.evaluate(() => window.__ui.auditAllText());
+// Seeded probes have served their purpose; remove them before anything else
+// measures the DOM, so node counts and layer checks see the real page.
+await page.evaluate(() => {
+  document.querySelectorAll('[data-ui-seed="1"]').forEach((el) => el.remove());
+});
 for (const t of results.textAudit) {
   t.required = t.fontSize >= 24 || (t.fontSize >= 18.66 && (parseInt(t.fontWeight, 10) >= 700 || t.fontWeight === 'bold')) ? 3.0 : 4.5;
   t.pass = t.ratio >= t.required;
@@ -694,6 +749,10 @@ line();
 
 const audit = results.textAudit ?? [];
 const bad = audit.filter((t) => !t.pass);
+if (results.seeded) {
+  line(`State-dependent styles seeded: ${results.seeded.made.length ? results.seeded.made.map((c) => '.' + c.split(' ').pop()).join(', ') : 'NONE'}` +
+       (results.seeded.missing.length ? `  [UNMEASURED: ${results.seeded.missing.join(', ')}]` : ''));
+}
 line(`Text contrast sweep: ${audit.length} elements measured, ${bad.length} below AA`);
 for (const t of bad.slice(0, 18)) {
   line(`  FAIL ${String(t.ratio).padStart(6)}:1 (need ${t.required})  ${t.fontSize}px  ${t.path}`);

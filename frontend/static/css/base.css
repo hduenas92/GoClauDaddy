@@ -313,7 +313,12 @@ html, body {
 .console-line { white-space: pre-wrap; word-break: break-all; margin-bottom: 1px; }
 .console-line.lvl-info  { color: var(--accent-hi); }
 .console-line.lvl-warn  { color: rgba(var(--working-rgb) / 0.65); }
-.console-line.lvl-error { color: rgba(var(--error-rgb) / 0.8); }
+/* NO alpha here, and do not add one back. Measured on rgb(12,12,15),
+   --error-rgb reaches only 5.27:1 at FULL opacity, so any alpha at or below
+   0.9 drops it under AA - 0.8 measured 3.72:1. This is also the line a user
+   most needs to read, so dimming it was working against its own purpose.
+   Sibling levels have headroom and keep theirs: warn 0.65 measures 5.95:1. */
+.console-line.lvl-error { color: rgb(var(--error-rgb)); }
 .console-line.lvl-debug { color: var(--text-muted); }
 
 /* ============================================================
@@ -989,12 +994,20 @@ html, body {
 }
 .sub-sep  { opacity: 0.3; }
 .sub-model   { color: var(--accent-hi); }
-.sub-project { color: rgba(var(--accent-hi-rgb) / 0.6); }
+/* 0.6 measured 4.27:1 on rgb(17,17,24) - below AA at 11px. 0.7 measures
+   5.42:1 and matches .tok-in, which is the same token at the same alpha.
+   0.65 would pass (4.82) but sits one token tweak from failing again. */
+.sub-project { color: rgba(var(--accent-hi-rgb) / 0.7); }
 .sub-ctx     { color: var(--accent-hi); }
 
 /* ---- message token colors ---- */
 .tok-in  { color: rgba(var(--accent-hi-rgb) / 0.7); font-family: var(--font-shell); font-variant-numeric: tabular-nums; }
-.tok-out { color: rgba(var(--success-rgb) / 0.7); font-family: var(--font-shell); font-variant-numeric: tabular-nums; }
+/* NOT the same alpha as .tok-in on purpose. These two are a visual pair and
+   must read at the same WEIGHT, which means matching contrast ratio, not
+   matching alpha: measured on rgb(12,12,15), success at 0.8 gives 5.38:1 and
+   accent-hi at 0.7 gives 5.52:1. At a shared 0.7 the green measured 4.35:1 -
+   below AA at 11px, and visibly lighter than its partner. */
+.tok-out { color: rgba(var(--success-rgb) / 0.8); font-family: var(--font-shell); font-variant-numeric: tabular-nums; }
 
 /* ============================================================
    SETTINGS DRAWER
