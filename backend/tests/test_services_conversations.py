@@ -321,12 +321,36 @@ def test_export_long_tool_output_is_truncated(temp_db):
     assert "x" * 2000 not in out
 
 
-def test_export_stopped_marker_is_stripped_and_noted(temp_db):
+def test_export_notes_a_stopped_turn_from_the_column(temp_db):
+    """Was test_export_stopped_marker_is_stripped_and_noted.
+
+    Rewritten in Phase 3 (4-P1) rather than deleted, because the BEHAVIOUR it
+    guards is unchanged and still wanted: an export must say a turn was stopped.
+    What changed is where that fact lives. It used to be an HTML comment inside
+    `content` that the exporter scraped back out; it is now `messages.stopped`,
+    the column v15 added and nothing wrote for four migrations.
+    """
     conv = svc.create_conversation()
-    svc.add_message(conv.id, "assistant", "partial answer\n\n<!-- claudioui:stopped -->")
+    svc.add_message(conv.id, "assistant", "partial answer", stopped=True)
     out = svc.export_as_markdown(conv.id)
-    assert "<!-- claudioui:stopped -->" not in out
     assert "_(stopped)_" in out
+    assert "partial answer" in out
+    assert "claudioui:stopped" not in out
+
+
+def test_export_does_not_strip_a_marker_it_no_longer_writes(temp_db):
+    """The counterpart to the rewrite above, and the more interesting half.
+
+    Nothing writes the marker any more, so the exporter no longer strips it. If
+    a row somehow contains that literal text it is ordinary content and must be
+    exported verbatim rather than silently edited — and, crucially, must NOT be
+    reported as a stopped turn, because `stopped` is False. Content is content.
+    """
+    conv = svc.create_conversation()
+    svc.add_message(conv.id, "assistant", "here is the literal text <!-- claudioui:stopped -->")
+    out = svc.export_as_markdown(conv.id)
+    assert "<!-- claudioui:stopped -->" in out, "content must not be quietly rewritten"
+    assert "_(stopped)_" not in out, "text in content must not masquerade as the column"
 
 
 def test_export_unknown_conversation_returns_empty_string(temp_db):

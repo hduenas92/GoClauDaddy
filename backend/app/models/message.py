@@ -17,6 +17,10 @@ class Message:
     seq: int
     created_at: str
     tool_calls: str | None = None
+    # v15. Read defensively: the column has existed since v15 but this model did
+    # not read it until Phase 3, and from_row is handed rows from queries that do
+    # not all select *.
+    stopped: bool = False
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "Message":
@@ -35,4 +39,5 @@ class Message:
             seq=row["seq"],
             created_at=row["created_at"],
             tool_calls=row["tool_calls"] if "tool_calls" in keys else None,
+            stopped=bool(row["stopped"]) if "stopped" in keys else False,
         )

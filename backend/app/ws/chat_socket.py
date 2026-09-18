@@ -1,12 +1,12 @@
 """WebSocket handler: one connection per conversation, duplex (send + stop over the same socket).
 
 Session continuity and message history are backed by SQLite (conversations_service)
-rather than an in-memory dict — a conversation must already exist (created via
+rather than an in-memory dict â€” a conversation must already exist (created via
 POST /api/conversations) before a WS connection to it will accept a send.
 
 IMPORTANT: the main receive loop below must never block on a send's full
 completion. `stop` has to be receivable *while* a send is in flight, or it
-just sits unread until the turn ends on its own — a real bug this comment
+just sits unread until the turn ends on its own â€” a real bug this comment
 exists because of, found by actually sending stop mid-stream and watching it
 do nothing. `_handle_send` runs as its own fire-and-forget task; the loop goes
 straight back to `receive_json()` after starting it.
@@ -28,12 +28,21 @@ from app.services.process_registry import registry
 
 log = get_logger("chat_socket")
 
-# Appended to the persisted content of a turn that was cancelled mid-stream via
-# /stop, so the transcript never implies Claude finished a thought it didn't.
-# An HTML comment is invisible when rendered as markdown (marked.js passes
-# through unknown HTML untouched) but is an unambiguous, grep-able marker in
-# raw content. No schema change: avoids a v15 migration for one boolean.
-STOPPED_MARKER = "\n\n<!-- claudioui:stopped -->"
+# RETIRED in Phase 3 (4-P1).
+#
+# The comment that stood here justified the marker with "No schema change:
+# avoids a v15 migration for one boolean." v15 shipped anyway, added the column,
+# and then nothing wrote or read it for four migrations while this marker kept
+# doing the job badly. Left on the record because the reasoning failed in a
+# specific and repeatable way: it optimised against a migration, got the
+# migration regardless, and ended with two representations of one fact.
+#
+# NOTHING writes this any more; the name is kept only so the string stays
+# greppable and its history sits where someone would look for it. Do not
+# reintroduce it: v18 indexes `content` verbatim into messages_fts, so the marker
+# became part of the full-text index and a search for "claudioui" returned
+# precisely the stopped turns. Pass `stopped=` to add_message() instead.
+_RETIRED_STOPPED_MARKER = "\n\n<!-- claudioui:stopped -->"
 
 
 async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None:
@@ -82,7 +91,7 @@ async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None
 
     except WebSocketDisconnect:
         log.info("WS disconnected for conversation %s", conversation_id)
-        # Intentionally NOT stopping an in-flight subprocess here — a browser
+        # Intentionally NOT stopping an in-flight subprocess here â€” a browser
         # refresh mid-response shouldn't lose the reply. It finishes and
         # persists headless; the registry entry clears itself on completion.
 
@@ -99,7 +108,7 @@ async def _handle_send(
     outside any guard. A malformed payload, or any DB error while loading the
     conversation or project, therefore escaped a fire-and-forget task: **no frame
     of any kind reached the client**, `registry.clear()` never ran so the
-    conversation could stay `status="busy"` forever, and nothing was logged —
+    conversation could stay `status="busy"` forever, and nothing was logged â€”
     because the failed task stays referenced in `registry._tasks`, so asyncio
     never GC-logs it either. The turn simply vanished.
 
@@ -112,7 +121,7 @@ async def _handle_send(
     would risk changing teardown semantics that are already correct and tested.
 
     `except Exception` deliberately does not catch `asyncio.CancelledError`,
-    which is a BaseException in modern Python — a `/stop` must keep cancelling.
+    which is a BaseException in modern Python â€” a `/stop` must keep cancelling.
     """
     try:
         await _handle_send_inner(websocket, conversation_id, payload, approval_queue)
@@ -170,7 +179,7 @@ async def _handle_send_inner(
     #   1. The question is read back from the DB and is NOT written again. Routing
     #      regenerate through the ordinary send path appended a second user row,
     #      so the transcript read [user][user][assistant] and the duplicate
-    #      survived a reload. Measured, not assumed — task 2.1, execution brief.
+    #      survived a reload. Measured, not assumed â€” task 2.1, execution brief.
     #   2. The previous answer is superseded inside this same turn, rather than by
     #      a separate client DELETE that a failed send would leave half-applied.
     #      Soft, never a hard delete: the money was spent and the row is the record.
@@ -238,7 +247,7 @@ async def _handle_send_inner(
             if ev_type == "approval_needed":
                 # Forward to frontend; wait for approve/deny back over the same WS.
                 # The subprocess is blocked on stdin at this point, so stdout is quiet
-                # until we write y/n — no events are missed during the await.
+                # until we write y/n â€” no events are missed during the await.
                 with contextlib.suppress(RuntimeError):
                     await websocket.send_json(event)
                 try:
@@ -287,8 +296,8 @@ async def _handle_send_inner(
                 await websocket.send_json(event)
     except asyncio.CancelledError:
         cancelled = True  # marks the persisted row below; must still propagate
-        raise  # expected — a /stop cancelled this task, not a real failure
-    except Exception:  # noqa: BLE001 — this task is fire-and-forget; an
+        raise  # expected â€” a /stop cancelled this task, not a real failure
+    except Exception:  # noqa: BLE001 â€” this task is fire-and-forget; an
         # uncaught exception here would otherwise vanish into asyncio's default
         # "Task exception was never retrieved" logging instead of our own log
         # or a WS event the client can actually show the user.
@@ -308,11 +317,14 @@ async def _handle_send_inner(
         full_thinking = "".join(thinking_parts) or None
         tool_calls_json = json.dumps(list(tool_calls_map.values())) if tool_calls_map else None
         if full_text or full_thinking or tool_calls_json or usage.get("output_tokens") or usage.get("input_tokens"):
-            content = full_text + STOPPED_MARKER if cancelled else full_text
+            # `content` is what the model said, nothing more. Cancellation is a
+            # column (v15), not an HTML comment smuggled into the text â€” see the
+            # note on STOPPED_MARKER above.
             convs.add_message(
                 conversation_id,
                 "assistant",
-                content,
+                full_text,
+                stopped=cancelled,
                 thinking=full_thinking,
                 tool_calls=tool_calls_json,
                 model=model,

@@ -1,4 +1,4 @@
-"""CRUD + message persistence for conversations. All queries parameterized — never
+"""CRUD + message persistence for conversations. All queries parameterized â€” never
 string-format user input into SQL.
 """
 
@@ -50,7 +50,7 @@ def get_conversation_healed(conversation_id: str) -> tuple[Conversation | None, 
     """Like get_conversation, but self-heals a stale/invalid stored model to the
     default and persists the fix. Returns (conversation, invalid_model_replaced)
     where the second element is None when no correction was needed (including
-    when model is NULL — that's a legitimate "use the default" state, not a defect).
+    when model is NULL â€” that's a legitimate "use the default" state, not a defect).
     """
     conv = get_conversation(conversation_id)
     if conv is None:
@@ -176,7 +176,18 @@ def add_message(
     model: str | None = None,
     cache_read_tokens: int = 0,
     cache_creation_tokens: int = 0,
+    stopped: bool = False,
 ) -> Message:
+    """`stopped` marks a turn the user cancelled part-way.
+
+    v15 added the column and backfilled it, then nothing wrote it for four
+    migrations, because this parameter did not exist. The caller appended an HTML
+    comment to `content` instead and scraped it back out at export time. That was
+    not merely redundant: v18 indexes `content` verbatim, so the marker went into
+    the full-text search index and searching `claudioui` returned exactly the
+    stopped turns. The column is the representation; `content` is what the model
+    actually said.
+    """
     msg_id = str(uuid.uuid4())
     now = _now()
     with get_connection() as conn:
@@ -186,10 +197,10 @@ def add_message(
         conn.execute(
             """INSERT INTO messages
                (id, conversation_id, role, content, thinking, tool_calls, input_tokens, output_tokens,
-                model, cache_read_tokens, cache_creation_tokens, seq, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                model, cache_read_tokens, cache_creation_tokens, seq, created_at, stopped)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (msg_id, conversation_id, role, content, thinking, tool_calls, input_tokens, output_tokens,
-             model, cache_read_tokens, cache_creation_tokens, next_seq, now),
+             model, cache_read_tokens, cache_creation_tokens, next_seq, now, int(stopped)),
         )
         conn.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (now, conversation_id))
     return Message(
@@ -204,6 +215,7 @@ def add_message(
         model=model,
         cache_read_tokens=cache_read_tokens,
         cache_creation_tokens=cache_creation_tokens,
+        stopped=stopped,
         seq=next_seq,
         created_at=now,
     )
@@ -236,19 +248,14 @@ def auto_title_conversation(conversation_id: str) -> None:
     rename_conversation(conversation_id, derive_title(user_msgs[0].content))
 
 
-# Duplicated from app.ws.chat_socket.STOPPED_MARKER rather than imported: the
-# service layer must not depend on the websocket layer. Matched by substring
-# since it's always appended, never re-anchored to a specific position.
-_STOPPED_MARKER = "\n\n<!-- claudioui:stopped -->"
+# _STOPPED_MARKER and _strip_stopped() are gone (Phase 3, 4-P1). Stoppedness is
+# `messages.stopped`, the column v15 created, and the export reads it directly
+# rather than scraping an HTML comment back out of the text. Do not reintroduce a
+# marker inside `content`: v18 indexes that column verbatim, so anything hidden
+# in it becomes full-text searchable.
 
 _TOOL_INPUT_KEYS = ("file_path", "path", "command", "pattern", "query", "url")
 _TOOL_OUTPUT_LIMIT = 800
-
-
-def _strip_stopped(content: str) -> tuple[str, bool]:
-    if _STOPPED_MARKER in content:
-        return content.replace(_STOPPED_MARKER, ""), True
-    return content, False
 
 
 def _fence_for(text: str) -> str:
@@ -326,22 +333,21 @@ def export_as_markdown(conversation_id: str) -> str:
     lines = [f"# {conv.name}\n"]
     for m in msgs:
         if m.role == "user":
-            content, stopped = _strip_stopped(m.content or "")
-            lines.append(f"**You:** {content}\n")
-            if stopped:
+            lines.append(f"**You:** {m.content or ''}\n")
+            if m.stopped:
                 lines.append("_(stopped)_\n")
             continue
         lines.append("**Claude:**\n")
         thinking_block = _thinking_block(m.thinking)
         if thinking_block:
             lines.append(thinking_block)
-        content, stopped = _strip_stopped(m.content or "")
+        content = m.content or ""
         if content:
             lines.append(f"{content}\n")
         tool_block = _tool_calls_block(m.tool_calls)
         if tool_block:
             lines.append(tool_block)
-        if stopped:
+        if m.stopped:
             lines.append("_(stopped)_\n")
     return "\n".join(lines)
 
@@ -351,7 +357,7 @@ def supersede_last_assistant(conversation_id: str) -> bool:
 
     Soft delete, never a `DELETE`: the money was spent and the row is the record,
     so `superseded_by` (v16) is what removes it from the live transcript while the
-    accounting views keep counting it. This is the operation regenerate performs —
+    accounting views keep counting it. This is the operation regenerate performs â€”
     the old name said "delete", which is exactly what it must not do.
     """
     with get_connection() as conn:
@@ -366,7 +372,7 @@ def supersede_last_assistant(conversation_id: str) -> bool:
 
 
 def delete_last_message(conversation_id: str) -> bool:
-    """HTTP-compat name for `supersede_last_assistant` — nothing is deleted."""
+    """HTTP-compat name for `supersede_last_assistant` â€” nothing is deleted."""
     return supersede_last_assistant(conversation_id)
 
 

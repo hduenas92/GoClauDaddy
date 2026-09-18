@@ -335,10 +335,16 @@ def test_cache_tokens_are_replaced_not_summed_across_usage_events(temp_db, monke
 # /stop mid-stream: partial text + tokens must persist, marked as stopped.
 # ===========================================================================
 
-def test_stop_mid_stream_persists_partial_text_and_tokens_with_marker(temp_db, monkeypatch):
+def test_stop_mid_stream_persists_partial_text_and_sets_the_stopped_column(temp_db, monkeypatch):
     """Real cancellation via registry.stop(): text+usage accumulated before the
-    stop must survive, and the row must carry the stopped marker so the
-    transcript never implies Claude finished the thought."""
+    stop must survive, and the row must record that it was stopped so the
+    transcript never implies Claude finished the thought.
+
+    Phase 3 (4-P1) changed WHERE that is recorded, not whether it is. This used
+    to assert `content == "partial answer" + STOPPED_MARKER`. It now asserts the
+    content is clean and `stopped` is True — which is the end-to-end proof that
+    chat_socket actually writes the column, not just that add_message can.
+    """
     resumed = threading.Event()
 
     async def fake_run(**kwargs):
@@ -363,7 +369,12 @@ def test_stop_mid_stream_persists_partial_text_and_tokens_with_marker(temp_db, m
         time.sleep(0.2)  # let the cancelled task's finally block commit
 
     row = _assistant_row(conv_id)
-    assert row.content == "partial answer" + chat_socket.STOPPED_MARKER
+    assert row.content == "partial answer", "content is what the model said, nothing appended"
+    assert "claudioui" not in row.content, "no marker may be smuggled into content"
+    assert row.stopped is True, (
+        "chat_socket must set the stopped COLUMN — if this is False the write path "
+        "still is not using v15, whatever add_message is capable of"
+    )
     assert row.input_tokens == 50
     assert row.output_tokens == 20
 
