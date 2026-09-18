@@ -292,7 +292,14 @@ export function mountComposer(root, socket, chatPane) {
       setStreaming(true);
       sendBtn.hidden = true;
       stopBtn.hidden = false;
-      socket.send(text, { regenerate: true });
+      try {
+        socket.send(text, { regenerate: true });
+      } catch (err) {
+        // No optimistic bubble on this path — regenerate never appends one —
+        // but the stuck-streaming state is identical.
+        _undoFailedSend(err, null, text);
+        return false;
+      }
       input.value = "";
       charCounter.textContent = "";
       input.style.height = "";
@@ -321,12 +328,17 @@ export function mountComposer(root, socket, chatPane) {
     }
 
     if (text) { _history.push(text); _histIdx = -1; }
-    chatPane.appendUserMessage(text || "(attachment)");
+    const optimisticBubble = chatPane.appendUserMessage(text || "(attachment)");
     chatPane.resetForNewTurn();
     setStreaming(true);
     sendBtn.hidden = true;
     stopBtn.hidden = false;
-    socket.send(text, { attachment_ids: pending.map((a) => a.id) });
+    try {
+      socket.send(text, { attachment_ids: pending.map((a) => a.id) });
+    } catch (err) {
+      _undoFailedSend(err, optimisticBubble, text);
+      return false;
+    }
     input.value = "";
     charCounter.textContent = "";
     input.style.height = "";
@@ -335,7 +347,46 @@ export function mountComposer(root, socket, chatPane) {
     return true;
   }
 
-  function stop() { socket.stop(); }
+  /**
+   * Undo an optimistic send. N2: the UI flips to streaming BEFORE socket.send(),
+   * so a refusal used to leave a bubble for a message that never left, plus
+   * `streaming` stuck true — which makes send() early-return FOREVER at the top
+   * of this function — and a live Stop button. The user's only escape was a
+   * reload.
+   *
+   * @param {Error} err       what socket.send() refused with
+   * @param {Element} [bubble] the optimistic bubble to remove, if one was added
+   * @param {string} [text]    the message, restored to the input so it is not lost
+   */
+  function _undoFailedSend(err, bubble, text) {
+    bubble?.remove();
+    // Also drop the assistant placeholder. resetForNewTurn() paints "Thinking…"
+    // before the send is attempted, and no `done` can ever arrive to clear it
+    // for a message the server never received.
+    chatPane.abortCurrentTurn?.();
+    setStreaming(false);
+    sendBtn.hidden = false;
+    stopBtn.hidden = true;
+    if (text) {
+      input.value = text;
+      input.dispatchEvent(new Event("input"));
+    }
+    showErrorToast(
+      `${err?.message || "Message not sent."} Your message is back in the box — try again.`
+    );
+  }
+
+  function stop() {
+    // 2.9 made stop() report refusal instead of throwing. A refusal means the
+    // socket is already gone, so the turn cannot still be running however the
+    // UI looks — restore the composer rather than leaving a Stop button that
+    // does nothing.
+    if (socket.stop() === false) {
+      setStreaming(false);
+      sendBtn.hidden = false;
+      stopBtn.hidden = true;
+    }
+  }
 
   socket.on("done", async () => {
     sendBtn.hidden = false;
@@ -353,12 +404,19 @@ export function mountComposer(root, socket, chatPane) {
     }
   });
 
-  sendBtn.addEventListener("click", () => send().catch(() => { }));
+  // send() now handles a REFUSED send itself (_undoFailedSend). These outer
+  // catches therefore no longer hide that case — but a bare `catch(() => {})`
+  // would still swallow anything unexpected, which is the same silence 2.4
+  // removed from the rest of the app. Report instead.
+  const _sendUnexpected = (err) =>
+    showErrorToast(`Something went wrong sending that: ${err?.message || err}`);
+
+  sendBtn.addEventListener("click", () => send().catch(_sendUnexpected));
   stopBtn.addEventListener("click", stop);
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      send().catch(() => { });
+      send().catch(_sendUnexpected);
       return;
     }
     // Ctrl+K — template autosuggest

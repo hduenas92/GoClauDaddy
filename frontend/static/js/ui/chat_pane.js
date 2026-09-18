@@ -276,6 +276,31 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     messagesEl.appendChild(div);
     highlightCodeBlocks(textEl);
     scrollDown();
+    // Returned so a caller whose send is REFUSED can remove the bubble it
+    // optimistically added. Without this the transcript shows a message that
+    // never reached the server and survives a reload looking real.
+    return div;
+  }
+
+  /**
+   * Undo a turn that never actually started.
+   *
+   * resetForNewTurn() paints the assistant placeholder ("Thinking…") the moment
+   * a send is attempted. When the send is REFUSED, that placeholder is worse
+   * than the orphaned user bubble: it says Claude is working on a message that
+   * never left the browser. Nothing will ever clear it, because no `done` can
+   * arrive for a turn the server never heard about.
+   */
+  function abortCurrentTurn() {
+    currentAssistantEl?.remove();
+    currentAssistantEl = null;
+    currentBubbleEl = null;
+    currentThinkingEl = null;
+    currentMetaEl = null;
+    currentStripEl = null;
+    currentText = "";
+    currentThinking = "";
+    msgStartTime = null;
   }
 
   function _ensureStageStrip() {
@@ -632,12 +657,24 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         if (currentAssistantEl) finishAssistantMessage("done", lastUsage);
         setStreaming(false);
       }),
+      // Cleanup on ANY close, including a deliberate conversation switch. No
+      // alarming text here: a switch is not a fault, and saying so would train
+      // the user to ignore the message that matters.
       socket.on("_close", () => {
         if (currentAssistantEl) {
-          statusEl.textContent = "Connection lost — reconnecting…";
           finishAssistantMessage("error", lastUsage);
           setStreaming(false);
         }
+      }),
+      // 4-I5. Fires ONLY on an unintended drop (task 2.9), so it cannot flash on
+      // every conversation switch the way a `_close`-based indicator would.
+      //
+      // Deliberately NOT guarded on currentAssistantEl. The old handler only
+      // spoke mid-turn, so a socket that died while IDLE rendered nothing at
+      // all and the user typed into a dead app, wondering why nothing sent.
+      socket.on("_disconnected", () => {
+        statusEl.textContent = "Connection lost — reconnecting…";
+        setStreaming(false);
       }),
       socket.on("_reconnect", () => { statusEl.textContent = ""; }),
       socket.on("_resync_running", () => showResyncRunning()),
@@ -657,6 +694,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     bindSocket,
     appendUserMessage,
     resetForNewTurn: startAssistantMessage,
+    abortCurrentTurn,
     renderHistory,
     clear,
     showEmptyState,
