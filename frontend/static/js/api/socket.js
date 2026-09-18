@@ -32,10 +32,29 @@ export class ChatSocket {
       this._emit(data.type, data);
     });
     this.ws.addEventListener("close", () => {
-      this._emit("_close", {});
-      if (!this._intentionalClose) this._scheduleReconnect();
+      // N3. `_close` used to be emitted BEFORE intent was known, so a deliberate
+      // conversation switch (main.js:65 calls close()) was indistinguishable
+      // from a genuine drop. Any indicator built on `_close` therefore flashed
+      // on every switch — worse than no indicator, because it teaches the user
+      // to ignore the real one.
+      //
+      // `_close` keeps its existing semantics and now carries the intent, so
+      // current listeners are unaffected. `_disconnected` is the new, opt-in
+      // signal and fires ONLY on an unintended drop. Consumers that want to
+      // tell the user something is wrong should listen to `_disconnected`.
+      const intentional = this._intentionalClose;
+      this._emit("_close", { intentional });
+      if (!intentional) {
+        this._emit("_disconnected", {});
+        this._scheduleReconnect();
+      }
     });
-    this.ws.addEventListener("error", () => this._emit("_error", {}));
+    // The `_error` emit that used to live here is deliberately GONE rather than
+    // left dead. It had no listener anywhere in the tree, and a WebSocket error
+    // is always followed by a close event — so `_disconnected` already covers
+    // every case a consumer would want, without a second event that fires at a
+    // subtly different time. connect()'s own reject path below is a separate
+    // one-shot listener and is unaffected.
     return new Promise((resolve, reject) => {
       this.ws.addEventListener("open", () => {
         this._reconnectDelay = 1000; // reset on successful connect
@@ -130,8 +149,24 @@ export class ChatSocket {
     try { localStorage.setItem(this._pendingKey(), "1"); } catch { /* ignore */ }
   }
 
+  /**
+   * N7. Returns whether the stop was actually sent.
+   *
+   * Pressing Stop on a dead socket is exactly what a user does when the app
+   * looks hung, so this was the most likely route to an unhandled throw in the
+   * whole module. It does NOT throw — unlike send(), whose caller has an
+   * optimistic bubble to undo and therefore needs to know loudly. A stop that
+   * cannot be delivered has nothing to roll back: the turn is already over,
+   * whatever the UI currently believes.
+   *
+   * Note WebSocket.send() would not have thrown on a CLOSING/CLOSED socket
+   * anyway — it discards the frame silently — so the old code's real failure
+   * mode was a stop that vanished, and a throw only when this.ws was null.
+   */
   stop() {
+    if (this.ws?.readyState !== WebSocket.OPEN) return false;
     this.ws.send(JSON.stringify({ type: "stop" }));
+    return true;
   }
 
   approve() { this.ws?.send(JSON.stringify({ type: "approve" })); }
