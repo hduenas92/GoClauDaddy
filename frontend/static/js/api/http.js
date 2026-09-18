@@ -27,6 +27,13 @@ export const api = {
   exportConversation: (id) => req("GET", `/api/conversations/${id}/export`),
   deleteLastMessage: (id) => req("DELETE", `/api/conversations/${id}/messages/last`),
 
+  // encodeURIComponent is not optional: `q` is arbitrary text a user typed and
+  // will contain &, # and +, each of which silently changes the query string.
+  // The server returns { results: [...], truncated: bool }; `truncated` is
+  // computed BEFORE slicing, so it is an honest "there are more".
+  searchMessages: (q, limit) =>
+    req("GET", `/api/search?q=${encodeURIComponent(q)}${limit ? `&limit=${limit}` : ""}`),
+
   listProjects: () => req("GET", "/api/projects"),
   createProject: (body) => req("POST", "/api/projects", body),
   updateProject: (id, body) => req("PATCH", `/api/projects/${id}`, body),

@@ -1786,6 +1786,41 @@ pre { position: relative; }
   outline-offset: 1px;
 }
 
+/* ---- search: the Messages group (4-P2) ----
+   These render ONLY while a search is in flight, so ui-check cannot measure
+   them by chance. They are registered in ui-check's state-dependent seed list
+   for exactly that reason -- the .lvl-error lesson, where a colour passed three
+   gate runs and failed the fourth on identical code. */
+.conv-group-header {
+  padding: 8px 8px 3px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: var(--font-shell);
+}
+.conv-group-note {
+  padding: 3px 8px 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.conv-hit .conv-hit-snippet {
+  font-size: 11px;
+  color: var(--text2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* No alpha on the highlight. --working-rgb at full opacity is the only value
+   measured clear of AA here, and a highlight the user cannot read defeats its
+   own purpose -- the same reasoning that removed the alpha from .lvl-error. */
+.conv-hit mark {
+  background: transparent;
+  color: rgb(var(--working-rgb));
+  font-weight: 600;
+}
+
 /* ============================================================
    PROJECT EDIT FORM — textarea
    ============================================================ */

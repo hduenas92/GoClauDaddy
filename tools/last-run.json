@@ -3,7 +3,7 @@
     "url": "http://127.0.0.1:8765",
     "width": 1440,
     "reducedMotion": true,
-    "at": "2026-09-18T19:50:11.679Z"
+    "at": "2026-09-18T23:30:01.700Z"
   },
   "styles": {
     "body": {
@@ -136,7 +136,7 @@
     }
   },
   "listeners": {
-    "domNodes": 1213
+    "domNodes": 1275
   },
   "missing": [],
   "seeded": {
@@ -144,17 +144,32 @@
       "console-line lvl-error",
       "console-line lvl-warn",
       "console-line lvl-info",
-      "console-line lvl-debug"
+      "console-line lvl-debug",
+      "conv-group-header",
+      "conv-group-note",
+      "conv-item conv-hit"
     ],
     "missing": []
   },
   "textAudit": [
     {
       "path": "#conv-list > li.conv-item.active > span.conv-body > span.conv-ts",
-      "sample": "15m · ~$2.34",
+      "sample": "2h Ã‚Â· ~$3.11",
       "ratio": 4.78,
       "fg": "rgb(138, 138, 170)",
       "bg": "rgb(14, 37, 43)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "div.msg-bubble > details.tool-call-block > pre.tool-call-input > button.code-copy-btn",
+      "sample": "Copy",
+      "ratio": 4.93,
+      "fg": "rgb(138, 138, 170)",
+      "bg": "rgb(10, 35, 38)",
       "fontSize": 11,
       "fontWeight": "400",
       "opacity": 1,
@@ -167,6 +182,30 @@
       "ratio": 5.22,
       "fg": "rgb(226, 86, 75)",
       "bg": "rgb(13, 13, 17)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#conv-list > li.conv-item.active > button.conv-rename",
+      "sample": "Ã¢Å“Å½",
+      "ratio": 5.38,
+      "fg": "rgb(148, 148, 172)",
+      "bg": "rgb(14, 37, 43)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#conv-list > li.conv-item.active > button.conv-delete",
+      "sample": "Ã¢Å“â€¢",
+      "ratio": 5.38,
+      "fg": "rgb(148, 148, 172)",
+      "bg": "rgb(14, 37, 43)",
       "fontSize": 11,
       "fontWeight": "400",
       "opacity": 1,
@@ -211,11 +250,35 @@
     },
     {
       "path": "#conv-list > li.conv-item > span.conv-body > span.conv-ts",
-      "sample": "1d",
+      "sample": "2h",
       "ratio": 5.66,
       "fg": "rgb(138, 138, 170)",
       "bg": "rgb(16, 16, 23)",
       "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#conv-list > div.conv-group-header",
+      "sample": "Messages",
+      "ratio": 5.66,
+      "fg": "rgb(138, 138, 170)",
+      "bg": "rgb(16, 16, 23)",
+      "fontSize": 10,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#conv-list > div.conv-group-note",
+      "sample": "Showing the first 50 - refine to see mor",
+      "ratio": 5.66,
+      "fg": "rgb(138, 138, 170)",
+      "bg": "rgb(16, 16, 23)",
+      "fontSize": 10,
       "fontWeight": "400",
       "opacity": 1,
       "required": 4.5,
@@ -391,7 +454,43 @@
     },
     {
       "path": "#conv-list > li.conv-item > span.conv-body > span.conv-name",
-      "sample": "Chat Sep 17 11:47",
+      "sample": "Chat Sep 18 14:24",
+      "ratio": 6.38,
+      "fg": "rgb(148, 148, 172)",
+      "bg": "rgb(16, 16, 23)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#conv-list > li.conv-item > button.conv-rename",
+      "sample": "Ã¢Å“Å½",
+      "ratio": 6.38,
+      "fg": "rgb(148, 148, 172)",
+      "bg": "rgb(16, 16, 23)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#conv-list > li.conv-item > button.conv-delete",
+      "sample": "Ã¢Å“â€¢",
+      "ratio": 6.38,
+      "fg": "rgb(148, 148, 172)",
+      "bg": "rgb(16, 16, 23)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#conv-list > div.conv-item.conv-hit > span.conv-hit-snippet",
+      "sample": "probe snippet with a hit",
       "ratio": 6.38,
       "fg": "rgb(148, 148, 172)",
       "bg": "rgb(16, 16, 23)",
@@ -487,7 +586,7 @@
     },
     {
       "path": "#chat-messages > div.msg.msg-assistant > div.msg-meta",
-      "sample": "12:24 PM ·",
+      "sample": "12:50 PM ·",
       "ratio": 6.6,
       "fg": "rgb(148, 148, 172)",
       "bg": "rgb(12, 12, 15)",
@@ -499,11 +598,59 @@
     },
     {
       "path": "#chat-messages > div.msg.msg-user > div.msg-meta",
-      "sample": "12:24 PM",
+      "sample": "01:20 PM",
       "ratio": 6.6,
       "fg": "rgb(148, 148, 172)",
       "bg": "rgb(12, 12, 15)",
       "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "div.msg.msg-assistant > div.msg-bubble > details.thinking-block > summary",
+      "sample": "Thinking",
+      "ratio": 6.6,
+      "fg": "rgb(148, 148, 172)",
+      "bg": "rgb(12, 12, 15)",
+      "fontSize": 12,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "details.thinking-block > div.thinking-content > span.thinking > p",
+      "sample": "The user is asking about the weather tom",
+      "ratio": 6.6,
+      "fg": "rgb(148, 148, 172)",
+      "bg": "rgb(12, 12, 15)",
+      "fontSize": 12,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#chat-messages > div.msg.msg-assistant > div.stage-strip.strip-done > span.stage-summary",
+      "sample": "1 tool",
+      "ratio": 6.6,
+      "fg": "rgb(148, 148, 172)",
+      "bg": "rgb(12, 12, 15)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 0.7,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "div.msg.msg-assistant > div.msg-bubble > details.tool-call-block > pre.tool-call-input",
+      "sample": "{\n  \"query\": \"weather Phoenix AZ tomorro",
+      "ratio": 6.6,
+      "fg": "rgb(148, 148, 172)",
+      "bg": "rgb(12, 12, 15)",
+      "fontSize": 10.14,
       "fontWeight": "400",
       "opacity": 1,
       "required": 4.5,
@@ -516,6 +663,30 @@
       "fg": "rgb(148, 148, 172)",
       "bg": "rgb(12, 12, 15)",
       "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "div.msg-bubble > details.tool-call-block > summary.tool-call-summary > span.tool-call-status.done",
+      "sample": "Done",
+      "ratio": 7.93,
+      "fg": "rgb(108, 184, 40)",
+      "bg": "rgb(12, 12, 15)",
+      "fontSize": 9.75,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "div.msg-bubble > details.tool-call-block > div.tool-call-result-wrap > div.tool-call-result",
+      "sample": "Title: Daily Forecast\nDescription: Weath",
+      "ratio": 7.93,
+      "fg": "rgb(108, 184, 40)",
+      "bg": "rgb(12, 12, 15)",
+      "fontSize": 10.14,
       "fontWeight": "400",
       "opacity": 1,
       "required": 4.5,
@@ -535,7 +706,7 @@
     },
     {
       "path": "#new-conv-btn",
-      "sample": "＋ New Chat",
+      "sample": "Ã¯Â¼â€¹ New Chat",
       "ratio": 9.31,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(15, 28, 34)",
@@ -571,7 +742,7 @@
     },
     {
       "path": "#met-cost",
-      "sample": "~$2.92 / $200",
+      "sample": "~$3.69 / $200",
       "ratio": 10.15,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(16, 16, 23)",
@@ -595,7 +766,7 @@
     },
     {
       "path": "#met-steps",
-      "sample": "30",
+      "sample": "34",
       "ratio": 10.15,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(16, 16, 23)",
@@ -607,7 +778,7 @@
     },
     {
       "path": "#met-all",
-      "sample": "1.7k tok / 4 chats",
+      "sample": "2.0k tok / 4 chats",
       "ratio": 10.15,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(16, 16, 23)",
@@ -631,7 +802,7 @@
     },
     {
       "path": "#rsb-console > div.console-line.lvl-info",
-      "sample": "12:47:18 [INFO] goclaudaddy.chat_socket:",
+      "sample": "16:29:04 [INFO] goclaudaddy.chat_socket:",
       "ratio": 10.4,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(13, 13, 17)",
@@ -673,6 +844,18 @@
       "bg": "rgb(12, 12, 15)",
       "fontSize": 11,
       "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#conv-list > div.conv-item.conv-hit > span.conv-hit-snippet > mark",
+      "sample": "highlighted",
+      "ratio": 12.77,
+      "fg": "rgb(255, 207, 23)",
+      "bg": "rgb(16, 16, 23)",
+      "fontSize": 11,
+      "fontWeight": "600",
       "opacity": 1,
       "required": 4.5,
       "pass": true
@@ -772,6 +955,30 @@
       "opacity": 1,
       "required": 4.5,
       "pass": true
+    },
+    {
+      "path": "div.msg-bubble > details.tool-call-block > summary.tool-call-summary > span.tool-call-name",
+      "sample": "mcp__brave-search__brave_web_search",
+      "ratio": 17.23,
+      "fg": "rgb(240, 240, 248)",
+      "bg": "rgb(12, 12, 15)",
+      "fontSize": 11.05,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "div.msg-bubble > div.text-block > p > strong",
+      "sample": "Phoenix tomorrow (Sat Sep 19):",
+      "ratio": 17.23,
+      "fg": "rgb(240, 240, 248)",
+      "bg": "rgb(12, 12, 15)",
+      "fontSize": 13,
+      "fontWeight": "700",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
     }
   ],
   "codeWidth": {
@@ -781,13 +988,13 @@
     "overflowX": "auto"
   },
   "occlusion": {
-    "swept": 65,
-    "offscreen": 85,
+    "swept": 56,
+    "offscreen": 100,
     "clipped": 1,
     "occluded": []
   },
   "reducedMotion": {
-    "swept": 1213,
+    "swept": 1275,
     "offenders": []
   },
   "drift": [

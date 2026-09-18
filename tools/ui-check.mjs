@@ -372,6 +372,17 @@ const SEEDED = [
   { host: '#rsb-console', cls: 'console-line lvl-warn',  text: 'probe: warn line' },
   { host: '#rsb-console', cls: 'console-line lvl-info',  text: 'probe: info line' },
   { host: '#rsb-console', cls: 'console-line lvl-debug', text: 'probe: debug line' },
+  // 4-P2 search results. Same reason as the console levels: these exist only
+  // while a search is in flight, so a sweep of "what happens to be rendered"
+  // would never see them and their contrast would go unmeasured indefinitely.
+  { host: '#conv-list', cls: 'conv-group-header', text: 'Messages' },
+  { host: '#conv-list', cls: 'conv-group-note',   text: 'Showing the first 50 - refine to see more' },
+  // `html` rather than `text`: the highlight is a NESTED element, and a probe
+  // that could only set textContent would leave the one colour most likely to
+  // fail — a highlight — permanently unmeasured. The markup is ours, not any
+  // server's.
+  { host: '#conv-list', cls: 'conv-item conv-hit',
+    html: '<span class="conv-hit-snippet">probe snippet with a <mark>highlighted</mark> hit</span>' },
 ];
 results.seeded = await page.evaluate((specs) => {
   const made = [];
@@ -382,7 +393,7 @@ results.seeded = await page.evaluate((specs) => {
     const d = document.createElement('div');
     d.className = s.cls;
     d.dataset.uiSeed = '1';
-    d.textContent = s.text;
+    if (s.html) d.innerHTML = s.html; else d.textContent = s.text;
     host.appendChild(d);
     // Report what ATTACHED, not what we asked to attach. Under mutation the
     // append was removed and this line still claimed four probes were seeded
