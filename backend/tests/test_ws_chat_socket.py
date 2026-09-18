@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 import app.services.claude_cli as claude_cli_mod
 from app.services import conversations_service as convs
+from app.db.connection import get_connection
 from app.main import app
 from app.ws import chat_socket
 
@@ -423,3 +424,152 @@ def test_turn_with_no_content_and_no_usage_persists_nothing(temp_db, monkeypatch
     _run_turn(client, conv_id, [], gen_done)
 
     assert [m for m in convs.list_messages(conv_id) if m.role == "assistant"] == []
+
+
+# ===========================================================================
+# Regenerate — task 2.1's write path.
+#
+# These pin the defect that was MEASURED on 2026-09-17 14:05, not reasoned about:
+# regenerate was routed through the ordinary send path, so the question was
+# written to the DB a second time, the transcript read [user][user][assistant],
+# and the duplicate survived a reload because it was a real row rather than a DOM
+# artifact. The fix moved the authority to the server: a `regenerate: true`
+# intent re-reads the stored question, never re-writes it, and supersedes the
+# previous answer inside the same turn.
+# ===========================================================================
+
+def _read_frames(ws, label: str, max_frames: int = 6, timeout: float = 5.0):
+    """Read frames off the socket with a deadline. Never blocks forever.
+
+    Starlette's TestClient `receive_json()` takes no timeout in the installed
+    version, so a read for a frame the server never sends does not fail — it blocks
+    the entire suite. That is measured, not feared: it wedged three pytest
+    processes during this session (empty output files, killed by hand), and
+    faulthandler parked the blocked thread in `queue.get()` inside
+    `starlette/testclient.py:205`.
+
+    The read runs on a short-lived daemon thread so it can be abandoned, and the
+    caller gets `timed_out=True` instead of a hang. Callers assert on the result
+    *after* the socket is closed, because an exception raised inside the
+    `websocket_connect` context is masked by TestClient joining the ASGI thread on
+    exit — a failing assertion there hangs rather than reports.
+    """
+    frames: list = []
+    result: dict = {"timed_out": False, "error": None}
+
+    def _read() -> None:
+        try:
+            while len(frames) < max_frames:
+                msg = ws.receive_json()
+                frames.append(msg)
+                if isinstance(msg, dict) and msg.get("type") == "done":
+                    return
+        except BaseException as exc:  # noqa: BLE001 — surfaced through `result`
+            result["error"] = exc
+
+    reader = threading.Thread(target=_read, name=f"ws-read-{label}", daemon=True)
+    reader.start()
+    reader.join(timeout)
+    result["timed_out"] = reader.is_alive()
+    return frames, result
+
+
+def _stored_row_count(conv_id: str) -> int:
+    """Every row on disk, superseded ones included."""
+    with get_connection() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM messages WHERE conversation_id = ?", (conv_id,)
+        ).fetchone()[0]
+
+
+def _wait_until(pred, timeout: float = 5.0) -> bool:
+    """Poll `pred` until it holds, or the deadline passes. No blind sleeps."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if pred():
+            return True
+        time.sleep(0.01)
+    return bool(pred())
+
+
+def test_regenerate_does_not_duplicate_the_user_turn(temp_db, monkeypatch):
+    """Regenerate re-asks the stored question; the live transcript stays [user, assistant]."""
+    turns: list[str] = []
+
+    async def fake_run(**kwargs):
+        turns.append(kwargs["prompt"])
+        yield {"type": "text", "text": f"answer {len(turns)}"}
+
+    monkeypatch.setattr(claude_cli_mod, "run", fake_run)
+    conv_id = _conv(temp_db)
+
+    with client.websocket_connect(f"/ws/chat/{conv_id}") as ws:
+        ws.send_json({"type": "send", "message": "the question"})
+        first_frames, first_read = _read_frames(ws, "first-turn")
+        # The assistant row is written in _handle_send's finally block, AFTER the
+        # `done` frame is sent (chat_socket.py:258 vs :266). Waiting on the row
+        # instead of sleeping is what makes the next send deterministic:
+        # registry.clear() runs before the row is written, so a stored row proves
+        # the busy guard is already released — no 50 ms race, no flake.
+        first_persisted = _wait_until(lambda: _stored_row_count(conv_id) == 2)
+
+        # Second turn on the same conversation is a regenerate. The payload still
+        # carries the question text, exactly as the frontend now sends it, and
+        # that is the point: the text in the payload must NOT be what gets written.
+        if first_read["timed_out"]:
+            # The reader thread is still parked on the socket queue; sending again
+            # would let it steal the next turn's frames, so skip the second turn and
+            # report the first one as the failure it is.
+            second_frames: list = []
+            second_read: dict = {"timed_out": True, "error": None}
+            second_persisted = False
+        else:
+            ws.send_json({"type": "send", "message": "the question", "regenerate": True})
+            second_frames, second_read = _read_frames(ws, "regenerate-turn")
+            second_persisted = _wait_until(lambda: _stored_row_count(conv_id) > 2)
+
+    # Assertions live outside the `with` so a failure reports instead of hanging.
+    assert not first_read["timed_out"], f"first turn never answered; frames={first_frames!r}"
+    assert first_persisted, f"first turn never persisted; frames={first_frames!r}"
+    assert not second_read["timed_out"], (
+        f"regenerate turn never answered (the server sent nothing); frames={second_frames!r}"
+    )
+    assert second_persisted, f"regenerate turn never persisted; frames={second_frames!r}"
+    assert len(turns) == 2, f"the regenerate turn never reached the CLI; turns={turns!r}"
+
+    assert [m.role for m in convs.list_messages(conv_id)] == ["user", "assistant"]
+
+    # Superseded, not deleted: both assistant rows remain on disk so the
+    # accounting views keep counting the money that was actually spent.
+    with get_connection() as conn:
+        stored = conn.execute(
+            "SELECT role, superseded_by FROM messages WHERE conversation_id = ? ORDER BY seq ASC",
+            (conv_id,),
+        ).fetchall()
+    assert [r["role"] for r in stored] == ["user", "assistant", "assistant"]
+    assert stored[1]["superseded_by"] is not None, "the replaced answer must be marked superseded"
+    assert stored[2]["superseded_by"] is None, "the new answer must be the live one"
+
+
+def test_regenerate_with_no_prior_question_reports_it(temp_db, monkeypatch):
+    """An empty conversation cannot be regenerated — say so instead of writing nothing.
+
+    Also pins the guard's shape: a regenerate carries an empty `message` by
+    design, so the empty-message check must not fire first and blame the user for
+    a blank prompt they never typed.
+    """
+
+    async def fake_run(**kwargs):  # pragma: no cover — must never be reached
+        yield {"type": "text", "text": ""}
+
+    monkeypatch.setattr(claude_cli_mod, "run", fake_run)
+    conv_id = _conv(temp_db)
+
+    with client.websocket_connect(f"/ws/chat/{conv_id}") as ws:
+        ws.send_json({"type": "send", "message": "", "regenerate": True})
+        frames, read = _read_frames(ws, "no-prior-question", max_frames=2)
+
+    assert not read["timed_out"], f"the guard answered nothing; frames={frames!r}"
+    assert [f.get("type") for f in frames] == ["error", "done"], f"unexpected frames: {frames!r}"
+    assert "no previous question" in frames[0]["error"].lower()
+    assert convs.list_messages(conv_id) == []

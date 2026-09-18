@@ -346,7 +346,14 @@ def export_as_markdown(conversation_id: str) -> str:
     return "\n".join(lines)
 
 
-def delete_last_message(conversation_id: str) -> bool:
+def supersede_last_assistant(conversation_id: str) -> bool:
+    """Marks the newest LIVE assistant row superseded; returns whether one existed.
+
+    Soft delete, never a `DELETE`: the money was spent and the row is the record,
+    so `superseded_by` (v16) is what removes it from the live transcript while the
+    accounting views keep counting it. This is the operation regenerate performs —
+    the old name said "delete", which is exactly what it must not do.
+    """
     with get_connection() as conn:
         row = conn.execute(
             "SELECT id FROM messages WHERE conversation_id = ? AND role = 'assistant' AND superseded_by IS NULL ORDER BY seq DESC LIMIT 1",
@@ -354,9 +361,28 @@ def delete_last_message(conversation_id: str) -> bool:
         ).fetchone()
         if not row:
             return False
-        # ponytail: soft delete — mark superseded instead of hard delete, history reversible
         conn.execute("UPDATE messages SET superseded_by = ? WHERE id = ?", (f"{row['id']}:regen", row["id"]))
     return True
+
+
+def delete_last_message(conversation_id: str) -> bool:
+    """HTTP-compat name for `supersede_last_assistant` — nothing is deleted."""
+    return supersede_last_assistant(conversation_id)
+
+
+def last_live_user_message(conversation_id: str) -> Message | None:
+    """The question a regenerate re-asks.
+
+    Read from the DB and never from the client: the client's copy of the text is
+    only a convenience, and trusting it is how the same question ended up written
+    to the table twice.
+    """
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM messages WHERE conversation_id = ? AND role = 'user' AND superseded_by IS NULL ORDER BY seq DESC LIMIT 1",
+            (conversation_id,),
+        ).fetchone()
+    return Message.from_row(row) if row else None
 
 
 def list_messages(conversation_id: str) -> list[Message]:

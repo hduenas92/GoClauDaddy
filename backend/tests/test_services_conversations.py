@@ -1,5 +1,7 @@
 import json
 
+from app.db.connection import get_connection
+from app.routers.conversation_stats import get_conversation_stats
 from app.services import conversations_service as svc
 
 
@@ -329,3 +331,87 @@ def test_export_stopped_marker_is_stripped_and_noted(temp_db):
 
 def test_export_unknown_conversation_returns_empty_string(temp_db):
     assert svc.export_as_markdown("no-such-id") == ""
+
+
+# ---------------------------------------------------------------------------
+# Supersede (soft delete). Regenerate marks the previous assistant turn
+# superseded instead of deleting it, so the rollback stays possible. Three read
+# paths must agree on what "live" means — and one must deliberately disagree:
+# the transcript and the search index hide a superseded row, while the token
+# accounting keeps it, because the money was spent whether or not the answer was
+# kept. Search hiding is covered in test_search.py; these cover the other two.
+# ---------------------------------------------------------------------------
+
+def test_delete_last_message_hides_the_row_without_deleting_it(temp_db):
+    conv = svc.create_conversation()
+    question = svc.add_message(conv.id, "user", "question")
+    answer = svc.add_message(conv.id, "assistant", "answer to supersede")
+
+    assert svc.delete_last_message(conv.id) is True
+
+    # Gone from the live transcript, but the row itself must survive: the whole
+    # point of superseding rather than deleting is that it stays reversible.
+    assert [m.id for m in svc.list_messages(conv.id)] == [question.id]
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT superseded_by FROM messages WHERE id = ?", (answer.id,)
+        ).fetchone()
+    assert row is not None
+    # The exact marker value is an implementation detail; "non-NULL means dead"
+    # is the contract that list_messages depends on.
+    assert row["superseded_by"] is not None
+
+
+def test_delete_last_message_returns_false_when_no_live_assistant_remains(temp_db):
+    conv = svc.create_conversation()
+    question = svc.add_message(conv.id, "user", "only a user turn")
+
+    # The role filter is real: a user turn must never be superseded by this.
+    assert svc.delete_last_message(conv.id) is False
+    assert [m.id for m in svc.list_messages(conv.id)] == [question.id]
+
+    svc.add_message(conv.id, "assistant", "only answer")
+    assert svc.delete_last_message(conv.id) is True
+    # A second call has nothing live to supersede — it must not re-stamp the
+    # row, and it must report that honestly instead of raising.
+    assert svc.delete_last_message(conv.id) is False
+
+
+def test_export_omits_a_superseded_assistant_message(temp_db):
+    conv = svc.create_conversation()
+    svc.add_message(conv.id, "user", "keep me in the export")
+    svc.add_message(conv.id, "assistant", "discard me from the export")
+
+    # Guard: it is genuinely in the document before superseding, so the
+    # assertion below is not passing on a document that never had it.
+    assert "discard me from the export" in svc.export_as_markdown(conv.id)
+
+    assert svc.delete_last_message(conv.id) is True
+
+    out = svc.export_as_markdown(conv.id)
+    assert "discard me from the export" not in out
+    assert "keep me in the export" in out
+
+
+def test_stats_still_count_a_superseded_assistant_message(temp_db):
+    conv = svc.create_conversation()
+    svc.add_message(conv.id, "user", "question")
+    svc.add_message(conv.id, "assistant", "first answer", input_tokens=100, output_tokens=20)
+
+    before = get_conversation_stats(conv.id)
+    assert before["step_count"] == 1
+    assert before["tokens_in"] == 100
+
+    # Regenerate: supersede the old answer, then append the replacement.
+    assert svc.delete_last_message(conv.id) is True
+    svc.add_message(conv.id, "assistant", "replacement answer", input_tokens=7, output_tokens=3)
+
+    live_assistants = [m.content for m in svc.list_messages(conv.id) if m.role == "assistant"]
+    assert live_assistants == ["replacement answer"]
+
+    # Two assistant steps are billed even though only one is live, so the
+    # accounting view must NOT inherit the superseded filter the transcript uses.
+    after = get_conversation_stats(conv.id)
+    assert after["step_count"] == 2
+    assert after["tokens_in"] == 107
+    assert after["tokens_out"] == 23

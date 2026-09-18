@@ -93,8 +93,9 @@ async def _handle_send(
     payload: dict,
     approval_queue: asyncio.Queue,
 ) -> None:
+    regenerate = bool(payload.get("regenerate"))
     prompt = (payload.get("message") or "").strip()
-    if not prompt:
+    if not regenerate and not prompt:
         await websocket.send_json({"type": "error", "error": "Empty message."})
         await websocket.send_json({"type": "done"})
         return
@@ -118,21 +119,48 @@ async def _handle_send(
     max_tokens = conv.max_tokens
     cwd = (project.working_dir if project else None) or DEFAULT_WORKING_DIR
 
+    # Regenerate means "answer that question again", and two things make it
+    # different from a send. Both are load-bearing:
+    #   1. The question is read back from the DB and is NOT written again. Routing
+    #      regenerate through the ordinary send path appended a second user row,
+    #      so the transcript read [user][user][assistant] and the duplicate
+    #      survived a reload. Measured, not assumed — task 2.1, execution brief.
+    #   2. The previous answer is superseded inside this same turn, rather than by
+    #      a separate client DELETE that a failed send would leave half-applied.
+    #      Soft, never a hard delete: the money was spent and the row is the record.
+    prior_user_message = None
+    if regenerate:
+        prior_user_message = convs.last_live_user_message(conversation_id)
+        if prior_user_message is None or not (prior_user_message.content or "").strip():
+            await websocket.send_json(
+                {"type": "error", "error": "There is no previous question in this conversation to regenerate."}
+            )
+            await websocket.send_json({"type": "done"})
+            return
+        prompt = prior_user_message.content.strip()
+
     # Attachments were uploaded separately (POST /api/attachments) and are
     # referenced here by id. The CLI is text-in/text-out, so the file's path
     # (not its bytes) is what actually reaches the model.
-    attachment_ids = payload.get("attachment_ids") or []
-    atts = attachments.get_attachments(attachment_ids)
+    if regenerate:
+        # The files belong to the stored question, so rebuild the refs from its row.
+        atts = attachments.attachments_for_message(prior_user_message.id)
+    else:
+        attachment_ids = payload.get("attachment_ids") or []
+        atts = attachments.get_attachments(attachment_ids)
     if atts:
         refs = "\n".join(f"[Attached file: {a.stored_path}]" for a in atts)
         prompt_for_cli = f"{prompt}\n\n{refs}"
     else:
         prompt_for_cli = prompt
 
-    # Crash-safe: the user's message is durable before we even start streaming,
-    # so a crash mid-response never loses what was actually asked.
-    user_message = convs.add_message(conversation_id, "user", prompt)
-    attachments.attach_to_message(attachment_ids, user_message.id)
+    if regenerate:
+        convs.supersede_last_assistant(conversation_id)
+    else:
+        # Crash-safe: the user's message is durable before we even start streaming,
+        # so a crash mid-response never loses what was actually asked.
+        user_message = convs.add_message(conversation_id, "user", prompt)
+        attachments.attach_to_message(attachment_ids, user_message.id)
     convs.set_status(conversation_id, "busy")
 
     proc_stdin: list = [None]  # mutable container captured by closure below

@@ -114,6 +114,19 @@ def attach_to_message(attachment_ids: list[str], message_id: str) -> None:
         )
 
 
+def attachments_for_message(message_id: str) -> list[Attachment]:
+    """Files attached to one message.
+
+    Needed by regenerate: the question is re-asked from the stored row, so its
+    file references have to be rebuilt from the DB rather than from the payload.
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM attachments WHERE message_id = ? ORDER BY created_at ASC", (message_id,)
+        ).fetchall()
+    return [Attachment.from_row(r) for r in rows]
+
+
 def delete_attachment(attachment_id: str) -> None:
     att = get_attachment(attachment_id)
     if not att:

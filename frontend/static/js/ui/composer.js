@@ -128,12 +128,12 @@ export function mountComposer(root, socket, chatPane) {
         <input class="suggest-search" placeholder="Filter templates… (↑↓ navigate, Enter select, Esc close)" value="${_escSuggest(query)}">
         <div class="suggest-list">
           ${list.length
-            ? list.map((t, i) => `
+          ? list.map((t, i) => `
                 <div class="suggest-item${i === activeIdx ? " suggest-active" : ""}" data-idx="${i}">
                   <span class="suggest-title">${_escSuggest(t.title)}</span>
                   <span class="suggest-cat">${_escSuggest(t.category)}</span>
                 </div>`).join("")
-            : `<div class="suggest-empty">No templates match</div>`}
+          : `<div class="suggest-empty">No templates match</div>`}
         </div>
       `;
 
@@ -180,7 +180,7 @@ export function mountComposer(root, socket, chatPane) {
       rm.addEventListener("click", () => {
         pending.splice(pending.indexOf(att), 1);
         renderStrip();
-        api.deleteAttachment(att.id).catch(() => {});
+        api.deleteAttachment(att.id).catch(() => { });
       });
       chip.appendChild(rm);
       strip.appendChild(chip);
@@ -272,13 +272,31 @@ export function mountComposer(root, socket, chatPane) {
     if (document.querySelector('dialog[open], [role="dialog"], .ob-overlay, .tp-overlay')) return;
     const ae = document.activeElement;
     if (ae && ae !== document.body && ae !== input &&
-        (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return;
+      (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return;
     input.focus({ preventScroll: true });
   });
 
-  async function send() {
+  async function send({ regenerate = false } = {}) {
     const text = input.value.trim();
-    if ((!text && pending.length === 0) || getState().streaming) return;
+    if ((!text && pending.length === 0) || getState().streaming) return false;
+
+    if (regenerate) {
+      // Re-answer the question already in the transcript. It must NOT be appended
+      // to it a second time — doing exactly that produced [user][user][assistant] —
+      // and the server re-reads the stored question, so this text is not the
+      // authoritative copy. N10's mislabelled catch is gone with it: there is no
+      // delete round trip left to blame a send failure on (task 2.5 owns the
+      // remaining error surfacing).
+      chatPane.resetForNewTurn();
+      setStreaming(true);
+      sendBtn.hidden = true;
+      stopBtn.hidden = false;
+      socket.send(text, { regenerate: true });
+      input.value = "";
+      charCounter.textContent = "";
+      input.style.height = "";
+      return true;
+    }
 
     // Assessment gate (feature flag + heuristic)
     if (text && localStorage.getItem("gca_feat_assess") === "1" && _shouldAssess(text)) {
@@ -297,7 +315,7 @@ export function mountComposer(root, socket, chatPane) {
         _showToast("Couldn't evaluate — proceeding");
       } else if (assessment.level !== "low") {
         const proceed = await _showAssessment(assessment);
-        if (!proceed) return;
+        if (!proceed) return false;
       }
     }
 
@@ -313,6 +331,7 @@ export function mountComposer(root, socket, chatPane) {
     input.style.height = "";
     pending.length = 0;
     renderStrip();
+    return true;
   }
 
   function stop() { socket.stop(); }
@@ -328,17 +347,17 @@ export function mountComposer(root, socket, chatPane) {
         try {
           await api.autoTitleConversation(convId);
           await loadConversations();
-        } catch {}
+        } catch { }
       }
     }
   });
 
-  sendBtn.addEventListener("click", () => send().catch(() => {}));
+  sendBtn.addEventListener("click", () => send().catch(() => { }));
   stopBtn.addEventListener("click", stop);
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      send().catch(() => {});
+      send().catch(() => { });
       return;
     }
     // Ctrl+K — template autosuggest

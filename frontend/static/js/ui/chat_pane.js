@@ -109,7 +109,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       if (browseBtn) browseBtn.addEventListener("click", () => {
         window._openTemplatePicker?.({ onSelect: fillComposer });
       });
-    }).catch(() => {});
+    }).catch(() => { });
   }
 
   function fmtTime(d = new Date()) {
@@ -469,17 +469,32 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       regenBtn.textContent = "⟳";
       regenBtn.addEventListener("click", async () => {
         if (!conversationId) return;
+        const composerEl = document.getElementById("composer");
+        if (!(composerEl?.setText && composerEl?.send)) {
+          if (onRetry) onRetry(lastUserText);  // fallback: refill only
+          return;
+        }
+        // The row this button sits in is the answer being replaced. Hold the
+        // reference now: finishAssistantMessage strips every .regen-btn when the
+        // new turn completes, so by then "the last assistant row" is the new one.
+        const supersededRow = regenBtn.closest(".msg");
+        composerEl.setText(lastUserText);
+        let started;
         try {
-          await api.deleteLastMessage(conversationId);
-          // Auto-stream: immediately resend without UI
-          const composerEl = document.getElementById("composer");
-          if (composerEl?.setText && composerEl?.send) {
-            composerEl.setText(lastUserText);
-            await composerEl.send();
-          } else if (onRetry) {
-            onRetry(lastUserText);            // fallback: refill only
-          }
-        } catch { /* delete failed — skip retry to avoid duplicate turn */ }
+          // The server supersedes the old answer and re-asks the question it has
+          // on record. There is deliberately no DELETE here any more: the delete
+          // and the resend are one operation server-side, and nothing is written
+          // a second time — that is what used to leave [user][user][assistant].
+          started = await composerEl.send({ regenerate: true });
+        } catch (err) {
+          // Nothing has moved yet, so the old answer is still on screen and the
+          // question is sitting in the composer for a manual send. Task 2.5 owns
+          // routing this through the shared non-boot failure surface.
+          _showErrorToast(`Couldn't regenerate: ${err?.message || err}`);
+          return;
+        }
+        // Only drop the old answer once the new turn is actually under way.
+        if (started) supersededRow?.remove();
       });
       currentAssistantEl._actionsEl.appendChild(regenBtn);
     }
