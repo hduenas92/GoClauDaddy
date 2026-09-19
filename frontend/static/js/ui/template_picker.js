@@ -153,18 +153,18 @@ export function openTemplatePicker({ onSelect }) {
     const preview = t.body.replace(/\{\{[^}]+\}\}/g, "…").substring(0, 80);
     const isCustom = !t.is_builtin;
     return `
-      <div class="tp-card" data-id="${t.id}" tabindex="0" role="button">
+      <div class="tp-card" data-id="${escHtml(t.id)}" tabindex="0" role="button">
         <div class="tp-card-top">
           <span class="tp-card-title">${escHtml(t.title)}</span>
-          <span class="tp-card-badge tp-cat-${t.category}">${t.category}</span>
+          <span class="tp-card-badge tp-cat-${escHtml(t.category)}">${escHtml(t.category)}</span>
           ${t.is_builtin ? `<span class="tp-lock" title="Built-in">🔒</span>` : ""}
         </div>
         ${t.description ? `<p class="tp-card-desc">${escHtml(t.description)}</p>` : ""}
         <p class="tp-card-preview">${escHtml(preview)}…</p>
         ${isCustom ? `
           <div class="tp-card-actions">
-            <button class="tp-edit-btn" data-id="${t.id}" title="Edit">✎</button>
-            <button class="tp-del-btn" data-id="${t.id}" title="Delete">×</button>
+            <button class="tp-edit-btn" data-id="${escHtml(t.id)}" title="Edit">✎</button>
+            <button class="tp-del-btn" data-id="${escHtml(t.id)}" title="Delete">×</button>
           </div>
         ` : ""}
       </div>

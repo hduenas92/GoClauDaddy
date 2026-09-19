@@ -163,6 +163,31 @@ const absenceDiagnostics = (page, selector) => page.evaluate(({ selector, mark }
     await page.keyboard.press('Control+Shift+T');
     await page.waitForTimeout(1200);
 
+    // THE STEP THAT WAS MISSING, and the reason this case measured nothing for
+    // two sessions. template_picker.js:43 defaults `activeCategory = "report"`,
+    // and the filter at :78 is
+    //     activeCategory === "custom" ? !t.is_builtin : t.category === activeCategory
+    // Our payload lives IN t.category, so under the default it can never equal
+    // "report" and the template is filtered out before render: `list` is empty,
+    // renderEmpty() runs at :107, and .tp-card count is 0. The payload and the
+    // filter key are the same field, which looks like a contradiction —
+    // a fixture that renders carries no payload, one that carries the payload
+    // never renders.
+    //
+    // The "custom" branch is the way through: it ignores t.category entirely
+    // and tests !t.is_builtin, which our fixture satisfies. So switch tabs,
+    // and renderCard finally runs with the payload in place.
+    const customTab = await page.$('.tp-cat-btn[data-cat="custom"]');
+    if (!customTab) {
+      add(label, 'INCONCLUSIVE',
+          `route hits=${hits} · the picker opened but has no [data-cat="custom"] tab, ` +
+          `so the category filter cannot be moved off its "report" default and ` +
+          `renderCard cannot run on this fixture`);
+      throw new Error('__handled__');
+    }
+    await customTab.click();
+    await page.waitForTimeout(600);
+
     const r = await probe(page);
     const present = await markerPresent(page, MARK);
 
@@ -176,7 +201,10 @@ const absenceDiagnostics = (page, selector) => page.evaluate(({ selector, mark }
           `route hits=${hits} · __xss=${r.executed} · img[src=x]=${r.created} · markerPresent=${present}`);
     }
   } catch (err) {
-    add(label, 'FAIL', `threw: ${err.message}`);
+    // '__handled__' means the case already recorded its own verdict above and
+    // threw only to skip the rest. Reporting it a second time as a crash would
+    // overwrite a precise INCONCLUSIVE with a meaningless one.
+    if (err.message !== '__handled__') add(label, 'FAIL', `threw: ${err.message}`);
   } finally { await ctx.close(); }
 }
 
@@ -213,12 +241,28 @@ const absenceDiagnostics = (page, selector) => page.evaluate(({ selector, mark }
       }
     });
 
-    add(label, 'INCONCLUSIVE',
-        `route hits=${hits} · marker absent · not-yet-provable: ` +
-        `chat_pane.js exports only ${JSON.stringify(probeMod.exports ?? [])}, so ` +
-        `finishAssistantMessage is unreachable from the page (${JSON.stringify(probeMod)}). ` +
-        `Would need either an exported finishAssistantMessage, or a websocket ` +
-        `fixture that delivers an assistant message with a non-standard status.`);
+    // NOT INCONCLUSIVE, AND NOT A BROWSER ASSERTION EITHER. This case spent two
+    // sessions reported as not-yet-provable, on the assumption that a hostile
+    // status could arrive over the websocket and that reaching it needed a
+    // routeWebSocket fixture. Reading the CALL SITES settled it instead:
+    // `status` is a parameter, and all five callers pass a string literal
+    // ("timeout" :635, "error" :648, "stopped" :652, "done" :657,
+    // "error" :665) — every one a key in STATUS_LABEL. The `|| status`
+    // fallback is unreachable with any value a user or server can influence.
+    //
+    // There is therefore nothing to inject, and a probe that drove a payload
+    // through the socket would have reported PASS for a reason unrelated to
+    // what it claimed to test. The invariant that actually protects this sink
+    // is "every caller passes a literal", which is a statement about source,
+    // and it is asserted in backend/tests/test_frontend_xss_invariants.py
+    // where it can be mutation-verified. This case defers to it rather than
+    // pretending to measure something.
+    add(label, 'CLEAR-BY-CONSTRUCTION',
+        `not a DOM assertion: \`status\` is a parameter and all 5 call sites in ` +
+        `chat_pane.js pass a string literal, so STATUS_LABEL[status] never falls ` +
+        `back to raw input. Pinned by test_frontend_xss_invariants.py:: ` +
+        `test_finish_assistant_message_is_only_ever_called_with_a_literal_status. ` +
+        `(module exports: ${JSON.stringify(probeMod.exports ?? [])})`);
   } catch (err) {
     add(label, 'FAIL', `threw: ${err.message}`);
   } finally { await ctx.close(); }
@@ -357,8 +401,22 @@ await browser.close();
 console.log('\n=== xss-probe ===\n');
 const bad = results.filter((r) => r.state === 'FAIL');
 const meh = results.filter((r) => r.state === 'INCONCLUSIVE');
-console.log(`${results.filter((r) => r.state === 'PASS').length} passed · ${bad.length} failed · ${meh.length} inconclusive · ${results.length} case(s)`);
+// CLEAR-BY-CONSTRUCTION is counted separately and deliberately NOT folded into
+// "passed". A case that was settled by reading source is weaker evidence than
+// one settled by driving a payload through a live render, and the summary line
+// should say which kind of evidence each verdict rests on rather than let the
+// weaker sort hide inside the stronger. It does not fail the run, because the
+// property IS established — just somewhere else, by a test that can be
+// mutation-verified.
+const byConstruction = results.filter((r) => r.state === 'CLEAR-BY-CONSTRUCTION');
+console.log(`${results.filter((r) => r.state === 'PASS').length} proved in the DOM · `
+  + `${byConstruction.length} clear by construction · ${bad.length} failed · `
+  + `${meh.length} inconclusive · ${results.length} case(s)`);
 if (bad.length) { console.log(`\nRESULT: FAIL — ${bad.length}`); process.exit(1); }
 if (meh.length) { console.log(`\nRESULT: INCONCLUSIVE — ${meh.length}`); process.exit(2); }
 console.log('\nRESULT: PASS — no candidate executed and no element was created');
+if (byConstruction.length) {
+  console.log(`(${byConstruction.length} case(s) rest on a source invariant, `
+    + `pinned in backend/tests/test_frontend_xss_invariants.py)`);
+}
 process.exit(0);
