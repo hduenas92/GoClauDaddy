@@ -1,7 +1,13 @@
 """5-2 — SQL injection surface.
 
-Of 69 execute/executemany/executescript calls in backend/app, 60 are plain
-parameterised statements and need nothing said about them. Nine splice
+Of 68 execute/executemany/executescript calls in backend/app, 59 are plain
+parameterised statements and need nothing said about them.
+
+(The commit that introduced this file, fcb541e, says 69. That figure was wrong
+by one: the sweep's regex counted `# conn.execute() keeps the DDL and version
+write ...` at db/migrations.py:193, which is a COMMENT, not a call site. The
+error was caught by a second count that disagreed, which is the only reason it
+was caught at all -- a lone count has nothing to be wrong against.) Nine splice
 something into the SQL string with an f-string. Every one of the nine splices
 an IDENTIFIER or a run of placeholders, never a value:
 
