@@ -69,11 +69,18 @@ async function dismissTour(page) {
 /**
  * Where a [data-tooltip]'s ::after actually lands.
  *
- * getBoundingClientRect() cannot see a pseudo-element, so the box is computed
- * from the host's rect plus the ::after's own computed size and the positioning
- * the rule uses (bottom: calc(100% + 6px); left: 50%; translateX(-50%)). That
- * ties this measurement to those three declarations: if the rule changes, this
- * arithmetic must change with it or it is measuring a fiction.
+ * getBoundingClientRect() cannot see a pseudo-element, so the box is derived
+ * from the host's rect plus the ::after's own COMPUTED offsets. An earlier
+ * version hardcoded the rule it expected to find (bottom / left:50% /
+ * translateX(-50%)) and would therefore have kept reporting the old geometry
+ * after the rule was fixed — measuring a fiction, confidently. It now reads
+ * whichever of top/bottom/left/right is set and parses the transform matrix,
+ * so it follows the stylesheet instead of asserting one.
+ *
+ * Offsets resolve against the host's padding box (the host is
+ * position: relative), so a host with a border introduces at most a
+ * border-width of error. That is accepted: the failures this is looking for
+ * are tens of pixels, not one.
  */
 const TOOLTIP_PROBE = () => [...document.querySelectorAll('[data-tooltip]')].map((el) => {
     const host = el.getBoundingClientRect();
@@ -85,8 +92,24 @@ const TOOLTIP_PROBE = () => [...document.querySelectorAll('[data-tooltip]')].map
     const bw = (parseFloat(cs.borderLeftWidth) || 0) * 2;
     const boxW = cs.boxSizing === 'border-box' ? w : w + padX + bw;
     const boxH = cs.boxSizing === 'border-box' ? h : h + padY + bw;
-    const top = host.top - 6 - boxH;
-    const left = host.left + host.width / 2 - boxW / 2;
+    // translateX out of the computed transform matrix ("none" or "matrix(...)").
+    let tx = 0;
+    const m = /matrix\(([^)]+)\)/.exec(cs.transform);
+    if (m) tx = parseFloat(m[1].split(',')[4]) || 0;
+
+    const num = (v) => (v === 'auto' ? null : parseFloat(v));
+    const cssTop = num(cs.top), cssBottom = num(cs.bottom);
+    const cssLeft = num(cs.left), cssRight = num(cs.right);
+
+    let top;
+    if (cssTop !== null) top = host.top + cssTop;
+    else if (cssBottom !== null) top = host.bottom - cssBottom - boxH;
+    else top = host.top;
+
+    let left;
+    if (cssLeft !== null) left = host.left + cssLeft + tx;
+    else if (cssRight !== null) left = host.right - cssRight - boxW + tx;
+    else left = host.left + tx;
     let clip = null;
     for (let p = el.parentElement; p; p = p.parentElement) {
         const ps = getComputedStyle(p);
