@@ -100,7 +100,7 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
         : "";
       const costBadge = c.cost_usd > 0 ? ` Ã‚Â· ~$${c.cost_usd.toFixed(2)}` : "";
       li.innerHTML = `
-        <span class="conv-dot conv-dot-${c.status}"></span>
+        <span class="conv-dot conv-dot-${escapeHtml(c.status)}"></span>
         <span class="conv-body" role="button" tabindex="0">
           <span class="conv-name">${escapeHtml(c.name)}${srcBadge}</span>
           <span class="conv-ts">${ago}${costBadge}</span>
