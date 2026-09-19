@@ -8,7 +8,13 @@ async function req(method, path, body) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `${method} ${path} failed (${res.status})`);
+    // `detail` is FastAPI's own shape for HTTPException, and most of this
+    // app's routers raise HTTPException rather than hand-rolling {error}.
+    // Without this the message the router wrote was thrown away and the user
+    // got "POST /api/... failed (503)" instead of the sentence explaining why.
+    // Strictly widening: anything that reached the generic string before still
+    // reaches it, because it had neither key.
+    throw new Error(data.error || data.detail || `${method} ${path} failed (${res.status})`);
   }
   return res.status === 204 ? null : res.json();
 }

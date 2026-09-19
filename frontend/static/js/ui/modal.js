@@ -3,7 +3,11 @@
  * showModal → resolves with { fieldName: value } or null (cancelled).
  * showConfirm → resolves with true or false.
  * showErrorToast → the one shared surface for non-boot failures (task 2.4).
+ * attachDirectoryBrowse → the ONE folder-picker click handler, shared by the
+ *   create modal and the inline project edit form (task 4-D6).
  */
+
+import { api } from "../api/http.js";
 
 function _buildOverlay() {
   const overlay = document.createElement("div");
@@ -64,6 +68,54 @@ export function trapFocus(root) {
   return () => document.removeEventListener("keydown", onKey, true);
 }
 
+/**
+ * Wire a Browse button to a text input holding a directory path.
+ *
+ * ONE implementation for both places a working_dir is set, because the three
+ * ways to get this wrong are the same in both and are all invisible:
+ *
+ *  1. `""` IS A REAL ANSWER. POST /api/projects/browse-directory returns an
+ *     empty string when the user cancels the native dialog — not null, not an
+ *     error. `input.value = path` unguarded therefore WIPES a path the user
+ *     already had, as the reward for changing their mind. Hence `if (path)`.
+ *  2. The request BLOCKS. The dialog is a real OS window on the machine running
+ *     the server; the response does not arrive until someone picks or cancels.
+ *     A second click while that is open opens a second window and starts a
+ *     second blocking request, so the button disables itself for the duration
+ *     and a `pending` flag backs that up.
+ *  3. The current value is the only sensible starting folder, so it is passed
+ *     as `initial_dir`. `.trim() || undefined` matters: an empty string would
+ *     be sent as `?initial_dir=` and is not what "no preference" means.
+ *
+ * Failure goes to the shared toast. It never goes to a native dialog, and it
+ * never silently does nothing — "I clicked Browse and nothing happened" is
+ * indistinguishable from a hung dialog the user cannot see.
+ */
+export function attachDirectoryBrowse(button, input) {
+  let pending = false;
+  button.addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (pending) return;
+    pending = true;
+    const restore = button.textContent;
+    button.disabled = true;
+    button.textContent = "Opening…";
+    try {
+      const res = await api.browseDirectory(input.value.trim() || undefined);
+      const path = res?.path ?? "";
+      if (path) input.value = path;   // "" means cancelled: leave what was there
+    } catch (err) {
+      showErrorToast(
+        `Couldn't open the folder picker: ${err.message}. Type the path in the box instead.`
+      );
+    } finally {
+      pending = false;
+      button.disabled = false;
+      button.textContent = restore;
+    }
+  });
+}
+
 export function showModal({ title, fields = [], confirmText = "Save", danger = false, initial = {} }) {
   return new Promise((resolve) => {
     const overlay = _buildOverlay();
@@ -74,15 +126,39 @@ export function showModal({ title, fields = [], confirmText = "Save", danger = f
     box.innerHTML = `
       <h3 class="modal-title">${escHtml(title)}</h3>
       <div class="modal-fields">
-        ${fields.map((f) => `
+        ${fields.map((f) => {
+          const val = escHtml(initial[f.name] !== undefined ? initial[f.name] : (f.value || ""));
+          const ph = escHtml(f.placeholder || "");
+          const nm = escHtml(f.name);
+          if (f.type === "textarea") {
+            return `
           <label class="modal-label">
             <span>${escHtml(f.label)}</span>
-            ${f.type === "textarea"
-              ? `<textarea class="modal-input" name="${escHtml(f.name)}" rows="4" placeholder="${escHtml(f.placeholder || "")}">${escHtml(initial[f.name] || f.value || "")}</textarea>`
-              : `<input class="modal-input" type="${f.type || "text"}" name="${escHtml(f.name)}" value="${escHtml(initial[f.name] !== undefined ? initial[f.name] : (f.value || ""))}" placeholder="${escHtml(f.placeholder || "")}">`
-            }
-          </label>
-        `).join("")}
+            <textarea class="modal-input" name="${nm}" rows="4" placeholder="${ph}">${escHtml(initial[f.name] || f.value || "")}</textarea>
+          </label>`;
+          }
+          if (f.type === "directory") {
+            // The Browse button is a SIBLING of the label, not a child of it.
+            // Nesting a button inside a <label> makes it part of that label's
+            // activation target, which is how a Browse click turns into a
+            // focus-the-input click. It stays inside the overlay so the
+            // existing trapFocus covers it, and it follows the input in DOM
+            // order so Tab runs input -> Browse -> Cancel -> Confirm.
+            return `
+          <div class="modal-dir-field">
+            <label class="modal-label modal-dir-label">
+              <span>${escHtml(f.label)}</span>
+              <input class="modal-input" type="text" name="${nm}" value="${val}" placeholder="${ph}">
+            </label>
+            <button type="button" class="modal-browse" data-for="${nm}" title="Browse for a folder">Browse…</button>
+          </div>`;
+          }
+          return `
+          <label class="modal-label">
+            <span>${escHtml(f.label)}</span>
+            <input class="modal-input" type="${escHtml(f.type || "text")}" name="${nm}" value="${val}" placeholder="${ph}">
+          </label>`;
+        }).join("")}
       </div>
       <div class="modal-actions">
         <button class="modal-btn modal-cancel">Cancel</button>
@@ -98,6 +174,11 @@ export function showModal({ title, fields = [], confirmText = "Save", danger = f
     const inputs = box.querySelectorAll(".modal-input");
     if (inputs.length) inputs[0].focus();
 
+    box.querySelectorAll(".modal-browse").forEach((btn) => {
+      const target = box.querySelector(`.modal-input[name="${CSS.escape(btn.dataset.for)}"]`);
+      if (target) attachDirectoryBrowse(btn, target);
+    });
+
     box.querySelector(".modal-cancel").addEventListener("click", () => overlay._reject());
 
     box.querySelector(".modal-confirm").addEventListener("click", () => {
@@ -107,9 +188,17 @@ export function showModal({ title, fields = [], confirmText = "Save", danger = f
       resolve(values);
     });
 
-    // Enter submits (when not in textarea)
+    // Enter submits (when not in textarea, and not on the Browse button).
+    //
+    // The Browse exclusion is load-bearing, not tidiness. A <button> fires its
+    // click from the Enter keydown's DEFAULT ACTION; this handler's
+    // preventDefault() cancels exactly that. Without the exclusion, a keyboard
+    // user who tabs to Browse and presses Enter submits the form instead —
+    // the control is reachable, looks focused, and does the wrong thing.
     box.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") {
+      if (e.key === "Enter"
+          && e.target.tagName !== "TEXTAREA"
+          && !e.target.classList?.contains("modal-browse")) {
         e.preventDefault();
         box.querySelector(".modal-confirm").click();
       }

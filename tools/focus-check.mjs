@@ -217,6 +217,73 @@ await overlayBattery('shortcuts (#shortcuts-overlay)', '#shortcuts-overlay:not([
 });
 
 // ---------------------------------------------------------------------------
+// The directory field's Browse button (task 4-D6). showModal gained an element,
+// so this instrument has to know about it.
+//
+// The overlay battery above already sweeps it for a name and for the tab trap,
+// because it is a <button> inside .modal-overlay. What the battery cannot see
+// is ORDER: a Browse button that renders before its input, or outside the
+// label's row, still passes every sweep while sending the keyboard user past
+// the control they were about to fill in. Order is the property that is
+// specific to this field, so it is asserted specifically.
+//
+// THIS CASE NEVER CLICKS OR ACTIVATES BROWSE. focus-check does not intercept
+// routes, so an activation here would hit the real endpoint and open a native
+// folder dialog on whatever machine is running the server — a window Playwright
+// cannot see or dismiss, which would hang this harness until a human closed it.
+// Focus only. Activation belongs to dir-picker-check.mjs, where every route is
+// intercepted.
+// ---------------------------------------------------------------------------
+{
+  const { ctx, page } = await newPage({ onboarded: true });
+  try {
+    const btn = await page.$('#new-project-btn');
+    if (btn) await btn.click();
+    const appeared = await page.waitForSelector('.modal-overlay .modal-dir-field', { state: 'visible', timeout: 5000 })
+      .catch(() => null);
+    if (!appeared) {
+      add('modal directory field: Browse follows its input in the tab order', 'INCONCLUSIVE',
+          'Tab from the directory input lands on the Browse button',
+          'the create modal rendered no .modal-dir-field');
+    } else {
+      const shape = await page.evaluate(() => {
+        const field = document.querySelector('.modal-overlay .modal-dir-field');
+        return {
+          inputs: field.querySelectorAll('.modal-input').length,
+          buttons: field.querySelectorAll('.modal-browse').length,
+          // A Browse button nested INSIDE the <label> becomes part of that
+          // label's activation target, so clicking it can focus the input
+          // instead of opening the dialog.
+          insideLabel: !!field.querySelector('label .modal-browse'),
+        };
+      });
+      if (shape.inputs !== 1 || shape.buttons !== 1) {
+        add('modal directory field: Browse follows its input in the tab order', 'FAIL',
+            'exactly one input and one Browse button in the field',
+            `found ${shape.inputs} input(s) and ${shape.buttons} Browse button(s) — ` +
+            'a tab-order assertion over the wrong number of controls proves nothing');
+      } else {
+        await page.focus('.modal-overlay .modal-dir-field .modal-input');
+        await page.keyboard.press('Tab');
+        await page.waitForTimeout(150);
+        const landed = await page.evaluate(() => ({
+          onBrowse: document.activeElement?.classList?.contains('modal-browse') ?? false,
+          inside: !!document.activeElement?.closest?.('.modal-overlay'),
+          where: document.activeElement?.className || document.activeElement?.tagName || '(none)',
+        }));
+        add('modal directory field: Browse follows its input in the tab order',
+            landed.onBrowse && landed.inside && !shape.insideLabel ? 'PASS' : 'FAIL',
+            'Tab from the directory input lands on the Browse button, inside the overlay',
+            `landedOn=${JSON.stringify(landed.where)} insideOverlay=${landed.inside} ` +
+            `nestedInsideLabel=${shape.insideLabel} (nesting must be false)`);
+      }
+    }
+  } finally {
+    await ctx.close();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // .tp-card activation — it is role="button" tabindex="0" with no keydown, so a
 // keyboard user can focus a control that looks actionable and does nothing.
 // Enter AND Space are both required: a native <button> fires on both, and

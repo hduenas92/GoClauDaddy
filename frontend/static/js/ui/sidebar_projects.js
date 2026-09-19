@@ -1,7 +1,7 @@
 import { api } from "../api/http.js";
 import { getState, subscribe } from "../state/store.js";
 import { createProject, deleteProject, loadProjects, selectProject } from "../state/actions.js";
-import { showModal, showConfirm, showErrorToast } from "./modal.js";
+import { showModal, showConfirm, showErrorToast, attachDirectoryBrowse } from "./modal.js";
 
 export function mountSidebarProjects(root, onSwitchProject) {
   root.innerHTML = `
@@ -17,7 +17,7 @@ export function mountSidebarProjects(root, onSwitchProject) {
       title: "New Project",
       fields: [
         { name: "name", label: "Project name", placeholder: "My Project" },
-        { name: "working_dir", label: "Working directory (optional)", placeholder: "C:\\Users\\..." },
+        { name: "working_dir", label: "Working directory (optional)", type: "directory", placeholder: "C:\\Users\\..." },
         { name: "system_prompt", label: "System prompt (optional)", type: "textarea", placeholder: "You are a helpful assistant…" },
       ],
       confirmText: "Create",
@@ -85,6 +85,7 @@ export function mountSidebarProjects(root, onSwitchProject) {
         <input class="pef-name" value="${escapeHtml(p.name)}" placeholder="Name">
         <div class="pef-dir-row">
           <input class="pef-dir" value="${escapeHtml(p.working_dir)}" placeholder="Working dir (optional, absolute path)">
+          <button class="pef-browse-dir" title="Browse for a folder">Browse…</button>
           <button class="pef-clear-dir" title="Clear directory">✕</button>
         </div>
         <textarea class="pef-prompt" rows="3" placeholder="System prompt (optional)">${escapeHtml(p.system_prompt || "")}</textarea>
@@ -97,9 +98,14 @@ export function mountSidebarProjects(root, onSwitchProject) {
     const nameInput = li.querySelector(".pef-name");
     const dirInput = li.querySelector(".pef-dir");
     const clearDirBtn = li.querySelector(".pef-clear-dir");
+    const browseDirBtn = li.querySelector(".pef-browse-dir");
     const promptInput = li.querySelector(".pef-prompt");
 
     clearDirBtn.addEventListener("click", () => { dirInput.value = ""; });
+    // Same handler as the create modal's Browse — one implementation, so the
+    // cancel guard and the double-click guard cannot drift between the two
+    // places a working_dir is set.
+    attachDirectoryBrowse(browseDirBtn, dirInput);
 
     li.querySelector(".pef-save").addEventListener("click", async () => {
       const patch = {};

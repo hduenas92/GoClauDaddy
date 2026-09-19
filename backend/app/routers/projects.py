@@ -65,5 +65,13 @@ def delete_project(project_id: str):
 
 @router.post("/browse-directory")
 async def browse_directory(initial_dir: str | None = None):
-    path = await asyncio.to_thread(dir_picker.pick_directory, initial_dir)
+    # 503, not 500: a machine with no display has nothing wrong with it. The
+    # generic 500 handler's "check the logs folder" is actively misleading here.
+    try:
+        path = await asyncio.to_thread(dir_picker.pick_directory, initial_dir)
+    except dir_picker.DirPickerUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
+    # "" means the user cancelled the dialog. It is NOT an error and NOT a
+    # request to clear the field; the client is responsible for leaving the
+    # existing value alone when it sees one.
     return {"path": path}
