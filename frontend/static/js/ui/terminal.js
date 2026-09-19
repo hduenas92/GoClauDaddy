@@ -59,7 +59,16 @@ export async function openTerminal() {
   let sessionId;
   try {
     const res = await fetch("/api/terminal", { method: "POST" });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      // Same contract as http.js req(): FastAPI renders HTTPException as
+      // {"detail": ...}, never {"error": ...}. res.text() put the raw JSON
+      // envelope into the toast, so a disabled terminal read
+      //   Couldn't start the terminal: {"detail":"..."}.
+      // This file hand-rolls its fetch instead of going through req(), which
+      // is why the 5-2 alignment did not reach it.
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || data.detail || `POST /api/terminal failed (${res.status})`);
+    }
     ({ id: sessionId } = await res.json());
   } catch (err) {
     showErrorToast(`Couldn't start the terminal: ${err.message}. Make sure GoClaudaddy is running and try again.`);
