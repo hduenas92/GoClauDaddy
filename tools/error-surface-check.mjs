@@ -21,6 +21,12 @@
  */
 import { chromium } from 'playwright';
 
+// Navigation uses domcontentloaded, never networkidle. networkidle is
+// documented by Playwright as discouraged and inherently racy, and it hung in a
+// clean Linux container against the /api/server/logs SSE stream. It was also
+// redundant here: every navigation below is followed by an explicit wait, and
+// that is what actually establishes readiness.
+
 const APP_URL = process.env.GCA_URL ?? 'http://127.0.0.1:8765';
 const TOAST = '.error-toast';
 const XTERM_JS = 'https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.js';
@@ -88,7 +94,7 @@ async function expectToast(page, name, mustContain) {
   const { ctx, page } = await freshPage();
   await page.route('**/api/attachments**', (r) =>
     r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"disk full"}' }));
-  await page.goto(APP_URL, { waitUntil: 'networkidle' });
+  await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1200);
   const input = await page.$('#composer input[type=file], input[type=file]');
   if (!input) {
@@ -110,7 +116,7 @@ async function expectToast(page, name, mustContain) {
     r.request().method() === 'POST'
       ? r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"cannot create"}' })
       : r.continue());
-  await page.goto(APP_URL, { waitUntil: 'networkidle' });
+  await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1200);
   const btn = await page.$('#new-project-btn');
   if (!btn) {
@@ -140,7 +146,7 @@ async function expectToast(page, name, mustContain) {
     r.request().method() === 'PATCH'
       ? r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"cannot save"}' })
       : r.continue());
-  await page.goto(APP_URL, { waitUntil: 'networkidle' });
+  await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1200);
   const edit = await page.$('.project-edit');
   if (!edit) {
@@ -161,7 +167,7 @@ async function expectToast(page, name, mustContain) {
   const name = '4. terminal open failure (xterm unreachable) shows a toast';
   const { ctx, page } = await freshPage({ terminal: true });
   await page.route(XTERM_JS, (r) => r.abort());
-  await page.goto(APP_URL, { waitUntil: 'networkidle' });
+  await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1200);
   await page.keyboard.press('Control+`');
   await expectToast(page, name, 'terminal');
@@ -179,7 +185,7 @@ async function expectToast(page, name, mustContain) {
     r.fulfill({ status: 200, contentType: 'application/javascript', body: 'window.Terminal=function(){this.open=function(){};this.write=function(){};this.onData=function(){};};' }));
   await page.route('**/api/terminal', (r) =>
     r.fulfill({ status: 500, contentType: 'text/plain', body: 'no pty available' }));
-  await page.goto(APP_URL, { waitUntil: 'networkidle' });
+  await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1200);
   await page.keyboard.press('Control+`');
   await expectToast(page, name, 'terminal');
@@ -194,7 +200,7 @@ async function expectToast(page, name, mustContain) {
   const { ctx, page } = await freshPage();
   await page.route('**/api/conversations/*/settings', (r) =>
     r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"cannot save"}' }));
-  await page.goto(APP_URL, { waitUntil: 'networkidle' });
+  await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
   await page.keyboard.press('Control+Comma');
   const sel = await page.waitForSelector('#model-select', { state: 'visible', timeout: 4000 }).catch(() => null);
@@ -230,7 +236,7 @@ async function expectToast(page, name, mustContain) {
     const m = /\/ws\/chat\/([0-9a-fA-F-]{8,})/.exec(ws.url());
     if (m && !convId) convId = m[1];
   });
-  await page.goto(APP_URL, { waitUntil: 'networkidle' });
+  await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2000);
 
   // Fallback: ask the API directly if no socket opened (e.g. zero conversations).
@@ -266,7 +272,7 @@ async function expectToast(page, name, mustContain) {
       failedAt = gets;
       return r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"boom"}' });
     });
-    await page.reload({ waitUntil: 'networkidle' });
+    await page.reload({ waitUntil: 'domcontentloaded' });
     const ok = await expectToast(page, name, 'confirm');
 
     // A failure here is ambiguous between "the toast is missing" and "the path

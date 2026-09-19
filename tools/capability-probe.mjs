@@ -10,6 +10,12 @@
  */
 import { chromium } from 'playwright';
 
+// Navigation uses domcontentloaded, never networkidle. networkidle is
+// documented by Playwright as discouraged and inherently racy, and it hung in a
+// clean Linux container against the /api/server/logs SSE stream. It was also
+// redundant here: every navigation below is followed by an explicit wait, and
+// that is what actually establishes readiness.
+
 const ASSERT = process.argv.includes('--assert');
 const APP_URL = process.env.GCA_URL ?? 'http://127.0.0.1:8765';
 const browser = await chromium.launch();
@@ -31,7 +37,7 @@ page.on('response', (r) => {
 });
 
 await page.addInitScript(() => { try { localStorage.setItem('gca_onboarded', '1'); } catch {} });
-await page.goto(APP_URL, { waitUntil: 'networkidle' });
+await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(1200);
 
 // Open a conversation before measuring. The per-message controls — Copy and the

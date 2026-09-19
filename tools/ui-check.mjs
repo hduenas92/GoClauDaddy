@@ -23,6 +23,12 @@ import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Navigation uses domcontentloaded, never networkidle. networkidle is
+// documented by Playwright as discouraged and inherently racy, and it hung in a
+// clean Linux container against the /api/server/logs SSE stream. It was also
+// redundant here: every navigation below is followed by an explicit wait, and
+// that is what actually establishes readiness.
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BASELINE = resolve(HERE, 'baseline.json');
 const BASE_URL = process.env.GCA_URL ?? 'http://127.0.0.1:8765';
@@ -299,7 +305,7 @@ await page.addInitScript(() => {
 });
 
 try {
-  const resp = await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 20000 });
+  const resp = await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
   if (!resp || !resp.ok()) throw new Error(`GET ${BASE_URL} -> ${resp ? resp.status() : 'no response'}`);
 } catch (e) {
   console.error(`FATAL: could not load ${BASE_URL}\n  ${e.message}\n  Is the server running?  cd backend && ../.venv/Scripts/python.exe run.py`);
