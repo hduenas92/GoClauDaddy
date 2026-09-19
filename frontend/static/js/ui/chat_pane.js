@@ -640,6 +640,14 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
           msg = "Claude CLI isn't installed. Run the setup script and refresh.";
         } else if (ev.code === "auth_failed") {
           msg = "Claude isn't authenticated. Run `claude auth` in a terminal, then refresh.";
+        } else if (ev.code === "budget_exceeded") {
+          // The one failure a new user cannot diagnose on their own. Before
+          // this, an unfunded CaaS key produced "Error: claude exited with
+          // code 1" — which reads as a broken app rather than an account that
+          // needs a budget assigned. The balance page is where they fix it,
+          // and the app already links to it from the sidebar; this just says
+          // so at the moment it matters.
+          msg = "Your CaaS key has no remaining budget. Open Check Balance in the right sidebar to see your allowance and request an increase.";
         } else {
           msg = `Error: ${ev.error || "unknown error"}`;
         }

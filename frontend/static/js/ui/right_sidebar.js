@@ -4,6 +4,36 @@ function escHtml(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+/** localStorage key for the user's own CaaS allowance. */
+export const BUDGET_KEY = "gca_budget_usd";
+
+/**
+ * The user's CaaS allowance, or null to fall back to the server's default.
+ *
+ * Exported so the settings panel writes what this reads — one definition of
+ * both the key and what counts as a valid value. When they were separate, a
+ * panel that stored "200.00" and a reader that expected a number was a bug
+ * waiting on someone typing a currency symbol.
+ *
+ * Returns null rather than 200 on anything unusable: absent, unparseable, zero
+ * or negative. Zero matters — it is a plausible thing to type for "I have no
+ * budget", and it would make `cost / budget` Infinity and the bar NaN%.
+ * Falling back to the server default keeps the display honest instead.
+ *
+ * Every access is wrapped: localStorage throws outright in some privacy modes,
+ * and a stats refresh must not be what takes the sidebar down.
+ */
+export function userBudget() {
+  try {
+    const raw = localStorage.getItem(BUDGET_KEY);
+    if (raw == null || raw === "") return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 export function mountRightSidebar(root) {
   root.innerHTML = `
     <details class="sb-section" open>
@@ -306,11 +336,24 @@ export function mountRightSidebar(root) {
             : `${stats.chat_count} chats`;
         }
 
-        // Cost + budget bar
+        // Cost + budget bar.
+        //
+        // The denominator is the USER'S CaaS allowance, which the server has no
+        // way to know: BUDGET_USD in routers/server.py is a hardcoded 200, the
+        // platform default, and keys are routinely issued with more or with
+        // none at all. So a colleague on a larger allowance was being shown a
+        // bar against the wrong number and a "Monthly Spend Estimate" that was
+        // simply wrong.
+        //
+        // Stored in localStorage rather than the database because it is a
+        // DISPLAY preference and nothing server-side acts on it — the same
+        // treatment the theme and the assess feature flag already get. It also
+        // avoids a migration to re-add the app-wide config table that v19
+        // dropped for having no consumers.
         const costEl = root.querySelector("#met-cost");
         const barEl  = root.querySelector("#budget-bar-fill");
         const cost   = stats.monthly_cost_usd ?? 0;
-        const budget = stats.budget_usd ?? 200;
+        const budget = userBudget() ?? stats.budget_usd ?? 200;
         if (costEl) costEl.textContent = `~$${cost.toFixed(2)} / $${budget.toFixed(0)}`;
         if (barEl) {
           const pct = Math.min((cost / budget) * 100, 100);
@@ -338,6 +381,13 @@ export function mountRightSidebar(root) {
     if (root.classList.contains("sb-collapsed")) return;
     _fetchStats();
   }, 60_000);
+
+  // Budget changed in the settings drawer. Without this the new allowance
+  // would not show until the next 60s poll or the next finished turn, and a
+  // setting that appears to do nothing for a minute reads as a setting that
+  // did not save — which is exactly what someone checking their own budget is
+  // most likely to conclude.
+  window.addEventListener("gca:budget-changed", () => _fetchStats());
 
   function showCostToast(cost, budget) {
     const toast = document.createElement("div");

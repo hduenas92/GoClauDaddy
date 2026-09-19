@@ -222,7 +222,35 @@ async def run(
         log.info("claude exited rc=%s", rc)
         if rc not in (0, None):
             stderr_text = " ".join(stderr_lines).lower()
-            if any(kw in stderr_text for kw in ("not logged in", "unauthorized", "authentication", "api key", "invalid key", "auth")):
+            # BUDGET IS CHECKED BEFORE AUTH, and the order is load-bearing.
+            # The auth list contains the bare substring "auth", which appears
+            # inside "unauthorized" — and a 402-style spend refusal can carry
+            # that word too. Checking auth first would file every exhausted
+            # key under "run `claude auth`", sending the user to re-run a
+            # command that is working fine.
+            #
+            # Matched broadly on purpose. A CaaS key with no assigned budget is
+            # a likely first-run failure — the default allowance is $200 and
+            # some keys have none assigned — and the exact wording the platform
+            # returns is not documented anywhere we can read. A false positive
+            # costs a slightly wrong (but still useful) message; a false
+            # negative costs "claude exited with code 1", which tells the user
+            # nothing at all. The raw stderr is already logged at WARNING by
+            # drain_stderr(), so the real text is always recoverable.
+            if any(kw in stderr_text for kw in (
+                "budget", "quota", "credit", "insufficient", "exceeded",
+                "spend limit", "spending limit", "balance", "billing",
+                "payment required", "402",
+            )):
+                yield {
+                    "type": "error",
+                    "code": "budget_exceeded",
+                    "error": (
+                        "Your CaaS key has no remaining budget. Check your balance "
+                        "and request an increase, then try again."
+                    ),
+                }
+            elif any(kw in stderr_text for kw in ("not logged in", "unauthorized", "authentication", "api key", "invalid key", "auth")):
                 yield {"type": "error", "code": "auth_failed", "error": "Claude authentication failed. Run `claude auth` in a terminal, then refresh."}
             else:
                 yield {"type": "error", "error": f"claude exited with code {rc}"}

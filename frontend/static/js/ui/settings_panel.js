@@ -1,6 +1,10 @@
 import { api } from "../api/http.js";
 import { showOnboarding } from "./onboarding_tour.js";
 import { showErrorToast } from "./modal.js";
+// One definition of the key and of what counts as a usable budget. The panel
+// writes exactly what the sidebar reads; keeping two copies of a storage key
+// in sync by hand is how a setting silently stops taking effect.
+import { BUDGET_KEY } from "./right_sidebar.js";
 
 // Keep in sync with PERM_LABELS in main.js
 const PERM_LABELS = {
@@ -56,6 +60,12 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
         <label class="drawer-label">Theme
           <select id="theme-select" class="drawer-select"></select>
         </label>
+      </div>
+      <div class="drawer-section">
+        <label class="drawer-label">Your CaaS budget
+          <input type="number" id="budget-input" class="drawer-select" min="1" step="1" placeholder="200">
+        </label>
+        <p class="drawer-hint">Your monthly allowance in dollars, used for the spend bar. The default is $200; leave blank if that's yours.</p>
       </div>
       <div class="drawer-section">
         <label class="drawer-label">Model
@@ -240,6 +250,46 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
     closeDrawer(drawerEl);
     showOnboarding();
   });
+
+  // Budget. App-wide, not per-conversation, which is why it sits beside Theme
+  // rather than among the selects that PATCH the conversation.
+  //
+  // Writes through BUDGET_KEY imported from right_sidebar.js, so the key and
+  // the definition of a usable value have exactly one home. Blank clears the
+  // override and returns the bar to the server's default rather than storing
+  // an empty string for userBudget() to re-interpret.
+  const budgetInput = drawerEl.querySelector("#budget-input");
+  if (budgetInput) {
+    try {
+      const stored = localStorage.getItem(BUDGET_KEY);
+      if (stored) budgetInput.value = stored;
+    } catch { /* private mode: the field just starts empty */ }
+
+    budgetInput.addEventListener("change", () => {
+      const raw = budgetInput.value.trim();
+      try {
+        if (raw === "") {
+          localStorage.removeItem(BUDGET_KEY);
+        } else {
+          const n = Number(raw);
+          if (!Number.isFinite(n) || n <= 0) {
+            // Same rule userBudget() applies, surfaced instead of silently
+            // ignored: a field that accepts a value the reader will discard
+            // tells the user their setting took when it did not.
+            _flashError(budgetInput, "Enter a dollar amount greater than zero, or leave it blank for the default.");
+            return;
+          }
+          localStorage.setItem(BUDGET_KEY, String(n));
+        }
+      } catch {
+        _flashError(budgetInput, "Couldn't save that — your browser is blocking local storage.");
+        return;
+      }
+      // The sidebar reads this on its next stats refresh; nudge it so the bar
+      // updates while the drawer is still open and the change is visible.
+      window.dispatchEvent(new CustomEvent("gca:budget-changed"));
+    });
+  }
 
   const assessCheck = drawerEl.querySelector("#feat-assess");
   if (assessCheck) {
