@@ -3,7 +3,7 @@
     "url": "http://127.0.0.1:8765",
     "width": 1440,
     "reducedMotion": true,
-    "at": "2026-09-19T01:05:06.330Z"
+    "at": "2026-09-19T01:28:06.177Z"
   },
   "styles": {
     "body": {
@@ -136,7 +136,7 @@
     }
   },
   "listeners": {
-    "domNodes": 1314
+    "domNodes": 1331
   },
   "missing": [],
   "seeded": {
@@ -154,7 +154,7 @@
   "textAudit": [
     {
       "path": "#conv-list > li.conv-item.active > span.conv-body > span.conv-ts",
-      "sample": "1h Ã‚Â· ~$3.36",
+      "sample": "22m Ã‚Â· ~$3.61",
       "ratio": 4.78,
       "fg": "rgb(138, 138, 170)",
       "bg": "rgb(14, 37, 43)",
@@ -214,7 +214,7 @@
     },
     {
       "path": "#chat-messages > div.msg.msg-assistant > div.msg-meta > span.tok-out",
-      "sample": "↓7",
+      "sample": "↓104",
       "ratio": 5.38,
       "fg": "rgba(108, 184, 40, 0.8)",
       "bg": "rgb(12, 12, 15)",
@@ -250,7 +250,7 @@
     },
     {
       "path": "#conv-list > li.conv-item > span.conv-body > span.conv-ts",
-      "sample": "3h",
+      "sample": "4h",
       "ratio": 5.66,
       "fg": "rgb(138, 138, 170)",
       "bg": "rgb(16, 16, 23)",
@@ -293,6 +293,18 @@
       "fontSize": 11,
       "fontWeight": "700",
       "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#right-sidebar > details.sb-section > summary > span.sb-section-arrow",
+      "sample": "â–¶",
+      "ratio": 5.66,
+      "fg": "rgb(138, 138, 170)",
+      "bg": "rgb(16, 16, 23)",
+      "fontSize": 11,
+      "fontWeight": "700",
+      "opacity": 0.35,
       "required": 4.5,
       "pass": true
     },
@@ -394,7 +406,7 @@
     },
     {
       "path": "#rsb-open-browser",
-      "sample": "⎋ Open in Browser",
+      "sample": "âŽ‹ Open in Browser",
       "ratio": 5.93,
       "fg": "rgb(148, 148, 172)",
       "bg": "rgb(15, 27, 33)",
@@ -585,30 +597,6 @@
       "pass": true
     },
     {
-      "path": "#chat-messages > div.msg.msg-assistant > div.msg-meta",
-      "sample": "01:20 PM ·",
-      "ratio": 6.6,
-      "fg": "rgb(148, 148, 172)",
-      "bg": "rgb(12, 12, 15)",
-      "fontSize": 11,
-      "fontWeight": "400",
-      "opacity": 1,
-      "required": 4.5,
-      "pass": true
-    },
-    {
-      "path": "#chat-messages > div.msg.msg-user > div.msg-meta",
-      "sample": "02:25 PM",
-      "ratio": 6.6,
-      "fg": "rgb(148, 148, 172)",
-      "bg": "rgb(12, 12, 15)",
-      "fontSize": 11,
-      "fontWeight": "400",
-      "opacity": 1,
-      "required": 4.5,
-      "pass": true
-    },
-    {
       "path": "div.msg.msg-assistant > div.msg-bubble > details.thinking-block > summary",
       "sample": "Thinking",
       "ratio": 6.6,
@@ -633,6 +621,30 @@
       "pass": true
     },
     {
+      "path": "#chat-messages > div.msg.msg-assistant > div.msg-meta",
+      "sample": "02:26 PM ·",
+      "ratio": 6.6,
+      "fg": "rgb(148, 148, 172)",
+      "bg": "rgb(12, 12, 15)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#chat-messages > div.msg.msg-user > div.msg-meta",
+      "sample": "02:26 PM",
+      "ratio": 6.6,
+      "fg": "rgb(148, 148, 172)",
+      "bg": "rgb(12, 12, 15)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
       "path": "#chat-messages > div.msg.msg-assistant > div.stage-strip.strip-done > span.stage-summary",
       "sample": "1 tool",
       "ratio": 6.6,
@@ -651,6 +663,18 @@
       "fg": "rgb(148, 148, 172)",
       "bg": "rgb(12, 12, 15)",
       "fontSize": 10.14,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "body > div.cost-toast > div.cost-toast-header > button.cost-toast-close",
+      "sample": "âœ•",
+      "ratio": 6.6,
+      "fg": "rgb(148, 148, 172)",
+      "bg": "rgb(12, 12, 15)",
+      "fontSize": 11,
       "fontWeight": "400",
       "opacity": 1,
       "required": 4.5,
@@ -742,7 +766,7 @@
     },
     {
       "path": "#met-cost",
-      "sample": "~$3.94 / $200",
+      "sample": "~$4.18 / $200",
       "ratio": 10.15,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(16, 16, 23)",
@@ -754,7 +778,67 @@
     },
     {
       "path": "details.sb-section > div.sb-section-body > div.budget-link-row > a.budget-link",
-      "sample": "Check Balance →",
+      "sample": "Check Balance â†’",
+      "ratio": 10.15,
+      "fg": "rgb(45, 212, 191)",
+      "bg": "rgb(16, 16, 23)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#met-ctx",
+      "sample": "â€”",
+      "ratio": 10.15,
+      "fg": "rgb(45, 212, 191)",
+      "bg": "rgb(16, 16, 23)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#met-elapsed",
+      "sample": "â€”",
+      "ratio": 10.15,
+      "fg": "rgb(45, 212, 191)",
+      "bg": "rgb(16, 16, 23)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#met-rate",
+      "sample": "â€”",
+      "ratio": 10.15,
+      "fg": "rgb(45, 212, 191)",
+      "bg": "rgb(16, 16, 23)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#met-last",
+      "sample": "â€”",
+      "ratio": 10.15,
+      "fg": "rgb(45, 212, 191)",
+      "bg": "rgb(16, 16, 23)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#met-chat",
+      "sample": "â€”",
       "ratio": 10.15,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(16, 16, 23)",
@@ -766,7 +850,7 @@
     },
     {
       "path": "#met-steps",
-      "sample": "35",
+      "sample": "36",
       "ratio": 10.15,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(16, 16, 23)",
@@ -802,7 +886,7 @@
     },
     {
       "path": "#rsb-console > div.console-line.lvl-info",
-      "sample": "18:03:36 [INFO] goclaudaddy.chat_socket:",
+      "sample": "18:27:04 [INFO] goclaudaddy.chat_socket:",
       "ratio": 10.4,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(13, 13, 17)",
@@ -838,7 +922,7 @@
     },
     {
       "path": "html.dark > body > div.cost-toast > a.cost-toast-link",
-      "sample": "Check Balance →",
+      "sample": "Check Balance â†’",
       "ratio": 10.49,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(12, 12, 15)",
@@ -922,7 +1006,7 @@
     },
     {
       "path": "div.msg.msg-user > div.msg-bubble > div.text-block > p",
-      "sample": "what is the weather tomorrow",
+      "sample": "phoenix",
       "ratio": 15.58,
       "fg": "rgb(240, 240, 248)",
       "bg": "rgb(24, 24, 31)",
@@ -946,7 +1030,7 @@
     },
     {
       "path": "div.msg.msg-assistant > div.msg-bubble > div.text-block > p",
-      "sample": "Here. BANANA",
+      "sample": "I don't know your location — what city s",
       "ratio": 17.23,
       "fg": "rgb(240, 240, 248)",
       "bg": "rgb(12, 12, 15)",
@@ -989,12 +1073,12 @@
   },
   "occlusion": {
     "swept": 56,
-    "offscreen": 103,
+    "offscreen": 106,
     "clipped": 1,
     "occluded": []
   },
   "reducedMotion": {
-    "swept": 1314,
+    "swept": 1331,
     "offenders": []
   },
   "drift": [
