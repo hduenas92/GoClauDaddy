@@ -5,14 +5,14 @@ import { api } from "../api/http.js";
 
 // Long enough that typing a word does not fire a request per keystroke, short
 // enough that the Messages group feels like part of the same box. The local
-// name filter is NOT debounced Ã¢â‚¬â€ see onSearchInput.
+// name filter is NOT debounced — see onSearchInput.
 const SEARCH_DEBOUNCE_MS = 250;
 
 export function mountSidebarConversations(root, onSelect, onEmpty) {
   root.innerHTML = `
-    <button id="new-conv-btn">Ã¯Â¼â€¹ New Chat</button>
+    <button id="new-conv-btn">＋ New Chat</button>
     <div id="conv-search-wrap">
-      <input id="conv-search" type="text" placeholder="Search chatsÃ¢â‚¬Â¦" autocomplete="off">
+      <input id="conv-search" type="text" placeholder="Search chats…" autocomplete="off">
     </div>
     <ul id="conv-list"></ul>
   `;
@@ -28,7 +28,7 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
   // `hits` is null when no search is in effect and an array once one has
   // returned, so an empty array ("searched, found nothing") stays distinct from
   // "not searching". Keeping it here rather than re-fetching means a store
-  // update Ã¢â‚¬â€ subscribe(render) fires on every state change Ã¢â‚¬â€ redraws the hits
+  // update — subscribe(render) fires on every state change — redraws the hits
   // already in hand instead of dropping them or hitting the network again.
   let hits = null;
   let hitsTruncated = false;
@@ -44,7 +44,7 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
 
   function onSearchInput() {
     // SYNCHRONOUS, always. The name filter is local and must never be gated on
-    // a network round trip Ã¢â‚¬â€ typing stays responsive with the server down.
+    // a network round trip — typing stays responsive with the server down.
     render();
 
     clearTimeout(searchTimer);
@@ -71,7 +71,7 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
     } catch (err) {
       if (id !== latestReqId) return;
       // Leave `hits` null so no empty Messages group appears, and leave the
-      // Chats group alone Ã¢â‚¬â€ a failed content search must not look like "no
+      // Chats group alone — a failed content search must not look like "no
       // conversations match". The server 400s on a q that tokenises to nothing
       // (e.g. "!!!"), which is a normal thing for a user to type.
       hits = null;
@@ -98,15 +98,15 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
       const srcBadge = c.source && c.source !== "web"
         ? `<span class="conv-source-badge conv-source-${escapeHtml(c.source)}">${escapeHtml(c.source)}</span>`
         : "";
-      const costBadge = c.cost_usd > 0 ? ` Ã‚Â· ~$${c.cost_usd.toFixed(2)}` : "";
+      const costBadge = c.cost_usd > 0 ? ` · ~$${c.cost_usd.toFixed(2)}` : "";
       li.innerHTML = `
         <span class="conv-dot conv-dot-${escapeHtml(c.status)}"></span>
         <span class="conv-body" role="button" tabindex="0">
           <span class="conv-name">${escapeHtml(c.name)}${srcBadge}</span>
           <span class="conv-ts">${ago}${costBadge}</span>
         </span>
-        <button class="conv-rename" title="Rename">Ã¢Å“Å½</button>
-        <button class="conv-delete" title="Delete">Ã¢Å“â€¢</button>
+        <button class="conv-rename" title="Rename">✎</button>
+        <button class="conv-delete" title="Delete">✕</button>
       `;
       const convBody = li.querySelector(".conv-body");
       const selectConv = () => onSelect(c.id);
@@ -171,7 +171,7 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
     if (truncated) {
       const more = document.createElement("li");
       more.className = "conv-group-note";
-      more.textContent = `Showing the first ${rows.length} Ã¢â‚¬â€ refine to see more`;
+      more.textContent = `Showing the first ${rows.length} — refine to see more`;
       listEl.appendChild(more);
     }
   }

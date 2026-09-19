@@ -37,73 +37,73 @@ export function userBudget() {
 export function mountRightSidebar(root) {
   root.innerHTML = `
     <details class="sb-section" open>
-      <summary><span>METRICS</span><span class="sb-section-arrow">â–¶</span></summary>
+      <summary><span>METRICS</span><span class="sb-section-arrow">▶</span></summary>
       <div class="sb-section-body">
         <div class="metric-row">
           <span class="metric-label">COST</span>
-          <span class="metric-value" id="met-cost" title="Tracks conversations in this app only; total CaaS spend may be higher">â€”</span>
+          <span class="metric-value" id="met-cost" title="Tracks conversations in this app only; total CaaS spend may be higher">—</span>
         </div>
         <div class="budget-bar-wrap">
           <div class="budget-bar-fill" id="budget-bar-fill"></div>
         </div>
         <div class="budget-link-row">
-          <a href="https://caas.open-webui.godaddy.com/apiKeys" target="_blank" class="budget-link">Check Balance â†’</a>
+          <a href="https://caas.open-webui.godaddy.com/apiKeys" target="_blank" class="budget-link">Check Balance →</a>
         </div>
         <div class="metric-row">
           <span class="metric-label">CTX</span>
-          <span class="metric-value" id="met-ctx">â€”</span>
+          <span class="metric-value" id="met-ctx">—</span>
         </div>
         <div class="budget-bar-wrap">
           <div class="budget-bar-fill budget-normal" id="ctx-bar-fill"></div>
         </div>
         <div class="metric-row">
           <span class="metric-label">ELAPSED</span>
-          <span class="metric-value" id="met-elapsed">â€”</span>
+          <span class="metric-value" id="met-elapsed">—</span>
         </div>
         <div class="metric-row">
           <span class="metric-label">TOK/S</span>
-          <span class="metric-value" id="met-rate">â€”</span>
+          <span class="metric-value" id="met-rate">—</span>
         </div>
         <div class="metric-row">
           <span class="metric-label">LAST</span>
-          <span class="metric-value" id="met-last">â€”</span>
+          <span class="metric-value" id="met-last">—</span>
         </div>
         <div class="metric-row">
           <span class="metric-label">THIS CHAT</span>
-          <span class="metric-value" id="met-chat">â€”</span>
+          <span class="metric-value" id="met-chat">—</span>
         </div>
         <div class="metric-row">
           <span class="metric-label">STEPS</span>
-          <span class="metric-value" id="met-steps">â€”</span>
+          <span class="metric-value" id="met-steps">—</span>
         </div>
         <div class="metric-row">
           <span class="metric-label">TOOLS</span>
-          <span class="metric-value" id="met-tools">â€”</span>
+          <span class="metric-value" id="met-tools">—</span>
         </div>
         <div class="metric-row">
           <span class="metric-label">ALL CHATS</span>
-          <span class="metric-value" id="met-all">â€”</span>
+          <span class="metric-value" id="met-all">—</span>
         </div>
       </div>
     </details>
     <details class="sb-section" open>
-      <summary><span>SERVER</span><span class="sb-section-arrow">â–¶</span></summary>
+      <summary><span>SERVER</span><span class="sb-section-arrow">▶</span></summary>
       <div class="sb-section-body" id="rsb-server-body">
-        <div class="server-status"><span class="server-dot"></span><span>Connectingâ€¦</span></div>
+        <div class="server-status"><span class="server-dot"></span><span>Connecting…</span></div>
       </div>
     </details>
     <details class="sb-section">
-      <summary><span>CONSOLE</span><span class="sb-section-arrow">â–¶</span></summary>
+      <summary><span>CONSOLE</span><span class="sb-section-arrow">▶</span></summary>
       <div class="sb-section-body">
         <div class="console-log" id="rsb-console"></div>
       </div>
     </details>
     <details class="sb-section">
       <summary>
-        <span class="sb-section-icon">âš¡</span>
+        <span class="sb-section-icon">⚡</span>
         <span>AGENTS</span>
         <span class="sb-section-count" id="rsb-agent-count">0</span>
-        <span class="sb-section-arrow">â–¶</span>
+        <span class="sb-section-arrow">▶</span>
       </summary>
       <div class="sb-section-body" id="rsb-agents-body">
         <div class="sb-empty">No agents running</div>
@@ -111,10 +111,10 @@ export function mountRightSidebar(root) {
     </details>
     <details class="sb-section" id="sb-teams" hidden>
       <summary>
-        <span class="sb-section-icon">â¬¡</span>
+        <span class="sb-section-icon">⬡</span>
         <span>TEAMS</span>
         <span class="sb-section-count" id="rsb-team-count">0</span>
-        <span class="sb-section-arrow">â–¶</span>
+        <span class="sb-section-arrow">▶</span>
       </summary>
       <div class="sb-section-body" id="rsb-teams-body">
         <div class="sb-empty">No teams</div>
@@ -152,7 +152,7 @@ export function mountRightSidebar(root) {
     const pct = Math.min((inputTokens / ctxMax) * 100, 100);
     const currLabel = fmtCompact(inputTokens);
     const maxLabel = fmtCompact(ctxMax);
-    ctxEl.textContent = `${Math.round(pct)}% Â· ${currLabel} / ${maxLabel}`;
+    ctxEl.textContent = `${Math.round(pct)}% · ${currLabel} / ${maxLabel}`;
     if (ctxBarEl) {
       ctxBarEl.style.width = `${pct}%`;
       ctxBarEl.classList.remove("budget-normal", "budget-warn", "budget-crit");
@@ -170,7 +170,7 @@ export function mountRightSidebar(root) {
   }
 
   // Decide the unit from the ROUNDED value, not the raw one. Dividing first and
-  // rounding after produced "1000.0k" for 999,999 â€” which is the exact figure you
+  // rounding after produced "1000.0k" for 999,999 — which is the exact figure you
   // are watching on a 1M-context model just before you run out of room.
   function fmtCompact(n) {
     if (n < 1_000) return String(n);
@@ -185,19 +185,19 @@ export function mountRightSidebar(root) {
   let elapsedTimer = null;
   let prevStreaming = false;
   // Phase 4 (4-D5). What stood here read `state.lastEventType`, which NOTHING in
-  // the frontend or the backend has ever written â€” measured: two references in
+  // the frontend or the backend has ever written — measured: two references in
   // this file, both reads, zero writes anywhere. So the condition was
   // permanently false and `_fetchStats()` on turn completion never ran once.
   //
   // It was not merely dead. The 60s interval below calls itself a "fallback poll
-  // in case a 'done' event is missed" â€” but with this branch inert that fallback
+  // in case a 'done' event is missed" — but with this branch inert that fallback
   // was the ONLY mechanism, so COST and ALL CHATS could sit stale for up to a
   // minute after a turn ended while a comment claimed otherwise. Same shape as
   // v15 in 4-P1: a primary path that never ran and a fallback silently carrying
   // the whole load.
   //
   // So it is WIRED rather than deleted, onto the falling edge below, which uses
-  // `streaming` â€” a field the store actually has and actually writes.
+  // `streaming` — a field the store actually has and actually writes.
 
   subscribe((state) => {
     if (state.streaming && !prevStreaming) {
@@ -219,7 +219,7 @@ export function mountRightSidebar(root) {
     prevStreaming = state.streaming;
 
     // This-chat totals from store messages.
-    // Sum (input[i] + output[i]) per turn â€” that's the actual tokens billed for each API call.
+    // Sum (input[i] + output[i]) per turn — that's the actual tokens billed for each API call.
     // Never sum input_tokens alone: each turn's input already includes all prior outputs,
     // so summing only inputs double-counts every previous turn's context.
     const msgs = state.messages || [];
@@ -227,8 +227,8 @@ export function mountRightSidebar(root) {
     const sessionOut    = msgs.reduce((s, m) => s + (m.output_tokens || 0), 0);
     if (chatEl) {
       chatEl.textContent = sessionBilled > 0
-        ? `${fmtTok(sessionBilled)} (â†“${fmtTok(sessionOut)} out)`
-        : "â€”";
+        ? `${fmtTok(sessionBilled)} (↓${fmtTok(sessionOut)} out)`
+        : "—";
     }
 
     // Context window: latest message's input_tokens is the actual context size for that turn
@@ -239,10 +239,10 @@ export function mountRightSidebar(root) {
   // Reset every metric row + both progress bars to their empty state.
   function _resetMetrics() {
     [lastEl, rateEl, elEl, chatEl, stepsEl, toolsEl, ctxEl, allEl].forEach((el) => {
-      if (el) el.textContent = "â€”";
+      if (el) el.textContent = "—";
     });
     const costEl = root.querySelector("#met-cost");
-    if (costEl) costEl.textContent = "â€”";
+    if (costEl) costEl.textContent = "—";
     if (elEl) elEl.classList.remove("streaming");
     const barEl = root.querySelector("#budget-bar-fill");
     if (barEl) { barEl.style.width = "0%"; barEl.className = "budget-bar-fill budget-normal"; }
@@ -269,13 +269,13 @@ export function mountRightSidebar(root) {
       .then(r => r.ok ? r.json() : null)
       .then(stats => {
         if (!stats) return;
-        if (stepsEl) stepsEl.textContent = stats.step_count > 0 ? String(stats.step_count) : "â€”";
-        if (toolsEl) toolsEl.textContent = stats.tool_call_count > 0 ? String(stats.tool_call_count) : "â€”";
+        if (stepsEl) stepsEl.textContent = stats.step_count > 0 ? String(stats.step_count) : "—";
+        if (toolsEl) toolsEl.textContent = stats.tool_call_count > 0 ? String(stats.tool_call_count) : "—";
       })
       .catch(() => {});
   }
 
-  // Called from main.js when an assistant message finishes â€” also refreshes cost/stats
+  // Called from main.js when an assistant message finishes — also refreshes cost/stats
   function notifyComplete(usage, elapsedMs) {
     _fetchStats();
     if (_activeConvId) setConversation(_activeConvId);
@@ -292,10 +292,10 @@ export function mountRightSidebar(root) {
     }
     if (lastEl) {
       const parts = [];
-      if (inp) parts.push(`â†‘${fmtTok(inp)}`);
-      if (out) parts.push(`â†“${fmtTok(out)}`);
+      if (inp) parts.push(`↑${fmtTok(inp)}`);
+      if (out) parts.push(`↓${fmtTok(out)}`);
       if (elapsedMs != null) parts.push(fmtMs(elapsedMs));
-      lastEl.textContent = parts.join(" ") || "â€”";
+      lastEl.textContent = parts.join(" ") || "—";
     }
   }
 
@@ -316,7 +316,7 @@ export function mountRightSidebar(root) {
       body.innerHTML = `
         <div class="server-status"><span class="server-dot"></span><span>Online</span></div>
         <div class="server-url">${escHtml(info.url)}</div>
-        <button class="server-btn" id="rsb-open-browser">âŽ‹ Open in Browser</button>
+        <button class="server-btn" id="rsb-open-browser">⎋ Open in Browser</button>
       `;
       body.querySelector("#rsb-open-browser")?.addEventListener("click", () => {
         window.open(info.url, "_blank");
@@ -362,7 +362,7 @@ export function mountRightSidebar(root) {
           barEl.classList.add(pct < 60 ? "budget-normal" : pct < 85 ? "budget-warn" : "budget-crit");
         }
 
-        // Daily toast â€” deduped by date so repeated _fetchStats calls don't re-show it
+        // Daily toast — deduped by date so repeated _fetchStats calls don't re-show it
         const TODAY = new Date().toISOString().slice(0, 10);
         const NOTIF_KEY = "gca_cost_notified";
         if (cost > 0 && localStorage.getItem(NOTIF_KEY) !== TODAY && stats.monthly_cost_usd != null) {
@@ -374,7 +374,7 @@ export function mountRightSidebar(root) {
   }
   _fetchStats();
   // 60s fallback poll in case a turn-end is missed; guarded like the other
-  // pollers below. It is a genuine fallback again as of 4-D5 â€” until then the
+  // pollers below. It is a genuine fallback again as of 4-D5 — until then the
   // turn-end refresh it backs up had never fired, so this was carrying the whole
   // job and the word "fallback" was not true.
   setInterval(() => {
@@ -395,12 +395,12 @@ export function mountRightSidebar(root) {
     toast.innerHTML = `
       <div class="cost-toast-header">
         <span class="cost-toast-title">Monthly Spend Estimate</span>
-        <button class="cost-toast-close" aria-label="Close">âœ•</button>
+        <button class="cost-toast-close" aria-label="Close">✕</button>
       </div>
       <div class="cost-toast-body">
-        Estimated GoClaudaddy spend this month: ~$${cost.toFixed(2)} (local tracking only) Â· This is an estimate only.
+        Estimated GoClaudaddy spend this month: ~$${cost.toFixed(2)} (local tracking only) · This is an estimate only.
       </div>
-      <a href="https://caas.open-webui.godaddy.com/apiKeys" target="_blank" class="cost-toast-link">Check Balance â†’</a>
+      <a href="https://caas.open-webui.godaddy.com/apiKeys" target="_blank" class="cost-toast-link">Check Balance →</a>
     `;
     document.body.appendChild(toast);
 
@@ -518,12 +518,12 @@ export function mountRightSidebar(root) {
           teamsBody.innerHTML = '<div class="sb-empty">No teams</div>';
           return;
         }
-        // Slice the raw string BEFORE escaping â€” escaping first then slicing can
+        // Slice the raw string BEFORE escaping — escaping first then slicing can
         // cut an entity in half (`&amp;` -> `&am`) and emit broken markup.
         teamsBody.innerHTML = teams.map(t => `
           <div class="metric-row">
             <span class="metric-label" title="${escHtml(t.id)}">${escHtml(String(t.name ?? "").slice(0, 16))}</span>
-            <span class="metric-value">~$${(t.cost_usd || 0).toFixed(3)} Â· ${Number(t.members?.length ?? 0)} agents</span>
+            <span class="metric-value">~$${(t.cost_usd || 0).toFixed(3)} · ${Number(t.members?.length ?? 0)} agents</span>
           </div>
         `).join("");
       })
