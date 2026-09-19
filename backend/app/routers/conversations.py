@@ -47,7 +47,14 @@ def list_conversations(project_id: str | None = None):
     ids = [c.id for c in convs]
     with get_connection() as conn:
         rows = conn.execute(
-            f"""SELECT m.conversation_id, c.model,
+            # Grouped by (conversation, MESSAGE model), not by conversation
+            # alone. Pricing a whole conversation at `c.model` reprices every
+            # historical message whenever the user switches model mid-thread —
+            # Haiku to Opus moved a $6.00 total to $30.00 with no tokens spent.
+            # COALESCE keeps rows written before migration 4 added
+            # messages.model priced at the conversation's model.
+            f"""SELECT m.conversation_id,
+                COALESCE(m.model, c.model) AS model,
                 COALESCE(SUM(m.input_tokens), 0) AS ti,
                 COALESCE(SUM(m.output_tokens), 0) AS tot_out,
                 COALESCE(SUM(m.cache_read_tokens), 0) AS tcr,
@@ -55,13 +62,14 @@ def list_conversations(project_id: str | None = None):
                 FROM messages m JOIN conversations c ON c.id = m.conversation_id
                 WHERE m.role = 'assistant'
                   AND m.conversation_id IN ({','.join('?' * len(ids))})
-                GROUP BY m.conversation_id""",
+                GROUP BY m.conversation_id, COALESCE(m.model, c.model)""",
             ids,
         ).fetchall()
-    cost_map = {
-        r["conversation_id"]: compute_cost_usd(r["model"], r["ti"], r["tot_out"], r["tcr"], r["tcc"])
-        for r in rows
-    }
+    cost_map: dict[str, float] = {}
+    for r in rows:
+        cost_map[r["conversation_id"]] = cost_map.get(r["conversation_id"], 0.0) + compute_cost_usd(
+            r["model"], r["ti"], r["tot_out"], r["tcr"], r["tcc"]
+        )
     return [
         {**dataclasses.asdict(c), "cost_usd": cost_map.get(c.id, 0.0)}
         for c in convs

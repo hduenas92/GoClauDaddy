@@ -61,7 +61,11 @@ def server_stats():
         ).fetchone()
         monthly_rows = conn.execute(
             """
-            SELECT c.model,
+            -- Grouped by the MESSAGE's model, not the conversation's current
+            -- one: `GROUP BY c.model` repriced a month of history whenever
+            -- anyone switched a conversation's model. COALESCE covers rows
+            -- written before migration 4 added messages.model.
+            SELECT COALESCE(m.model, c.model) AS model,
                    COALESCE(SUM(m.input_tokens),            0) AS mo_input,
                    COALESCE(SUM(m.output_tokens),           0) AS mo_output,
                    COALESCE(SUM(m.cache_read_tokens),       0) AS mo_cache_read,
@@ -70,7 +74,7 @@ def server_stats():
             JOIN conversations c ON c.id = m.conversation_id
             WHERE m.role = 'assistant'
               AND m.created_at >= ?
-            GROUP BY c.model
+            GROUP BY COALESCE(m.model, c.model)
             """,
             (first_of_month,),
         ).fetchall()

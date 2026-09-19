@@ -34,6 +34,29 @@ def get_conversation_stats(conversation_id: str):
             (conversation_id,),
         ).fetchone()
 
+        # Cost is summed PER MESSAGE MODEL, separately from the totals above,
+        # because pricing the whole conversation at `conv["model"]` reprices
+        # history on a mid-thread model switch. The token totals stay a single
+        # sum; only the money needs the per-model split.
+        cost_rows = conn.execute(
+            """SELECT COALESCE(model, ?) AS model,
+                COALESCE(SUM(input_tokens), 0)          AS ti,
+                COALESCE(SUM(output_tokens), 0)         AS tot_out,
+                COALESCE(SUM(cache_read_tokens), 0)     AS tcr,
+                COALESCE(SUM(cache_creation_tokens), 0) AS tcc
+               FROM messages
+               WHERE conversation_id = ? AND role = 'assistant'
+               GROUP BY COALESCE(model, ?)""",
+            (conv["model"], conversation_id, conv["model"]),
+        ).fetchall()
+    cost_usd = round(
+        sum(
+            compute_cost_usd(r["model"], r["ti"], r["tot_out"], r["tcr"], r["tcc"])
+            for r in cost_rows
+        ),
+        6,
+    )
+
     elapsed_s = None
     if conv["started_at"]:
         end_str = conv["completed_at"] or datetime.now(timezone.utc).isoformat()
@@ -49,7 +72,7 @@ def get_conversation_stats(conversation_id: str):
         "status": conv["status"],
         "tokens_in": row["ti"],
         "tokens_out": row["tot_out"],
-        "cost_usd": compute_cost_usd(conv["model"], row["ti"], row["tot_out"], row["tcr"], row["tcc"]),
+        "cost_usd": cost_usd,
         "elapsed_s": elapsed_s,
         "step_count": row["step_count"],
         "tool_call_count": row["tool_call_count"],
