@@ -44,6 +44,11 @@ log = get_logger("chat_socket")
 # precisely the stopped turns. Pass `stopped=` to add_message() instead.
 _RETIRED_STOPPED_MARKER = "\n\n<!-- claudioui:stopped -->"
 
+# How long to wait for the user's approve/deny before DENYING. A module-level
+# constant rather than a literal so the timeout path is reachable in a test
+# without that test taking a minute — which is why it had no coverage at all.
+APPROVAL_TIMEOUT_SECONDS: float = 60
+
 
 async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None:
     await websocket.accept()
@@ -251,9 +256,26 @@ async def _handle_send_inner(
                 with contextlib.suppress(RuntimeError):
                     await websocket.send_json(event)
                 try:
-                    approved = await asyncio.wait_for(approval_queue.get(), timeout=60)
+                    approved = await asyncio.wait_for(
+                        approval_queue.get(), timeout=APPROVAL_TIMEOUT_SECONDS
+                    )
                 except TimeoutError:
-                    approved = True  # timeout = auto-approve, keep stream alive
+                    # FAIL CLOSED. This used to be `approved = True` with the
+                    # comment "timeout = auto-approve, keep stream alive", and
+                    # nothing was emitted — so a user who stepped away, or whose
+                    # socket had already closed (the send above is wrapped in
+                    # suppress(RuntimeError), so the prompt may never have been
+                    # rendered at all), had the tool run on their behalf with no
+                    # record of it. A gate that exists to withhold consent must
+                    # not grant it by default. Decided with Houston 2026-09-19.
+                    approved = False
+                    notice = (
+                        f"\n\n_No answer within {APPROVAL_TIMEOUT_SECONDS:g}s, so this tool "
+                        f"was **not** run. Send the message again to retry it._\n\n"
+                    )
+                    text_parts.append(notice)
+                    with contextlib.suppress(RuntimeError):
+                        await websocket.send_json({"type": "text", "text": notice})
                 stdin = proc_stdin[0]
                 if stdin and not stdin.is_closing():
                     stdin.write(b"y\n" if approved else b"n\n")
