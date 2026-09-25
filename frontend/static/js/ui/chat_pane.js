@@ -5,6 +5,7 @@ import { api } from "../api/http.js";
 import { getTemplates } from "../api/template_cache.js";
 import { interpolateTemplate } from "./template_picker.js";
 import { showErrorToast } from "./modal.js";
+import { attachmentDownloadUrl, isImageName } from "./attachment_view.js";
 
 const STATUS_LABEL = { done: "Done", error: "Error", stopped: "Stopped", timeout: "Timed out" };
 
@@ -244,12 +245,43 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       tcs.forEach((tc) => {
         bubble.appendChild(_buildToolCallEl(tc.name, tc.input || {}, tc.id || "", tc.output, tc.is_error));
       });
+
+      // F2: attachments are persisted against the user message server-side
+      // (list_messages_with_attachments) and re-rendered here after a reload.
+      // Images get an <img> with alt = filename; everything else a name chip.
+      const attachments = Array.isArray(m.attachments) ? m.attachments : [];
+      attachments.forEach((att) => {
+        if (isImageName(att.original_name)) {
+          const img = document.createElement("img");
+          img.className = "msg-attachment-thumb";
+          img.alt = att.original_name;
+          img.src = attachmentDownloadUrl(att.id);
+          bubble.appendChild(img);
+        } else {
+          const chip = document.createElement("span");
+          chip.className = "msg-attachment-name";
+          chip.textContent = att.original_name;
+          bubble.appendChild(chip);
+        }
+      });
+
       const textEl = document.createElement("div");
       textEl.className = "text-block";
       textEl.innerHTML = render("text", m.content);
       bubble.appendChild(textEl);
 
       meta.innerHTML = `${fmtTime(new Date(m.created_at))}${tokMeta(m.input_tokens, m.output_tokens)}`;
+
+      // F4 (2026-09-25 Houston): a cut-off assistant reply is persisted as
+      // messages.stopped = 1 (crash checkpoint or /stop). History must say so.
+      // The badge is a real text node inside .msg-meta, so screen readers get
+      // the word "Incomplete" with no extra ARIA needed.
+      if (m.role === "assistant" && m.stopped) {
+        const badge = document.createElement("span");
+        badge.className = "incomplete-badge";
+        badge.textContent = "Incomplete";
+        meta.appendChild(badge);
+      }
 
       actions.appendChild(_buildMessageActions(m.role, () => m.content, div));
       messagesEl.appendChild(div);

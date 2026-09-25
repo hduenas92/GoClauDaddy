@@ -39,6 +39,16 @@ const MODEL_DESCRIPTIONS = {
 // bootstrap script in index.html (which also applies data-theme before first
 // paint). Fall back to the shipping theme alone if it's somehow missing.
 const THEME_STORAGE_KEY = "gca_theme";
+// F3: chat font size. The key is read by the bootstrap script in index.html
+// (pre-paint) and written here; the CSS variable it feeds lives in base.css
+// (:root --chat-font-size). Values are literal px sizes so the bootstrap can
+// whitelist them without parsing.
+const FONT_SIZE_STORAGE_KEY = "gca_chat_font_size";
+const FONT_SIZE_OPTIONS = [
+  { value: "12px", label: "Small (12px)" },
+  { value: "13px", label: "Medium (13px)" },
+  { value: "16px", label: "Large (16px)" },
+];
 function getThemes() {
   return Array.isArray(window.GCA_THEMES) && window.GCA_THEMES.length
     ? window.GCA_THEMES
@@ -60,6 +70,12 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
         <label class="drawer-label">Theme
           <select id="theme-select" class="drawer-select"></select>
         </label>
+      </div>
+      <div class="drawer-section">
+        <label class="drawer-label">Chat font size
+          <select id="chat-font-size" class="drawer-select"></select>
+        </label>
+        <p class="drawer-hint">Applies to chat messages and the composer. Chat only — the terminal has its own size.</p>
       </div>
       <div class="drawer-section">
         <label class="drawer-label">Your CaaS budget
@@ -140,6 +156,28 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
     const id = themeSelect.value;
     document.documentElement.setAttribute("data-theme", id);
     try { localStorage.setItem(THEME_STORAGE_KEY, id); } catch { /* private mode — theme still applied for this session */ }
+  });
+
+  // F3: chat font size. Writes the same --chat-font-size variable the
+  // bootstrap script writes on load, so the change applies immediately to
+  // .msg-bubble and #composer-input (both use var(--chat-font-size)).
+  const fontSelect = drawerEl.querySelector("#chat-font-size");
+  FONT_SIZE_OPTIONS.forEach((o) => {
+    const opt = document.createElement("option");
+    opt.value = o.value;
+    opt.textContent = o.label;
+    fontSelect.appendChild(opt);
+  });
+  let storedFont = null;
+  try { storedFont = localStorage.getItem(FONT_SIZE_STORAGE_KEY); } catch { /* private mode */ }
+  if (!FONT_SIZE_OPTIONS.some((o) => o.value === storedFont)) {
+    storedFont = "13px"; // the :root default; bootstrap keeps a valid value valid
+  }
+  fontSelect.value = storedFont;
+  fontSelect.addEventListener("change", () => {
+    const size = fontSelect.value;
+    document.documentElement.style.setProperty("--chat-font-size", size);
+    try { localStorage.setItem(FONT_SIZE_STORAGE_KEY, size); } catch { /* private mode — still applied for this session */ }
   });
 
   const modelSelect = drawerEl.querySelector("#model-select");

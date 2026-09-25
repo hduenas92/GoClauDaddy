@@ -2,6 +2,7 @@
 string-format user input into SQL.
 """
 
+import dataclasses
 import datetime
 import json
 import re
@@ -11,6 +12,7 @@ import uuid
 from app.config import ATTACHMENTS_DIR, DEFAULT_MODEL, MODELS
 from app.db.connection import get_connection
 from app.logging_setup import get_logger
+from app.models.attachment import Attachment
 from app.models.conversation import Conversation
 from app.models.message import Message
 
@@ -449,3 +451,35 @@ def list_messages(conversation_id: str) -> list[Message]:
             "SELECT * FROM messages WHERE conversation_id = ? AND superseded_by IS NULL ORDER BY seq ASC", (conversation_id,)
         ).fetchall()
     return [Message.from_row(r) for r in rows]
+
+
+def list_messages_with_attachments(conversation_id: str) -> list[dict]:
+    """Messages for GET /api/conversations/{id}, with each message's attachments
+    embedded as a list of {id, original_name, mime_type, size_bytes} dicts.
+
+    list_messages() stays attachment-free: export and auto-title only need the
+    transcript. The history renderer (F2 image preview) needs to know which
+    attachment rows belong to which message after a reload, and this is the
+    endpoint it reads.
+    """
+    msgs = list_messages(conversation_id)
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM attachments WHERE conversation_id = ? AND message_id IS NOT NULL ORDER BY created_at ASC",
+            (conversation_id,),
+        ).fetchall()
+    by_message: dict[str, list[dict]] = {}
+    for row in rows:
+        att = Attachment.from_row(row)
+        by_message.setdefault(att.message_id, []).append({
+            "id": att.id,
+            "original_name": att.original_name,
+            "mime_type": att.mime_type,
+            "size_bytes": att.size_bytes,
+        })
+    out: list[dict] = []
+    for m in msgs:
+        d = dataclasses.asdict(m)
+        d["attachments"] = by_message.get(m.id, [])
+        out.append(d)
+    return out

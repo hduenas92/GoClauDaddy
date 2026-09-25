@@ -165,3 +165,40 @@ def test_correction_does_not_touch_messages(temp_db):
 
     assert len(after) == 2
     assert after == before
+
+
+def test_get_conversation_includes_attachments_per_message(temp_db):
+    """F2 (P2-C): history after reload needs each message's attachment rows, or
+    the thumbnail cannot be rendered from the transcript alone."""
+    conv_id = client.post("/api/conversations", json={}).json()["id"]
+    user_msg = svc.add_message(conv_id, "user", "look at this")
+    with get_connection() as conn:
+        conn.execute(
+            """INSERT INTO attachments
+               (id, message_id, conversation_id, original_name, stored_path, mime_type, size_bytes, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("att-1", user_msg.id, conv_id, "pic.png", "C:/nonexistent/pic.png", "image/png", 5, "2026-09-25T00:00:00Z"),
+        )
+        conn.execute(
+            """INSERT INTO attachments
+               (id, message_id, conversation_id, original_name, stored_path, mime_type, size_bytes, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("att-2", user_msg.id, conv_id, "notes.txt", "C:/nonexistent/notes.txt", "text/plain", 3, "2026-09-25T00:00:00Z"),
+        )
+
+    data = client.get(f"/api/conversations/{conv_id}").json()
+    assert data["messages"][0]["attachments"] == [
+        {"id": "att-1", "original_name": "pic.png", "mime_type": "image/png", "size_bytes": 5},
+        {"id": "att-2", "original_name": "notes.txt", "mime_type": "text/plain", "size_bytes": 3},
+    ]
+
+
+def test_get_conversation_returns_stopped_per_message(temp_db):
+    """F4 (P2-C): the conversation API must expose messages.stopped per message,
+    or renderHistory has nothing to render the Incomplete badge from."""
+    conv_id = client.post("/api/conversations", json={}).json()["id"]
+    svc.add_message(conv_id, "assistant", "cut off", stopped=True)
+    svc.add_message(conv_id, "assistant", "complete", stopped=False)
+
+    data = client.get(f"/api/conversations/{conv_id}").json()
+    assert [m["stopped"] for m in data["messages"]] == [True, False]

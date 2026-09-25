@@ -38,6 +38,19 @@ window.GCA_THEMES = [
   document.documentElement.setAttribute("data-theme", chosen);
 })();
 </script>
+<script>
+// F3 bootstrap — apply the saved chat font size before first paint, mirroring
+// the theme bootstrap above. Same localStorage layer, same try/catch, same
+// "only known values win" guard so a corrupt value cannot break the default.
+(function () {
+  try {
+    var saved = window.localStorage.getItem("gca_chat_font_size");
+    if (saved === "12px" || saved === "13px" || saved === "16px") {
+      document.documentElement.style.setProperty("--chat-font-size", saved);
+    }
+  } catch (e) { /* localStorage unavailable (private mode) — use default */ }
+})();
+</script>
 </head>
 <body>
 <canvas id="honeycombCanvas"></canvas>
