@@ -15,6 +15,7 @@ straight back to `receive_json()` after starting it.
 import asyncio
 import contextlib
 import json
+import time
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -48,6 +49,16 @@ _RETIRED_STOPPED_MARKER = "\n\n<!-- claudioui:stopped -->"
 # constant rather than a literal so the timeout path is reachable in a test
 # without that test taking a minute — which is why it had no coverage at all.
 APPROVAL_TIMEOUT_SECONDS: float = 60
+
+# How often a text/thinking/usage checkpoint may write while streaming (P2-E).
+# Module-level for the same reason as APPROVAL_TIMEOUT_SECONDS: the throttle
+# rule must be testable without sleeping 2 real seconds in a unit test.
+CHECKPOINT_INTERVAL_SECONDS: float = 2.0
+
+
+def _monotonic_now() -> float:
+    """One-line indirection so checkpoint-throttle tests can install a fake clock."""
+    return time.monotonic()
 
 
 async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None:
@@ -236,6 +247,49 @@ async def _handle_send_inner(
     had_error = False
     sent_done = False
     cancelled = False
+    assistant_message_id: str | None = None
+    last_checkpoint_at: float | None = None
+
+    def _checkpoint(now: float) -> None:
+        """INSERT once, UPDATE after: persist what has streamed so far.
+
+        While streaming the row is marked `stopped=1` (incomplete) regardless of
+        how the turn will end; the final persistence below sets the true value.
+        """
+        nonlocal assistant_message_id, last_checkpoint_at
+        tool_calls_json = json.dumps(list(tool_calls_map.values())) if tool_calls_map else None
+        content = "".join(text_parts)
+        thinking = "".join(thinking_parts) or None
+        if assistant_message_id is None:
+            msg = convs.add_message(
+                conversation_id,
+                "assistant",
+                content,
+                stopped=True,  # interim incomplete marker (P2-E)
+                thinking=thinking,
+                tool_calls=tool_calls_json,
+                model=model,
+                input_tokens=usage.get("input_tokens"),
+                output_tokens=usage.get("output_tokens"),
+                cache_read_tokens=usage.get("cache_read_input_tokens") or 0,
+                cache_creation_tokens=usage.get("cache_creation_input_tokens") or 0,
+            )
+            assistant_message_id = msg.id
+        else:
+            convs.update_message_content(
+                assistant_message_id,
+                content=content,
+                thinking=thinking,
+                tool_calls=tool_calls_json,
+                model=model,
+                input_tokens=usage.get("input_tokens"),
+                output_tokens=usage.get("output_tokens"),
+                cache_read_tokens=usage.get("cache_read_input_tokens") or 0,
+                cache_creation_tokens=usage.get("cache_creation_input_tokens") or 0,
+                stopped=True,  # still incomplete while streaming
+            )
+        last_checkpoint_at = now
+
     try:
         async for event in claude_cli.run(
             prompt=prompt_for_cli,
@@ -315,6 +369,18 @@ async def _handle_send_inner(
                 # append it to text_parts — it is not Claude's reply.
                 log.warning("Non-JSON CLI stdout line ignored: %s", event.get("text", ""))
 
+            # P2-E checkpoint rules, applied BEFORE the event is forwarded so a
+            # hard kill that lands right after the client saw the frame still
+            # has the frame's content on disk. tool_call/tool_result write
+            # immediately (the side effect can exist before the result arrives);
+            # text/thinking/usage share the 2 s throttle.
+            now = _monotonic_now()
+            if ev_type in ("tool_call", "tool_result"):
+                _checkpoint(now)
+            elif ev_type in ("text", "thinking", "usage"):
+                if last_checkpoint_at is None or now - last_checkpoint_at >= CHECKPOINT_INTERVAL_SECONDS:
+                    _checkpoint(now)
+
             # Socket already closed (client navigated away)? Keep draining the
             # generator so the subprocess still finishes and persists.
             if ev_type == "done":
@@ -343,7 +409,28 @@ async def _handle_send_inner(
         full_text = "".join(text_parts)
         full_thinking = "".join(thinking_parts) or None
         tool_calls_json = json.dumps(list(tool_calls_map.values())) if tool_calls_map else None
-        if full_text or full_thinking or tool_calls_json or usage.get("output_tokens") or usage.get("input_tokens"):
+        has_content = bool(
+            full_text or full_thinking or tool_calls_json
+            or usage.get("output_tokens") or usage.get("input_tokens")
+        )
+        # P2-E: if a checkpoint already INSERTed the row, the final persistence
+        # UPDATEs it in place - never a second assistant row for one turn. If no
+        # checkpoint ever fired (e.g. a turn that produced nothing until the
+        # very end), the old INSERT path still applies.
+        if assistant_message_id is not None:
+            convs.update_message_content(
+                assistant_message_id,
+                content=full_text,
+                thinking=full_thinking,
+                tool_calls=tool_calls_json,
+                model=model,
+                input_tokens=usage.get("input_tokens"),
+                output_tokens=usage.get("output_tokens"),
+                cache_read_tokens=usage.get("cache_read_input_tokens") or 0,
+                cache_creation_tokens=usage.get("cache_creation_input_tokens") or 0,
+                stopped=cancelled,
+            )
+        elif has_content:
             # `content` is what the model said, nothing more. Cancellation is a
             # column (v15), not an HTML comment smuggled into the text â€” see the
             # note on STOPPED_MARKER above.

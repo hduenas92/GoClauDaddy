@@ -169,7 +169,10 @@ def _wait_for_health(base_url: str, timeout: float) -> None:
 def live_server(tmp_path):
     server = LiveServer(
         tmp_path,
-        extra_env={fake.HOLD_FILE_ENV: str(tmp_path / "hold_after_tool_use")},
+        extra_env={
+            fake.HOLD_FILE_ENV: str(tmp_path / "hold_after_tool_use"),
+            fake.RELEASE_FILE_ENV: str(tmp_path / "release_after_tool_use"),
+        },
     )
     server.start()
     try:
@@ -380,11 +383,24 @@ def test_crash_hard_kill_mid_stream(live_server):
         assert stored.exists(), f"attachment file missing on disk: {stored}"
         assert stored.read_bytes() in (ATTACHMENT_BYTES_1, ATTACHMENT_BYTES_2)
 
-    # In-flight assistant reply: CURRENT BEHAVIOUR, pending decision — a hard
-    # kill persists NOTHING of the crashing turn's reply (no text, no thinking,
-    # no tool_calls, no tokens): there is no assistant row for turn 2 at all.
-    assert len(_assistants(db_msgs)) == 1  # CURRENT BEHAVIOUR, pending decision
-    assert len(_assistants(api_msgs)) == 1  # CURRENT BEHAVIOUR, pending decision
+    # In-flight assistant reply: P2-E — the checkpoint written when the tool_call
+    # event arrived must survive the hard kill. Exactly one assistant row per
+    # turn, and the crashing turn's row carries the thinking, the started tool
+    # call (name + input, no output), the tokens from the last usage event, and
+    # the incomplete marker (stopped=1).
+    db_assistants = _assistants(db_msgs)
+    api_assistants = _assistants(api_msgs)
+    assert len(db_assistants) == 2, f"expected 2 assistant rows (one per turn), got {len(db_assistants)}"
+    assert len(api_assistants) == 2, f"expected 2 assistant rows via API, got {len(api_assistants)}"
+    partial = db_assistants[1]
+    assert partial["thinking"] == fake.THINKING
+    partial_tool_calls = json.loads(partial["tool_calls"])
+    assert len(partial_tool_calls) == 1
+    assert partial_tool_calls[0]["name"] == fake.TOOL_NAME
+    assert partial_tool_calls[0]["input"] == fake.TOOL_INPUT
+    assert "output" not in partial_tool_calls[0], "started tool call must have no output yet"
+    _assert_tokens(partial)
+    assert partial["stopped"] == 1, "checkpoint row must be marked incomplete"
 
 
 @pytest.mark.live
@@ -405,6 +421,8 @@ def test_restart_graceful_stop_survives(live_server):
     api = _get_conversation(server, conv_id)
     db = _db_view(server)
     _assert_completed_turn_survived(api, db, USER_MESSAGE_1, ATTACHMENT_BYTES_1)
+    assert len(_assistants(api["messages"])) == 1, "exactly one assistant row per turn (API)"
+    assert len(_assistants(db["messages"])) == 1, "exactly one assistant row per turn (SQLite)"
 
 
 @pytest.mark.live
@@ -427,6 +445,8 @@ def test_disconnect_ws_close_survives(live_server):
     api = _get_conversation(server, conv_id)
     db = _db_view(server)
     _assert_completed_turn_survived(api, db, USER_MESSAGE_1, ATTACHMENT_BYTES_1)
+    assert len(_assistants(api["messages"])) == 1, "exactly one assistant row per turn (API)"
+    assert len(_assistants(db["messages"])) == 1, "exactly one assistant row per turn (SQLite)"
 
 
 @pytest.mark.live
@@ -451,6 +471,55 @@ def test_reload_new_clients_read_back(live_server):
 
     db = _db_view(server)
     _assert_completed_turn_survived(api, db, USER_MESSAGE_1, ATTACHMENT_BYTES_1)
+    assert len(_assistants(api["messages"])) == 1, "exactly one assistant row per turn (API)"
+    assert len(_assistants(db["messages"])) == 1, "exactly one assistant row per turn (SQLite)"
+
+
+@pytest.mark.live
+def test_reload_mid_stream_shows_partial_then_exactly_one_full_row(live_server):
+    """reload mid-stream: GET during streaming shows the partial checkpoint row;
+    after the turn completes there is exactly one assistant row with full content."""
+    server = live_server
+    conv_id = _create_conversation(server)
+    att = _upload(server, conv_id, "note.txt", ATTACHMENT_BYTES_1)
+
+    # Park the fake CLI right after the tool_use line so the turn is definitely
+    # still streaming while we GET the conversation API.
+    Path(server.tmp_path / "hold_after_tool_use").touch()
+    ws = ws_connect(f"{server.ws_url}/ws/chat/{conv_id}", open_timeout=10, legacy=True)
+    ws.send(json.dumps(_send_payload(USER_MESSAGE_1, [att["id"]])))
+    try:
+        events = _recv_until_type(ws, "tool_call")
+        assert events[-1]["type"] == "tool_call", f"expected tool_call, got {events[-1]!r}"
+
+        # Reload mid-stream: a fresh HTTP client sees the partial row.
+        with httpx.Client(timeout=10) as mid_http:
+            mid = mid_http.get(f"{server.base_url}/api/conversations/{conv_id}")
+            mid.raise_for_status()
+            mid_api = mid.json()
+        mid_assistants = _assistants(mid_api["messages"])
+        assert len(mid_assistants) == 1, f"expected 1 partial assistant row mid-stream, got {len(mid_assistants)}"
+        partial = mid_assistants[0]
+        assert partial["thinking"] == fake.THINKING
+        partial_tool_calls = json.loads(partial["tool_calls"])
+        assert len(partial_tool_calls) == 1
+        assert partial_tool_calls[0]["name"] == fake.TOOL_NAME
+        assert partial_tool_calls[0]["input"] == fake.TOOL_INPUT
+        assert "output" not in partial_tool_calls[0], "mid-stream row must show the started tool call"
+        assert partial["stopped"] is True, "mid-stream row must be marked incomplete"
+    finally:
+        # Release the parked CLI so the turn can finish even if an assert failed.
+        with _suppress(Exception):
+            Path(server.tmp_path / "release_after_tool_use").touch()
+        with _suppress(Exception):
+            ws.close()
+
+    _wait_for_assistant(server, conv_id, fake.TEXT, timeout=20.0)
+    api = _get_conversation(server, conv_id)
+    db = _db_view(server)
+    _assert_completed_turn_survived(api, db, USER_MESSAGE_1, ATTACHMENT_BYTES_1)
+    assert len(_assistants(api["messages"])) == 1, "no duplicate assistant row after completion (API)"
+    assert len(_assistants(db["messages"])) == 1, "no duplicate assistant row after completion (SQLite)"
 
 
 class _suppress:

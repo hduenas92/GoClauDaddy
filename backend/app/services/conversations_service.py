@@ -243,6 +243,36 @@ def add_message(
     )
 
 
+def update_message_content(
+    message_id: str,
+    *,
+    content: str,
+    thinking: str | None = None,
+    tool_calls: str | None = None,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    model: str | None = None,
+    cache_read_tokens: int = 0,
+    cache_creation_tokens: int = 0,
+    stopped: bool = False,
+) -> None:
+    """UPDATE one existing message row in place (P2-E streaming checkpoint).
+
+    The row keeps its original `id` and `seq`; only the content accumulated so
+    far changes. This is the only way a checkpoint or the final persistence may
+    touch a row that the first checkpoint INSERTed — never a second INSERT.
+    """
+    with get_connection() as conn:
+        conn.execute(
+            """UPDATE messages
+               SET content = ?, thinking = ?, tool_calls = ?, input_tokens = ?, output_tokens = ?,
+                   model = ?, cache_read_tokens = ?, cache_creation_tokens = ?, stopped = ?
+               WHERE id = ?""",
+            (content, thinking, tool_calls, input_tokens, output_tokens,
+             model, cache_read_tokens, cache_creation_tokens, int(stopped), message_id),
+        )
+
+
 _AUTO_NAME_RE = re.compile(r"^Chat \w+ \d+ \d+:\d+$")
 
 

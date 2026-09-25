@@ -103,7 +103,9 @@ def test_reply_persists_via_finally_block(temp_db, monkeypatch):
         time.sleep(0.05)  # let the finally block commit before WS closes
 
     messages = convs.list_messages(conv_id)
-    assert any(m.role == "assistant" and "persisted" in m.content for m in messages)
+    assistants = [m for m in messages if m.role == "assistant"]
+    assert len(assistants) == 1, "exactly one assistant row per turn"
+    assert "persisted" in assistants[0].content
 
 
 def test_user_message_persisted_before_subprocess(temp_db, monkeypatch):
