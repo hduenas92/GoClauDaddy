@@ -104,8 +104,14 @@ async function stubBoot(page, { messages = [] } = {}) {
       : r.continue());
   await page.route('**/api/config', (r) =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CONFIG_BODY) }));
-  await page.route('**/api/server/info', (r) =>
-    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: APP_URL, host: '127.0.0.1', port: 8766 }) }));
+  await page.route('**/api/server/info', (r) => {
+    const m = /^https?:\/\/([^/:]+)(?::(\d+))?/.exec(APP_URL);
+    return r.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ url: APP_URL, host: m?.[1] ?? '127.0.0.1', port: m?.[2] ? Number(m[2]) : 80 }),
+    });
+  });
   await page.route('**/api/server/stats', (r) =>
     r.fulfill({
       status: 200,

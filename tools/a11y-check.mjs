@@ -37,7 +37,7 @@ try {
   process.exit(1);
 }
 
-const URL = process.env.GCA_URL ?? 'http://127.0.0.1:8767';
+const URL = process.env.GCA_URL ?? 'http://127.0.0.1:8765';
 const browser = await chromium.launch();
 
 const results = [];
@@ -119,7 +119,11 @@ async function stubBoot(page, { projects = [PROJ], conversations = [CONV], messa
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CONFIG_BODY) });
     }
     if (p === '/api/server/info') {
-      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: 'http://127.0.0.1:8767', host: '127.0.0.1', port: 8767 }) });
+      const m = /^https?:\/\/([^/:]+)(?::(\d+))?/.exec(URL);
+      return r.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ url: URL, host: m?.[1] ?? '127.0.0.1', port: m?.[2] ? Number(m[2]) : 80 }),
+      });
     }
     if (p === '/api/server/stats') {
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ chat_count: 1, message_count: 2, total_input: 12, total_output: 24, monthly_cost_usd: 0, monthly_input: 0, monthly_output: 0, budget_usd: 200 }) });
