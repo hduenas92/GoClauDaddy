@@ -180,6 +180,16 @@ export class ChatSocket {
   approve() { this.ws?.send(JSON.stringify({ type: "approve" })); }
   deny()    { this.ws?.send(JSON.stringify({ type: "deny" })); }
 
+  /** WCAG 2.2.1: ask the SERVER for more time on a pending approval. Returns
+   * whether the frame was actually sent — like stop(), this must not throw on
+   * a dead socket, because the button is exactly what a user presses when the
+   * modal has been up long enough to wonder whether anything still works. */
+  extendApproval() {
+    if (this.ws?.readyState !== WebSocket.OPEN) return false;
+    this.ws.send(JSON.stringify({ type: "approval_extend" }));
+    return true;
+  }
+
   close() {
     this._intentionalClose = true;
     clearTimeout(this._reconnectTimer);

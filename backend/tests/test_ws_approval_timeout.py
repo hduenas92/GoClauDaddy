@@ -19,6 +19,7 @@ import asyncio
 import threading
 import time
 
+import pytest
 from fastapi.testclient import TestClient
 
 import app.services.claude_cli as claude_cli_mod
@@ -135,3 +136,65 @@ def test_explicit_deny_denies(temp_db, monkeypatch):
             pass
 
     assert stdin.writes[0] == b"n\n", f"expected DENY, got {stdin.writes[0]!r}"
+
+
+class _FakeClock:
+    """Controllable stand-in for chat_socket._monotonic_now.
+
+    The server owns the deadline, so the extension test must move TIME, not just
+    wait. `asyncio.wait_for` still uses the event loop's real clock for its
+    timeout, but the loop only reaches wait_for when `deadline - now > 0`; the
+    fake clock decides that branch, which is the branch this test is about.
+    """
+
+    def __init__(self, start=1000.0):
+        self.t = start
+
+    def __call__(self):
+        return self.t
+
+    def advance(self, dt):
+        self.t += dt
+
+
+def test_extend_pushes_the_deadline_and_approve_still_runs(temp_db, monkeypatch):
+    """approval_extend moves the server deadline; approve after the ORIGINAL
+    deadline (but before the extended one) still runs the tool.
+
+    Red on the pre-H1 code: with the deadline fixed at t0+0.2, the advance past
+    t0+0.2 makes the waiter time out and write b"n\\n" before the approve lands.
+    """
+    monkeypatch.setattr(chat_socket, "APPROVAL_TIMEOUT_SECONDS", 0.2)
+    clock = _FakeClock()
+    monkeypatch.setattr(chat_socket, "_monotonic_now", clock)
+    stdin = _FakeStdin()
+    released = threading.Event()
+    _run_with_approval(monkeypatch, stdin, released)
+    conv_id = _conv()
+
+    with client.websocket_connect(f"/ws/chat/{conv_id}") as ws:
+        ws.send_json({"type": "send", "message": "do something"})
+        first = ws.receive_json()
+        assert first["type"] == "approval_needed", first
+        assert first["timeout"] == 0.2, first
+        assert first["remaining"] == 0.2, first
+
+        # Ask for more time 0.1s in: original deadline is t0+0.2, so the
+        # extension must move it to (t0+0.1)+0.2 = t0+0.3.
+        clock.advance(0.1)
+        ws.send_json({"type": "approval_extend"})
+        ext = ws.receive_json()
+        assert ext["type"] == "approval_extended", ext
+        assert ext["timeout"] == 0.2, ext
+        assert ext["remaining"] == pytest.approx(0.2), ext
+
+        # Now stand 0.25s after t0 — PAST the original deadline, before the
+        # extended one. Approve must still be honoured.
+        clock.advance(0.15)
+        ws.send_json({"type": "approve"})
+        assert released.wait(5.0), "the turn never resumed after approval"
+        while ws.receive_json()["type"] != "done":
+            pass
+
+    assert stdin.writes, "the handler wrote nothing to the subprocess at all"
+    assert stdin.writes[0] == b"y\n", f"expected APPROVE after extend, got {stdin.writes[0]!r}"

@@ -30,6 +30,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
   let msgStartTime = null;
   const _toolStartTimes = new Map(); // tool_use_id → Date.now()
   let _stripStartTime = 0;
+  let _approvalModal = null; // live approval modal handle (countdown resync target)
 
   function setConversationId(id) { conversationId = id; }
 
@@ -595,7 +596,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
-  function _showApprovalModal(tool, action, socket) {
+  function _showApprovalModal(tool, action, socket, ev = {}) {
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
     document.body.appendChild(overlay);
@@ -607,21 +608,88 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       <div class="approval-tool">⚡ <strong>${_escHtml(tool || "tool")}</strong></div>
       ${action ? `<p class="approval-action">${_escHtml(action)}</p>` : ""}
       <p class="approval-risk-note">Allow Claude to use this tool?</p>
+      <p class="approval-countdown" id="approval-countdown"></p>
+      <p class="sr-only" id="approval-announce" aria-live="polite"></p>
       <div class="modal-actions">
         <button class="modal-btn modal-confirm danger" id="approval-deny-btn">✕ Deny</button>
         <button class="modal-btn modal-confirm" id="approval-approve-btn">✓ Approve</button>
       </div>
+      <div class="modal-actions">
+        <button class="modal-btn" id="approval-need-time-btn" hidden>Need more time</button>
+      </div>
     `;
     overlay.appendChild(box);
 
+    // Server owns the deadline. `remaining` arrives on the approval_needed frame
+    // and again on every approval_extended reply; the local 1 Hz tick is only a
+    // display of that value, never a second source of truth.
+    let remaining = Number(ev.remaining ?? ev.timeout ?? 60);
+    let announced = false;
+    const countdownEl = box.querySelector("#approval-countdown");
+    const announceEl = box.querySelector("#approval-announce");
+    const needTimeBtn = box.querySelector("#approval-need-time-btn");
+
+    function renderCountdown() {
+      const s = Math.max(0, Math.ceil(remaining));
+      countdownEl.textContent = `Time remaining: ${s} s`;
+      if (remaining <= 20) {
+        needTimeBtn.hidden = false;
+        if (!announced) {
+          // 2.2.1: announce at the 20 s mark ONCE, not a per-second chatter.
+          announced = true;
+          announceEl.textContent = "20 seconds remaining. Choose Need more time to extend the approval deadline.";
+        }
+      } else {
+        needTimeBtn.hidden = true;
+      }
+    }
+    renderCountdown();
+
+    const timer = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        // The server fails closed at its own deadline. Once OUR display of that
+        // deadline reaches zero this modal is no longer actionable; remove it
+        // without sending anything — the server has already decided.
+        clearInterval(timer);
+        overlay.remove();
+        _approvalModal = null;
+        return;
+      }
+      renderCountdown();
+    }, 1000);
+
+    needTimeBtn.addEventListener("click", () => {
+      socket.extendApproval();
+    });
+
     function close(approved) {
+      clearInterval(timer);
       overlay.remove();
+      _approvalModal = null;
       if (approved) socket.approve(); else socket.deny();
+    }
+
+    function dismiss() {
+      clearInterval(timer);
+      overlay.remove();
+      _approvalModal = null;
     }
 
     box.querySelector("#approval-approve-btn").addEventListener("click", () => close(true));
     box.querySelector("#approval-deny-btn").addEventListener("click", () => close(false));
     // No Esc dismiss — this is a blocking decision (deny explicitly if unwanted)
+
+    _approvalModal = {
+      onExtended(ext) {
+        const next = Number(ext?.remaining);
+        if (!Number.isFinite(next) || next <= 0) return;
+        remaining = next;      // re-sync from the server, then re-arm the 20 s announce
+        announced = false;
+        renderCountdown();
+      },
+      dismiss,
+    };
   }
 
   // "Turn still running elsewhere" — no further events will ever arrive on
@@ -718,6 +786,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       // alarming text here: a switch is not a fault, and saying so would train
       // the user to ignore the message that matters.
       socket.on("_close", () => {
+        _approvalModal?.dismiss?.();
         if (currentAssistantEl) {
           finishAssistantMessage("error", lastUsage);
           setStreaming(false);
@@ -730,19 +799,23 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       // spoke mid-turn, so a socket that died while IDLE rendered nothing at
       // all and the user typed into a dead app, wondering why nothing sent.
       socket.on("_disconnected", () => {
+        _approvalModal?.dismiss?.();
         statusEl.textContent = "Connection lost — reconnecting…";
         setStreaming(false);
       }),
       socket.on("_reconnect", () => { statusEl.textContent = ""; }),
       socket.on("_resync_running", () => showResyncRunning()),
       socket.on("_resync_done", () => showResyncCompleted()),
+      // 2.2.1: the server owns the deadline. Its reply re-syncs the live
+      // countdown in the modal; the modal handle is set by _showApprovalModal.
+      socket.on("approval_extended", (ev) => _approvalModal?.onExtended?.(ev)),
       socket.on("approval_needed", (ev) => {
         if (localStorage.getItem("gca_feat_approval") !== "1") {
           // Feature flag off — auto-approve so the subprocess isn't left hanging
           socket.approve();
           return;
         }
-        _showApprovalModal(ev.tool, ev.action, socket);
+        _showApprovalModal(ev.tool, ev.action, socket, ev);
       }),
     ];
   }

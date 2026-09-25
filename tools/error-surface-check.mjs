@@ -29,7 +29,11 @@ import { chromium } from 'playwright';
 
 const APP_URL = process.env.GCA_URL ?? 'http://127.0.0.1:8765';
 const TOAST = '.error-toast';
-const XTERM_JS = 'https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.js';
+// The URL the PRODUCT actually loads — terminal.js:13. P2-D moved xterm from
+// cdnjs (which now 404s) to jsdelivr; this harness used to intercept the old
+// cdnjs URL, so case 4 blocked a script the app no longer fetches and the
+// "xterm unreachable" path was never exercised. Intercept the real URL.
+const XTERM_JS = 'https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js';
 
 const browser = await chromium.launch();
 const results = [];

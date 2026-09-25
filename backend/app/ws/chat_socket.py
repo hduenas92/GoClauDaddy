@@ -74,11 +74,15 @@ async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None
             payload = await websocket.receive_json()
             msg_type = payload.get("type")
 
-            if msg_type in ("approve", "deny"):
-                # Drain stale entries (safety) then signal the waiting send-task
+            if msg_type in ("approve", "deny", "approval_extend"):
+                # Drain stale entries (safety) then signal the waiting send-task.
+                # "approval_extend" is carried as a string sentinel so the waiter
+                # can tell it apart from the True/False approve/deny payloads.
                 while not approval_queue.empty():
                     approval_queue.get_nowait()
-                approval_queue.put_nowait(msg_type == "approve")
+                approval_queue.put_nowait(
+                    "approval_extend" if msg_type == "approval_extend" else (msg_type == "approve")
+                )
                 continue
 
             if msg_type == "stop":
@@ -307,13 +311,39 @@ async def _handle_send_inner(
                 # Forward to frontend; wait for approve/deny back over the same WS.
                 # The subprocess is blocked on stdin at this point, so stdout is quiet
                 # until we write y/n â€” no events are missed during the await.
+                # The deadline is OWNED HERE: the client's countdown is a display of
+                # this deadline, and an approval_extend message pushes it out by
+                # APPROVAL_TIMEOUT_SECONDS each time (WCAG 2.2.1, no fixed time limit
+                # without an extension mechanism).
+                deadline = _monotonic_now() + APPROVAL_TIMEOUT_SECONDS
+                approval_event = dict(event)
+                approval_event["timeout"] = APPROVAL_TIMEOUT_SECONDS
+                approval_event["remaining"] = APPROVAL_TIMEOUT_SECONDS
                 with contextlib.suppress(RuntimeError):
-                    await websocket.send_json(event)
-                try:
-                    approved = await asyncio.wait_for(
-                        approval_queue.get(), timeout=APPROVAL_TIMEOUT_SECONDS
-                    )
-                except TimeoutError:
+                    await websocket.send_json(approval_event)
+                approved = None
+                timed_out = False
+                while approved is None:
+                    remaining = deadline - _monotonic_now()
+                    if remaining <= 0:
+                        timed_out = True
+                        break
+                    try:
+                        item = await asyncio.wait_for(approval_queue.get(), timeout=remaining)
+                    except TimeoutError:
+                        timed_out = True
+                        break
+                    if item == "approval_extend":
+                        deadline = _monotonic_now() + APPROVAL_TIMEOUT_SECONDS
+                        with contextlib.suppress(RuntimeError):
+                            await websocket.send_json({
+                                "type": "approval_extended",
+                                "timeout": APPROVAL_TIMEOUT_SECONDS,
+                                "remaining": deadline - _monotonic_now(),
+                            })
+                        continue
+                    approved = item
+                if timed_out:
                     # FAIL CLOSED. This used to be `approved = True` with the
                     # comment "timeout = auto-approve, keep stream alive", and
                     # nothing was emitted — so a user who stepped away, or whose

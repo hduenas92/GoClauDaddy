@@ -41,6 +41,17 @@
   const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   let reduceMotion = motionQuery.matches;
 
+  /* ---- 2.2.2 settle: animate on load / while Claude streams / on user
+     activity, then settle to a STILL frame after 5 s of no activity. When
+     settled, the rAF loop is CANCELLED (0 callbacks), not merely throttled;
+     activity restarts it and the 5 s timer starts again. ---- */
+  const SETTLE_MS = 5000;
+  let active = false;          // is the rAF loop supposed to be running?
+  let rafId = null;
+  let settleTimer = null;
+  let time = 0;                // wave phase — must precede resize()/noteActivity()
+  let lastFrame = 0;           // frame clock, reset when the loop restarts
+
   function resize() {
     dpr = window.devicePixelRatio || 1;
     width = window.innerWidth;
@@ -49,7 +60,11 @@
     canvas.height = height * dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
-    if (reduceMotion) drawGrid();
+    if (reduceMotion) { drawGrid(); return; }
+    // A resize is user activity, and a settled canvas must repaint immediately
+    // instead of waiting for the next frame that would never come.
+    noteActivity();
+    drawGrid();
   }
 
   window.addEventListener('resize', resize);
@@ -60,6 +75,7 @@
       mouse.targetX = e.clientX;
       mouse.targetY = e.clientY;
       mouse.isHovering = true;
+      noteActivity();   // pointer movement is user activity (2.2.2 settle timer)
     });
     // Clear hover state on every path out of the document, not just mouseleave.
     // mouseleave alone does not fire when the pointer exits into devtools or
@@ -69,15 +85,26 @@
     document.addEventListener('mouseout', (e) => { if (!e.relatedTarget) clearHover(); });
     window.addEventListener('blur', clearHover);
     document.addEventListener('visibilitychange', () => { if (document.hidden) clearHover(); });
+
+    // Other user activity that restarts the settle timer: typing, clicking,
+    // scrolling and touch. These are the same sources a human generates while
+    // actually using the app — hover alone would settle while a keyboard user
+    // was still working.
+    const activityEvents = ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart'];
+    activityEvents.forEach((type) =>
+      window.addEventListener(type, noteActivity, { passive: true }));
   }
 
   motionQuery.addEventListener('change', (e) => {
     reduceMotion = e.matches;
     if (reduceMotion) {
       mouse.isHovering = false;
-      drawGrid();               // settle to a static frame; the rAF loop exits on its own
+      clearTimeout(settleTimer);
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+      active = false;
+      drawGrid();               // settle to a static frame; the rAF loop stays off
     } else {
-      requestAnimationFrame(render);
+      noteActivity();           // motion re-enabled -> animate again, settle in 5 s
     }
   });
 
@@ -89,8 +116,6 @@
     }
     return pts;
   }
-
-  let time = 0;
 
   function drawGrid() {
     ctx.clearRect(0, 0, width, height);
@@ -177,7 +202,6 @@
   // 0.008 × (60 / FPS). Changing FPS without changing this visibly changes how
   // fast the animation moves, which is a different edit from the one intended.
   const TIME_STEP = 0.008 * (60 / FPS);
-  let lastFrame = 0;
 
   /* Focus is TRACKED, not polled.
      The first version called `document.hasFocus()` inside render(), i.e. on
@@ -192,12 +216,12 @@
      Events give the same answer for free. `document.hidden` stays a direct
      read because it is a plain property. */
   let hasFocus = document.hasFocus();
-  window.addEventListener('focus', () => { hasFocus = true; });
+  window.addEventListener('focus', () => { hasFocus = true; noteActivity(); });
   window.addEventListener('blur', () => { hasFocus = false; });
 
   function render(now) {
-    if (reduceMotion) return;          // stop the loop entirely, do not just slow it
-    requestAnimationFrame(render);
+    if (reduceMotion || !active) { rafId = null; return; }  // stop the loop entirely
+    rafId = requestAnimationFrame(render);
     if (document.hidden || !hasFocus) return;
     if (now - lastFrame < FRAME_MS) return;
     lastFrame = now;
@@ -207,13 +231,54 @@
     drawGrid();
   }
 
+  /* Activity keeps the loop alive; inactivity settles it. settle() CANCELS the
+     rAF loop — a still honeycomb costs 0 rAF callbacks — then paints one final
+     frame so the grid stays visible, frozen at its current phase. */
+  function noteActivity() {
+    if (reduceMotion) return;
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(settle, SETTLE_MS);
+    if (active) return;
+    active = true;
+    lastFrame = 0;              // first frame after a restart renders immediately
+    rafId = requestAnimationFrame(render);
+  }
+
+  function settle() {
+    if (reduceMotion) return;
+    active = false;
+    if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+    drawGrid();                 // the STILL frame, frozen at the current phase
+  }
+
+  // While Claude is working or streaming, that counts as activity too.
+  // main.js:269 flips #header-dot to header-dot-streaming while the store says
+  // streaming, and chat_pane.js:357 paints .status-processing on the assistant
+  // meta. A MutationObserver checks only on DOM changes, so a settled page has
+  // no polling loop and no callbacks at all.
+  function watchStreamingActivity() {
+    const STREAMING_SELECTOR = '.status-processing, #header-dot.header-dot-streaming';
+    const markIfStreaming = () => {
+      if (document.querySelector(STREAMING_SELECTOR)) noteActivity();
+    };
+    new MutationObserver(markIfStreaming).observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    markIfStreaming();
+  }
+  if (!reduceMotion) watchStreamingActivity();
+
   // Coming back to the window should not wait for the next scheduled frame,
   // and should not jump: reset the frame clock so the first frame after focus
-  // renders immediately rather than appearing to stutter.
-  const resume = () => { lastFrame = 0; };
+  // renders immediately rather than appearing to stutter. Returning is also
+  // activity, so the settle timer restarts.
+  const resume = () => { lastFrame = 0; noteActivity(); };
   window.addEventListener('focus', resume);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) resume(); });
 
   if (reduceMotion) drawGrid();
-  else requestAnimationFrame(render);
+  else noteActivity();
 })();

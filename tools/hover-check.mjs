@@ -263,10 +263,20 @@ async function run() {
         // Move the pointer far away rather than to another candidate, so a
         // "stuck" state cannot be masked by the next element's own hover.
         await page.mouse.move(5, 880);
-        // 400ms: the app's transitions run 0.15-0.25s; 250ms sampled the
-        // interpolation midpoint (borderColor 0.404 vs rest 0.4) and flaked.
-        await page.waitForTimeout(400);
-        const after = await read();
+        // Poll until the computed style returns to its resting value. A fixed
+        // wait flaked: the transitions run 0.15-0.25s, but a busy main thread
+        // can delay the leave event so a single 400ms sample still catches the
+        // tail of the interpolation (measured residues: border rgba(1, 164,
+        // 165, 0.3) vs rest rgba(0, 163, 165, 0.3) on #settings-btn, and an
+        // alpha of 0.004 on a .conv-item). Polling asserts the END state, not
+        // how fast the main thread happened to be at one instant.
+        let after = null;
+        const restDeadline = Date.now() + 3000;
+        while (Date.now() < restDeadline) {
+            await page.waitForTimeout(150);
+            after = await read();
+            if (after === before) break;
+        }
         check(`3 ${label} — hover changes something`, before !== during,
             before === during ? 'no computed change on hover' : 'changed');
         check(`3 ${label} — hover fully clears on leave`, after === before,
@@ -307,8 +317,16 @@ async function run() {
     } else {
         const base = await page.evaluate(() => ({ ...window.__lsn, byType: { ...window.__lsn.byType } }));
         for (let i = 0; i < 20; i++) {
-            const list = await page.$$('.conv-item .conv-body');
-            await list[i % Math.min(list.length, 4)].click();
+            // The list re-renders on every conversation switch, so element
+            // handles grabbed before a click are DETACHED by the next one.
+            // Locators re-resolve per action and retry instead of throwing
+            // "Element is not attached to the DOM" (the pre-fix failure).
+            const n = await page.locator('.conv-item .conv-body').count();
+            const nth = i % Math.min(n, 4);
+            await page.locator('.conv-item .conv-body').nth(nth).click({ timeout: 5000 }).catch(async () => {
+                await page.waitForTimeout(300);
+                await page.locator('.conv-item .conv-body').nth(nth).click();
+            });
             await page.waitForTimeout(120);
         }
         const after = await page.evaluate(() => ({ ...window.__lsn, byType: { ...window.__lsn.byType } }));

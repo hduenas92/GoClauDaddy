@@ -317,6 +317,13 @@ await axeCase('right sidebar expanded', { sbOpen: true }, async (page) => {
       for (const key of ['Enter', 'Space']) {
         const activeBefore = await page.evaluate(() => !!document.querySelector('#project-list .project-item.active[data-all="1"]'));
         const focusTarget = await page.$('#project-list [data-all="1"] span.project-name');
+        if (!focusTarget) {
+          // H6: a missing element is a FAIL, never a TypeError on null.focus().
+          add(`2.1.1 keyboard: "All conversations" operable by ${key}`, 'FAIL',
+            `pressing ${key} on the focused control selects the All conversations view`,
+            'the All-conversations project-name span is not in the DOM');
+          continue;
+        }
         await focusTarget.focus().catch(() => {});
         await page.keyboard.press(key);
         await page.waitForTimeout(350);
@@ -360,6 +367,37 @@ await axeCase('right sidebar expanded', { sbOpen: true }, async (page) => {
       await page.keyboard.press('Escape').catch(() => {});
       await page.waitForTimeout(200);
     }
+  } finally {
+    await ctx.close();
+  }
+}
+
+// ===========================================================================
+// 1.4.1 — conv-dot busy/error state must not be colour-only
+// ===========================================================================
+{
+  const { ctx, page } = await newPage();
+  try {
+    const BUSY = { ...CONV, id: 'c-busy', name: 'Busy fixture', status: 'busy' };
+    const ERR = { ...CONV, id: 'c-err', name: 'Error fixture', status: 'error' };
+    const IDLE = { ...CONV };
+    await stubBoot(page, { conversations: [BUSY, ERR, IDLE] });
+    await bootPage(page, { stub: false });
+    const dots = await page.evaluate(() =>
+      [...document.querySelectorAll('.conv-dot-busy, .conv-dot-error')].map((el) => ({
+        cls: el.className,
+        label: el.getAttribute('aria-label'),
+        role: el.getAttribute('role'),
+        title: el.getAttribute('title'),
+        text: (el.querySelector('.sr-only')?.textContent ?? '').trim(),
+      })));
+    // Non-empty guard first: zero dots is a renamed-selector failure, not a pass.
+    const ok = dots.length >= 2 && dots.every((d) =>
+      (d.label === 'Busy' || d.label === 'Error') && d.title === d.label &&
+      (d.role === 'img' || d.text === d.label));
+    add('1.4.1 conv-dot busy/error state is not colour-only', ok ? 'PASS' : 'FAIL',
+      'every busy/error sidebar dot carries a text alternative (aria-label or sr-only text) and a matching title',
+      JSON.stringify(dots));
   } finally {
     await ctx.close();
   }
@@ -489,11 +527,11 @@ await trapCase('onboarding tour', { onboarded: false }, async () => {}, '.ob-ove
 // 2.2.2 — honeycomb animation under prefers-reduced-motion
 // ===========================================================================
 {
-  // Normal motion: honeycomb.js schedules a continuous rAF loop.
-  // Reduced motion: render() returns before scheduling rAF (honeycomb.js:199),
-  // so the rAF count must stop growing. Counting rAF is deterministic where
-  // pixel-diffing a slow 15fps sub-pixel wave is not.
-  async function rafGrowth(reduced) {
+  // Normal motion: honeycomb.js animates on load and on activity, then settles
+  // to a still frame after 5 s idle — when settled, NO rAF callbacks are
+  // scheduled (honeycomb.js cancelAnimationFrame), so the instrumented count
+  // must be flat. Reduced motion: the loop never starts.
+  async function measureSettle(reduced) {
     const ctx = await browser.newContext({
       viewport: { width: 600, height: 400 },
       reducedMotion: reduced ? 'reduce' : 'no-preference',
@@ -517,15 +555,50 @@ await trapCase('onboarding tour', { onboarded: false }, async () => {}, '.ob-ove
     const t1 = await page.evaluate(() => window.__rafCount);
     await page.waitForTimeout(600);
     const t2 = await page.evaluate(() => window.__rafCount);
+
+    if (reduced) {
+      await ctx.close();
+      return { grew: t2 > t1, counts: { t1, t2 }, settledFlat: null, resumed: null, resettledFlat: null };
+    }
+
+    // Wait out the 5 s settle (the focus event above restarted the timer), then
+    // prove the loop is OFF: the rAF count must not move over another window.
+    await page.waitForTimeout(5200);
+    const s1 = await page.evaluate(() => window.__rafCount);
+    await page.waitForTimeout(700);
+    const s2 = await page.evaluate(() => window.__rafCount);
+
+    // Activity restarts it: a synthetic pointermove is user activity.
+    await page.evaluate(() => {
+      window.dispatchEvent(new PointerEvent('pointermove', { clientX: 10, clientY: 10, bubbles: true }));
+    });
+    await page.waitForTimeout(500);
+    const r1 = await page.evaluate(() => window.__rafCount);
+    await page.waitForTimeout(600);
+    const r2 = await page.evaluate(() => window.__rafCount);
+
+    // And it settles again 5 s later.
+    await page.waitForTimeout(5200);
+    const q1 = await page.evaluate(() => window.__rafCount);
+    await page.waitForTimeout(700);
+    const q2 = await page.evaluate(() => window.__rafCount);
+
     await ctx.close();
-    return { t1, t2, grew: t2 > t1 };
+    return {
+      grew: t2 > t1,
+      settledFlat: s1 === s2,
+      resumed: r2 > r1,
+      resettledFlat: q1 === q2,
+      counts: { t1, t2, s1, s2, r1, r2, q1, q2 },
+    };
   }
-  const normal = await rafGrowth(false);
-  const reduced = await rafGrowth(true);
-  const ok = normal.grew && !reduced.grew;
-  add('2.2.2 honeycomb stops under prefers-reduced-motion', ok ? 'PASS' : 'FAIL',
-    'the animation loop keeps scheduling rAF under normal motion and stops scheduling it under reduce',
-    `normal rAF ${normal.t1}->${normal.t2} (grew=${normal.grew}); reduced rAF ${reduced.t1}->${reduced.t2} (grew=${reduced.grew}); pause control: none exists — see verdict table NEEDS DECISION`);
+  const normal = await measureSettle(false);
+  const reduced = await measureSettle(true);
+  const ok = normal.grew && normal.settledFlat && normal.resumed && normal.resettledFlat
+             && !reduced.grew;
+  add('2.2.2 honeycomb settles after 5 s idle and restarts on activity', ok ? 'PASS' : 'FAIL',
+    'normal motion: rAF grows while active, stays flat after 5 s idle, grows again on activity, flat after a second settle; reduced motion: never grows',
+    `normal grew=${normal.grew} settledFlat=${normal.settledFlat} resumed=${normal.resumed} resettledFlat=${normal.resettledFlat} counts=${JSON.stringify(normal.counts)}; reduced grew=${reduced.grew} counts=${JSON.stringify(reduced.counts)}`);
 }
 
 // ===========================================================================

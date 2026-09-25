@@ -99,8 +99,9 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
         ? `<span class="conv-source-badge conv-source-${escapeHtml(c.source)}">${escapeHtml(c.source)}</span>`
         : "";
       const costBadge = c.cost_usd > 0 ? ` · ~$${c.cost_usd.toFixed(2)}` : "";
+      const statusLabel = c.status === "busy" ? "Busy" : c.status === "error" ? "Error" : "";
       li.innerHTML = `
-        <span class="conv-dot conv-dot-${escapeHtml(c.status)}"></span>
+        <span class="conv-dot conv-dot-${escapeHtml(c.status)}"${statusLabel ? ` role="img" aria-label="${statusLabel}" title="${statusLabel}"` : ""}></span>
         <span class="conv-body" role="button" tabindex="0">
           <span class="conv-name">${escapeHtml(c.name)}${srcBadge}</span>
           <span class="conv-ts">${ago}${costBadge}</span>
