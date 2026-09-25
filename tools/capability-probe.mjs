@@ -18,9 +18,87 @@ import { chromium } from 'playwright';
 
 const ASSERT = process.argv.includes('--assert');
 const APP_URL = process.env.GCA_URL ?? 'http://127.0.0.1:8765';
+
+// ---- Fixture conversation, served by route interception ---------------------
+// The probe's per-message assertions (Copy, "Reuse this message") exist only
+// while a transcript containing a user message is open. Real data must not be
+// required for that, so the conversation list, the boot-time POST (the app
+// issues one when the list is empty — main.js:296-298), and the conversation
+// detail are all fulfilled from a fixture and nothing real is ever written.
+// GCA_PROBE_ZERO_CONVS=1 forces the LIST to be empty to prove the probe no
+// longer depends on it: boot then creates via the intercepted POST, which
+// returns this same fixture, and the probe still runs against it.
+const FIXTURE_ID = 'probe-fixture-0001';
+const ZERO_CONVS = process.env.GCA_PROBE_ZERO_CONVS === '1';
+const fixtureConversation = () => ({
+  id: FIXTURE_ID,
+  name: 'Probe fixture conversation',
+  project_id: null,
+  model: 'claude-sonnet-5',
+  status: 'idle',
+  source: 'web',
+  cost_usd: 0,
+  session_id: null,
+  system_prompt: null,
+  permission_mode: null,
+  thinking_budget: null,
+  max_tokens: null,
+  created_at: new Date(Date.now() - 120_000).toISOString(),
+  updated_at: new Date(Date.now() - 30_000).toISOString(),
+  completed_at: null,
+  started_at: null,
+});
+const fixtureMessages = () => [
+  {
+    id: 'probe-msg-1', conversation_id: FIXTURE_ID, role: 'user',
+    content: 'Probe fixture: is every control reachable and honestly labelled?',
+    thinking: null, tool_calls: null, input_tokens: 12, output_tokens: null,
+    cache_read_tokens: 0, cache_creation_tokens: 0, model: 'claude-sonnet-5',
+    seq: 1, created_at: new Date(Date.now() - 60_000).toISOString(),
+    stopped: 0, superseded_by: null,
+  },
+  {
+    id: 'probe-msg-2', conversation_id: FIXTURE_ID, role: 'assistant',
+    content: 'Probe fixture reply.',
+    thinking: null, tool_calls: null, input_tokens: 6, output_tokens: 24,
+    cache_read_tokens: 0, cache_creation_tokens: 0, model: 'claude-sonnet-5',
+    seq: 2, created_at: new Date(Date.now() - 30_000).toISOString(),
+    stopped: 0, superseded_by: null,
+  },
+];
+
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
+
+// Scoped by exact pathname, never a `**/api/**` glob: that glob also matches
+// the static module at /static/js/api/http.js and breaks module loading.
+await page.route('**/*', async (route) => {
+  const u = new URL(route.request().url());
+  const m = route.request().method();
+  if (u.pathname === '/api/conversations' && m === 'GET') {
+    await route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify(ZERO_CONVS ? [] : [fixtureConversation()]),
+    });
+    return;
+  }
+  if (u.pathname === '/api/conversations' && m === 'POST') {
+    await route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify(fixtureConversation()),
+    });
+    return;
+  }
+  if (u.pathname === `/api/conversations/${FIXTURE_ID}` && m === 'GET') {
+    await route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ conversation: fixtureConversation(), messages: fixtureMessages() }),
+    });
+    return;
+  }
+  await route.continue();
+});
 
 const consoleMsgs = [];
 page.on('console', (m) => {
@@ -44,14 +122,16 @@ await page.waitForTimeout(1200);
 // reuse button — are built per message, so on an empty transcript the whole
 // `.msg-actions` sweep runs over an EMPTY SET and reports a clean pass having
 // measured nothing. That is the vacuous-verification failure this project has
-// already paid for once. Loading the root URL does not guarantee a transcript,
-// so click the first conversation and wait for a real user message.
+// already paid for once. The conversation now comes from the fixture above, not
+// from real data: click the fixture row when it rendered (default mode), and in
+// ZERO_CONVS mode rely on boot's POST-created fixture — either way the wait for
+// a real user message is what gates the sweep, not the presence of a row.
 const convRow = await page.$('.conv-body');
 if (convRow) {
   await convRow.click();
-  await page.waitForSelector('.msg-user', { timeout: 8000 }).catch(() => {});
-  await page.waitForTimeout(800);
 }
+await page.waitForSelector('.msg-user', { timeout: 8000 }).catch(() => {});
+await page.waitForTimeout(800);
 
 const data = await page.evaluate(() => {
   // Opacity is INHERITED VISUALLY but not as a computed value: a button inside
