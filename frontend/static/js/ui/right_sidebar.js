@@ -89,7 +89,7 @@ export function mountRightSidebar(root) {
     <details class="sb-section" open>
       <summary><span>SERVER</span><span class="sb-section-arrow">▶</span></summary>
       <div class="sb-section-body" id="rsb-server-body">
-        <div class="server-status"><span class="server-dot"></span><span>Connecting…</span></div>
+        <div class="server-status" role="status"><span class="server-dot"></span><span>Connecting…</span></div>
       </div>
     </details>
     <details class="sb-section">
@@ -341,7 +341,7 @@ export function mountRightSidebar(root) {
         const body = root.querySelector("#rsb-server-body");
         if (!body) return;
         body.innerHTML = `
-          <div class="server-status"><span class="server-dot"></span><span>Online</span></div>
+          <div class="server-status" role="status"><span class="server-dot"></span><span>Online</span></div>
           <div class="server-url">${escHtml(info.url)}</div>
           <button class="server-btn" id="rsb-open-browser">⎋ Open in Browser</button>
         `;
@@ -355,7 +355,7 @@ export function mountRightSidebar(root) {
         const body = root.querySelector("#rsb-server-body");
         if (!body) return;
         body.innerHTML = `
-          <div class="server-status"><span class="server-dot offline"></span><span>Offline — server unreachable</span></div>
+          <div class="server-status" role="status"><span class="server-dot offline"></span><span>Offline — server unreachable</span></div>
         `;
       });
   }
@@ -438,6 +438,8 @@ export function mountRightSidebar(root) {
   function showCostToast(cost, budget) {
     const toast = document.createElement("div");
     toast.className = "cost-toast";
+    // 4.1.3: the spend estimate is a polite status message.
+    toast.setAttribute("role", "status");
     toast.innerHTML = `
       <div class="cost-toast-header">
         <span class="cost-toast-title">Monthly Spend Estimate</span>

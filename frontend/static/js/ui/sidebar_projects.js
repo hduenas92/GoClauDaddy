@@ -7,7 +7,7 @@ export function mountSidebarProjects(root, onSwitchProject) {
   root.innerHTML = `
     <button id="new-project-btn">＋ New Project</button>
     <ul id="project-list">
-      <li class="project-item" data-all="1">All conversations</li>
+      <li class="project-item" data-all="1"><span class="project-name" role="button" tabindex="0">All conversations</span></li>
     </ul>
   `;
   const listEl = root.querySelector("#project-list");
@@ -33,7 +33,7 @@ export function mountSidebarProjects(root, onSwitchProject) {
 
   function render() {
     const { projects, activeProjectId } = getState();
-    listEl.innerHTML = `<li class="project-item${activeProjectId ? "" : " active"}" data-all="1">All conversations</li>`;
+    listEl.innerHTML = `<li class="project-item${activeProjectId ? "" : " active"}" data-all="1"><span class="project-name" role="button" tabindex="0">All conversations</span></li>`;
     projects.forEach((p) => {
       const li = document.createElement("li");
       li.className = "project-item" + (p.id === activeProjectId ? " active" : "");
@@ -72,10 +72,20 @@ export function mountSidebarProjects(root, onSwitchProject) {
       });
       listEl.appendChild(li);
     });
-    listEl.querySelector('[data-all="1"]').addEventListener("click", () => {
+    const allConv = listEl.querySelector('[data-all="1"] .project-name');
+    const showAll = () => {
       selectProject(null);
       onSwitchProject(null);
       render();
+    };
+    // 2.1.1: "All conversations" was a pointer-only <li>. role="button"
+    // + tabindex="0" make it reachable; Enter/Space make it operable.
+    allConv.addEventListener("click", showAll);
+    allConv.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        showAll();
+      }
     });
   }
 

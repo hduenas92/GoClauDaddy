@@ -17,6 +17,8 @@ function _shouldAssess(text) {
 function _showToast(msg, ms = 4000) {
   const t = document.createElement("div");
   t.className = "gca-toast";
+  // 4.1.3: transient notices are status messages.
+  t.setAttribute("role", "status");
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => t.remove(), ms);
@@ -28,6 +30,8 @@ function _escHtml(s) {
 
 function _showAssessment({ level, summary, concerns = [] }) {
   return new Promise((resolve) => {
+    // 2.4.3: hand focus back to whatever opened this assessment (the composer).
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
     document.body.appendChild(overlay);
@@ -49,7 +53,11 @@ function _showAssessment({ level, summary, concerns = [] }) {
     `;
     overlay.appendChild(box);
 
-    const close = (ok) => { overlay.remove(); resolve(ok); };
+    const close = (ok) => {
+      overlay.remove();
+      if (returnFocus?.isConnected) returnFocus.focus();
+      resolve(ok);
+    };
     box.querySelector(".modal-cancel").addEventListener("click", () => close(false));
     box.querySelector("#assess-proceed").addEventListener("click", () => close(true));
     overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(false); });
@@ -70,7 +78,7 @@ export function mountComposer(root, socket, chatPane) {
     <div id="attachment-strip"></div>
     <div id="composer-row">
       <button id="composer-attach" title="Attach file">📎</button>
-      <textarea id="composer-input" rows="2" placeholder="Message GoClaudaddy… (drag files, paste image, Enter to send)"></textarea>
+      <textarea id="composer-input" rows="2" placeholder="Message GoClaudaddy… (drag files, paste image, Enter to send)" aria-label="Message GoClaudaddy"></textarea>
       <button id="composer-send">Send</button>
       <button id="composer-stop" hidden>■ Stop</button>
     </div>
@@ -78,7 +86,7 @@ export function mountComposer(root, socket, chatPane) {
       <span id="char-counter"></span>
       <span id="composer-hint">Enter to send · Shift+Enter for newline</span>
     </div>
-    <input type="file" id="composer-file-input" multiple hidden>
+    <input type="file" id="composer-file-input" multiple hidden aria-label="Attach file">
   `;
   const input = root.querySelector("#composer-input");
   const sendBtn = root.querySelector("#composer-send");
@@ -128,7 +136,7 @@ export function mountComposer(root, socket, chatPane) {
     function _renderSuggest() {
       const list = _filtered();
       suggestEl.innerHTML = `
-        <input class="suggest-search" placeholder="Filter templates… (↑↓ navigate, Enter select, Esc close)" value="${_escSuggest(query)}">
+        <input class="suggest-search" placeholder="Filter templates… (↑↓ navigate, Enter select, Esc close)" aria-label="Filter templates" value="${_escSuggest(query)}">
         <div class="suggest-list">
           ${list.length
           ? list.map((t, i) => `

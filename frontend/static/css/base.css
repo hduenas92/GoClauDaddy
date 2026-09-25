@@ -11,7 +11,10 @@
   --border-strong-rgb: 60 60 86;      /* Border Strong #3C3C56 */
 
   --text-primary-rgb:   240 240 248;  /* #F0F0F8  17.2:1 on ground */
-  --text-secondary-rgb: 148 148 172;  /* #9494AC   5.9:1 on surface */
+  --text-secondary-rgb: 158 158 184;  /* #9E9EB8   P2-D: was 148 148 172 (#9494AC),
+                                          which the pixel instrument measured at
+                                          4.1:1 on pre.tool-call-input. Lightened
+                                          so the same site clears 4.5:1. */
   --text-muted-rgb:     138 138 170;  /* #8A8AAA  5.2:1 on surface, 4.8:1 on the
                                          teal-tinted active row — see token-map Rule 3.
                                          #8080A0 passed on surface but measured 4.19:1
@@ -90,7 +93,7 @@
   --border-quiet-rgb:  39 39 58;
   --border-strong-rgb: 60 60 86;
   --text-primary-rgb:   240 240 248;
-  --text-secondary-rgb: 148 148 172;
+  --text-secondary-rgb: 158 158 184;
   --text-muted-rgb:     138 138 170;
   --accent-rgb:        0 163 165;
   --accent-hi-rgb:     45 212 191;
@@ -418,6 +421,15 @@ html, body {
   border-color: var(--accent-hi);
   box-shadow: 0 0 14px rgba(var(--accent-rgb) / 0.3);
   color: var(--text);
+}
+/* P2-D: the active row used to stop responding to the pointer entirely — .active
+   is declared after :hover at equal specificity, so its background won. Give the
+   selected row a hover response via its border instead of another background
+   lift: the muted timestamp text sits on that background, and a 0.22 lift
+   measured 4.23:1 (below AA). The border change is visible and text-safe. */
+.project-item.active:hover,
+.conv-item.active:hover {
+  border-color: var(--accent);
 }
 
 .project-name, .conv-name {
@@ -1054,13 +1066,14 @@ html, body {
 .sub-ctx     { color: var(--accent-hi); }
 
 /* ---- message token colors ---- */
-.tok-in  { color: rgba(var(--accent-hi-rgb) / 0.7); font-family: var(--font-shell); font-variant-numeric: tabular-nums; }
+.tok-in  { color: rgba(var(--accent-hi-rgb) / 0.8); font-family: var(--font-shell); font-variant-numeric: tabular-nums; }
 /* NOT the same alpha as .tok-in on purpose. These two are a visual pair and
    must read at the same WEIGHT, which means matching contrast ratio, not
-   matching alpha: measured on rgb(12,12,15), success at 0.8 gives 5.38:1 and
-   accent-hi at 0.7 gives 5.52:1. At a shared 0.7 the green measured 4.35:1 -
-   below AA at 11px, and visibly lighter than its partner. */
-.tok-out { color: rgba(var(--success-rgb) / 0.8); font-family: var(--font-shell); font-variant-numeric: tabular-nums; }
+   matching alpha. P2-D: the pixel instrument measured tok-in@0.7 at 4.39:1 and
+   tok-out@0.8 at 4.07:1 over the teal-tinted transcript ground — both below
+   4.5:1. Raised to 0.8 / 0.9 so both clear AA with margin while keeping the
+   pair balanced. */
+.tok-out { color: rgba(var(--success-rgb) / 0.9); font-family: var(--font-shell); font-variant-numeric: tabular-nums; }
 
 /* ============================================================
    SETTINGS DRAWER
@@ -1196,7 +1209,9 @@ details.drawer-advanced[open] .drawer-advanced-summary::before { content: "▼";
   inset: 0;
   background: rgba(var(--shadow-rgb) / 0.75);
   backdrop-filter: blur(6px);
-  z-index: 200;
+  /* P2-D: was 200 — tied with .scanline-overlay (z 200), so paint order decided
+     which sat on top. The tour must outrank the always-on scanline layer. */
+  z-index: 300;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1227,9 +1242,10 @@ details.drawer-advanced[open] .drawer-advanced-summary::before { content: "▼";
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
-  opacity: 0.7;
+  /* P2-D: was opacity: 0.7 — axe measured the composite at < 4.5:1 on --elev.
+     --text2 at full opacity clears 4.5:1 on --elev. */
 }
-.ob-skip:hover { opacity: 1; color: var(--text); }
+.ob-skip:hover { color: var(--text); }
 .ob-icon {
   font-size: 36px;
   color: var(--teal-b);
@@ -2086,8 +2102,12 @@ kbd {
   right: 0;
   transform: none;
 }
-[data-tooltip]:hover::after {
-  opacity: 1;
+/* Hover-triggered tooltips only make sense on devices that actually hover;
+   touch devices get the title attribute instead (hover-check case 5). */
+@media (hover: hover) {
+  [data-tooltip]:hover::after {
+    opacity: 1;
+  }
 }
 
 /* Budget bar */
@@ -2314,6 +2334,126 @@ kbd {
 }
 /* Inline hint text in settings label */
 .drawer-hint-inline { color: var(--text-muted); font-size: 11px; }
+
+/* ============================================================
+   P2-D WCAG 2.1 AA additions — all through the token layer
+   ============================================================ */
+
+/* ---- placeholders: UA default (#757575) measured 3.54-3.83:1 on elev/surface.
+   Give every placeholder without an explicit rule the secondary text token,
+   which clears 4.5:1 on both surfaces. Explicit rules above (composer, search,
+   suggest) keep their own (passing) tokens via higher specificity. ---- */
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
+/* ---- 2.4.7 + 1.4.11: one visible keyboard focus indicator for every
+   focusable control. The ring colour --accent-hi contrasts >9:1 against the
+   page ground and >=3:1 against every surface in the app. !important beats the
+   `outline: none` in the :focus rules (which stay as the pointer-focus style),
+   so keyboard focus is always visible. ---- */
+:where(button, a[href], input:not([type=hidden]), select, textarea, summary, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-hi) !important;
+  outline-offset: 2px;
+}
+
+/* ---- 1.4.13: CSS tooltips gain keyboard visibility and Esc suppression.
+   The JS in ui/tooltips.js adds .tooltip-open while the pointer is on the host
+   or the tooltip, and .tooltip-killed after Esc (cleared on pointer leave). ---- */
+[data-tooltip]:focus-visible::after,
+[data-tooltip].tooltip-open::after {
+  opacity: 1;
+}
+[data-tooltip].tooltip-killed::after,
+[data-tooltip].tooltip-killed:hover::after,
+[data-tooltip].tooltip-killed:focus-visible::after {
+  opacity: 0 !important;
+}
+
+/* ---- 2.4.1: skip link (visible on focus only) ---- */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 1000;
+  background: var(--panel);
+  color: var(--accent-hi);
+  padding: 8px 14px;
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.6);
+  border-radius: 4px;
+  font-size: 12px;
+  text-decoration: none;
+}
+.skip-link:focus {
+  left: 8px;
+  top: 8px;
+}
+
+/* ---- P2-B carry-over states that had NO CSS. The notice must read as an
+   ERROR (Houston): rose text on a rose-tinted panel, through tokens. ---- */
+.chat-notice {
+  margin: 4px 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(var(--error-rgb) / 0.45);
+  border-left: 3px solid var(--error);
+  background: rgba(var(--error-rgb) / 0.12);
+  color: var(--error);
+  font-size: 12px;
+  font-family: var(--font-shell);
+  line-height: 1.5;
+  border-radius: 4px;
+}
+.chat-connection-error {
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  border: 1px solid rgba(var(--error-rgb) / 0.5);
+  background: rgba(var(--error-rgb) / 0.08);
+  color: var(--text);
+  border-radius: 6px;
+  font-size: 12px;
+}
+#chat-retry-btn {
+  background: var(--teal);
+  color: var(--ground);
+  border: 1px solid var(--teal-b);
+  border-radius: 4px;
+  padding: 6px 16px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+#chat-retry-btn:hover { background: var(--teal-b); }
+.server-dot.offline {
+  background: var(--rose);
+  box-shadow: 0 0 5px rgba(var(--error-rgb) / 0.6);
+}
+
+/* ---- 1.4.4 / 1.4.10: reflow without clipping or page-level horizontal scroll.
+   Header content wraps instead of clipping; the composer row wraps so the input
+   keeps a usable width; the right sidebar becomes an overlay at narrow widths
+   (still toggleable) instead of crushing the chat pane. ---- */
+#chat-header { flex-wrap: wrap; row-gap: 4px; }
+.header-btn { white-space: nowrap; }
+#composer-row { flex-wrap: wrap; }
+#composer-input { flex: 1 1 160px; min-width: 0; }
+@media (max-width: 900px) {
+  #right-sidebar {
+    position: fixed;
+    right: 0;
+    top: 56px;
+    bottom: 0;
+    z-index: 45;
+  }
+}
+@media (max-width: 640px) {
+  #sidebar { width: 160px; }
+}
 
 /* prefers-reduced-motion: neutralize every transition/animation app-wide.
    0.01ms instead of `none` — code that awaits a `transitionend`/`animationend`

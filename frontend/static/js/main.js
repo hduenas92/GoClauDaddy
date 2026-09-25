@@ -53,6 +53,7 @@ import { mountRightSidebar } from "./ui/right_sidebar.js";
 import { maybeShowOnboarding } from "./ui/onboarding_tour.js";
 import { openTemplatePicker } from "./ui/template_picker.js";
 import { trapFocus } from "./ui/modal.js";
+import { mountTooltips } from "./ui/tooltips.js";
 
 let currentSocket = null;
 let currentConversation = null;
@@ -67,7 +68,7 @@ function showChatConnectionError(compRoot, chatPane, conversationId) {
   // and a Retry control that re-runs the same switch path — a successful retry
   // mounts the composer with no page reload.
   compRoot.innerHTML = `
-    <div id="chat-connection-error" class="chat-connection-error">
+    <div id="chat-connection-error" class="chat-connection-error" role="alert">
       <p>The chat connection failed — the realtime channel could not be opened.</p>
       <button id="chat-retry-btn">Retry</button>
     </div>
@@ -135,7 +136,7 @@ async function switchToConversation(id, chatPane, compRoot) {
 async function boot() {
   const app = document.getElementById("app");
   app.innerHTML = `
-    <div id="sidebar">
+    <nav id="sidebar" aria-label="Primary">
       <div id="sidebar-logo">
         <img src="/static/images/goclaudaddy-mark.svg" alt="GoClaudaddy">
         <span>GoClaudaddy</span>
@@ -143,13 +144,13 @@ async function boot() {
       <div id="sidebar-projects"></div>
       <hr class="sidebar-sep">
       <div id="sidebar-conversations"></div>
-    </div>
-    <div id="chat-area">
+    </nav>
+    <main id="chat-area" tabindex="-1">
       <div id="chat-header">
         <div class="header-title-group">
           <div class="header-title-row">
             <span id="header-dot" class="header-dot header-dot-idle"></span>
-            <span id="conv-title-text" class="conv-title-text">GoClaudaddy</span>
+            <h1 id="conv-title-text" class="conv-title-text">GoClaudaddy</h1>
           </div>
           <div id="conv-subtitle" class="conv-subtitle"></div>
         </div>
@@ -160,12 +161,12 @@ async function boot() {
           <button id="sb-toggle-btn" title="Toggle sidebar (Ctrl+B)" class="header-btn" data-tooltip="Sidebar (Ctrl+B)">◫</button>
         </div>
       </div>
-      <div id="settings-drawer" class="settings-drawer" aria-hidden="true"></div>
+      <div id="settings-drawer" class="settings-drawer" aria-hidden="true" inert></div>
       <div id="chat-scroll"></div>
       <div id="composer"></div>
-    </div>
+    </main>
 
-    <div id="right-sidebar"></div>
+    <aside id="right-sidebar" aria-label="Metrics and server"></aside>
 
     <div id="shortcuts-overlay" class="shortcuts-overlay" hidden>
       <div class="shortcuts-box">
@@ -214,8 +215,10 @@ async function boot() {
 
   // Header buttons
   document.getElementById("settings-btn").addEventListener("click", () => {
-    if (settingsDrawerEl.classList.contains("drawer-open")) closeDrawer(settingsDrawerEl);
-    else openDrawer(settingsDrawerEl);
+    if (settingsDrawerEl.classList.contains("drawer-open")) {
+      closeDrawer(settingsDrawerEl);
+      document.getElementById("settings-btn")?.focus();
+    } else openDrawer(settingsDrawerEl);
   });
   document.getElementById("sb-toggle-btn").addEventListener("click", () => {
     const collapsed = rightSidebarEl.classList.toggle("sb-collapsed");
@@ -225,6 +228,9 @@ async function boot() {
     chatPane.exportConversation();
   });
 
+  // 1.4.13: [data-tooltip] hosts get Esc dismissal + hover persistence.
+  mountTooltips();
+
   const shortcutsOverlay = document.getElementById("shortcuts-overlay");
 
   // This overlay lives in the markup and is shown/hidden by toggling `hidden`
@@ -233,14 +239,19 @@ async function boot() {
   // at each of those call sites — where the next one added would silently miss
   // it — observe the attribute that actually decides whether it is on screen.
   let _shortcutsTrap = null;
+  let _shortcutsReturnFocus = null;
   new MutationObserver(() => {
     if (!shortcutsOverlay.hidden && !_shortcutsTrap) {
+      // 2.4.3: remember the trigger so focus can be handed back on close.
+      _shortcutsReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       _shortcutsTrap = trapFocus(shortcutsOverlay);
       // Focus must start inside, or the first Tab is the user's only way in.
       shortcutsOverlay.querySelector(".shortcuts-close")?.focus();
     } else if (shortcutsOverlay.hidden && _shortcutsTrap) {
       _shortcutsTrap();
       _shortcutsTrap = null;
+      if (_shortcutsReturnFocus?.isConnected) _shortcutsReturnFocus.focus();
+      _shortcutsReturnFocus = null;
     }
   }).observe(shortcutsOverlay, { attributes: true, attributeFilter: ["hidden"] });
   document.getElementById("shortcuts-btn").addEventListener("click", () => {
@@ -314,6 +325,8 @@ async function boot() {
       if (!shortcutsOverlay.hidden) { shortcutsOverlay.hidden = true; return; }
       if (settingsDrawerEl.classList.contains("drawer-open")) {
         closeDrawer(settingsDrawerEl);
+        // 2.4.3: hand focus back to the settings trigger.
+        document.getElementById("settings-btn")?.focus();
         return;
       }
       const escOverlay = document.querySelector(".modal-overlay");

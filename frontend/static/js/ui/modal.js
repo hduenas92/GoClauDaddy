@@ -119,7 +119,10 @@ export function attachDirectoryBrowse(button, input) {
 export function showModal({ title, fields = [], confirmText = "Save", danger = false, initial = {} }) {
   return new Promise((resolve) => {
     const overlay = _buildOverlay();
-    overlay._reject = () => { overlay.remove(); resolve(null); };
+    // 2.4.3: hand focus back to the trigger that opened this modal.
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const restore = () => { if (returnFocus?.isConnected) returnFocus.focus(); };
+    overlay._reject = () => { overlay.remove(); restore(); resolve(null); };
 
     const box = document.createElement("div");
     box.className = "modal-box";
@@ -185,6 +188,7 @@ export function showModal({ title, fields = [], confirmText = "Save", danger = f
       const values = {};
       inputs.forEach((el) => { values[el.name] = el.value; });
       overlay.remove();
+      restore();
       resolve(values);
     });
 
@@ -211,7 +215,10 @@ export function showConfirm({ message, confirmText = "Delete", danger = true }) 
   return new Promise((resolve) => {
     const overlay = _buildOverlay();
     const releaseTrap = trapFocus(overlay);
-    overlay._reject = () => { releaseTrap(); overlay.remove(); resolve(false); };
+    // 2.4.3: hand focus back to the trigger that opened this confirm.
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const restore = () => { if (returnFocus?.isConnected) returnFocus.focus(); };
+    overlay._reject = () => { releaseTrap(); overlay.remove(); restore(); resolve(false); };
 
     const box = document.createElement("div");
     box.className = "modal-box";
@@ -227,10 +234,11 @@ export function showConfirm({ message, confirmText = "Delete", danger = true }) 
     box.querySelector(".modal-cancel").addEventListener("click", () => overlay._reject());
     box.querySelector(".modal-confirm").addEventListener("click", () => {
       overlay.remove();
+      restore();
       resolve(true);
     });
     box.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { overlay.remove(); resolve(true); }
+      if (e.key === "Enter") { overlay.remove(); restore(); resolve(true); }
       if (e.key === "Escape") overlay._reject();
     });
 
@@ -249,6 +257,8 @@ function escHtml(s) {
 export function showErrorToast(message) {
   const toast = document.createElement("div");
   toast.className = "error-toast";
+  // 4.1.3: error toasts are assertive status messages.
+  toast.setAttribute("role", "alert");
   toast.innerHTML = `
     <div class="error-toast-content">
       <span class="error-toast-icon">⚠</span>

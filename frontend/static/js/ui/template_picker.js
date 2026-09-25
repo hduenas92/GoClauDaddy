@@ -46,11 +46,14 @@ export function openTemplatePicker({ onSelect }) {
   const overlay = document.createElement("div");
   overlay.className = "tp-overlay";
   let _releaseTrap = null;
+  // 2.4.3: hand focus back to whatever opened the picker.
+  const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
   function close() {
     _releaseTrap?.();
     overlay.remove();
     document.removeEventListener("keydown", onKey);
+    if (returnFocus?.isConnected) returnFocus.focus();
   }
 
   function onKey(e) {
@@ -90,7 +93,7 @@ export function openTemplatePicker({ onSelect }) {
       <div class="tp-box">
         <div class="tp-header">
           <span class="tp-title">Templates</span>
-          <input class="tp-search" id="tp-search" type="text" placeholder="Search templates…" value="${escHtml(searchQuery)}">
+          <input class="tp-search" id="tp-search" type="text" placeholder="Search templates…" aria-label="Search templates" value="${escHtml(searchQuery)}">
           <button class="tp-close" aria-label="Close templates">✕</button>
         </div>
         <div class="tp-body">

@@ -263,7 +263,9 @@ async function run() {
         // Move the pointer far away rather than to another candidate, so a
         // "stuck" state cannot be masked by the next element's own hover.
         await page.mouse.move(5, 880);
-        await page.waitForTimeout(250);
+        // 400ms: the app's transitions run 0.15-0.25s; 250ms sampled the
+        // interpolation midpoint (borderColor 0.404 vs rest 0.4) and flaked.
+        await page.waitForTimeout(400);
         const after = await read();
         check(`3 ${label} — hover changes something`, before !== during,
             before === during ? 'no computed change on hover' : 'changed');

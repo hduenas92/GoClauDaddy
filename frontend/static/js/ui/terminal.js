@@ -10,8 +10,8 @@
 
 import { showErrorToast } from "./modal.js";
 
-const XTERM_JS  = "https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.js";
-const XTERM_CSS = "https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.css";
+const XTERM_JS  = "https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js";
+const XTERM_CSS = "https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css";
 
 const _THEME = {
   background: "#09090d", foreground: "#f8fafc",
@@ -145,4 +145,15 @@ export async function openTerminal() {
   // dialog cancel event fires on Esc — prevent default (which would close dialog
   // without our cleanup) and run our cleanup instead
   dialog.addEventListener("cancel", (e) => { e.preventDefault(); closeTerminal(); });
+  // 2.1.2: xterm's hidden textarea swallows Escape (it is terminal input), so
+  // the browser's native dialog-cancel never fires while xterm has focus. Catch
+  // Escape in the CAPTURE phase on the dialog (an ancestor of xterm's textarea)
+  // so the keyboard user can always leave the terminal.
+  dialog.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      closeTerminal();
+    }
+  }, true);
 }

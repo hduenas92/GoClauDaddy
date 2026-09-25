@@ -122,19 +122,19 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
           <p class="drawer-hint">Experimental features. Changes take effect on the next conversation.</p>
           <button class="drawer-link-btn" id="replay-onboarding-btn">Replay onboarding tour</button>
           <label class="drawer-toggle-row">
-            <input type="checkbox" id="feat-teams" class="drawer-toggle-check">
+            <input type="checkbox" id="feat-teams" class="drawer-toggle-check" aria-label="Enable team sessions">
             <span class="drawer-toggle-label">Enable team sessions</span>
           </label>
           <label class="drawer-toggle-row">
-            <input type="checkbox" id="feat-assess" class="drawer-toggle-check">
+            <input type="checkbox" id="feat-assess" class="drawer-toggle-check" aria-label="Evaluate tasks before sending">
             <span class="drawer-toggle-label">Evaluate tasks before sending</span>
           </label>
           <label class="drawer-toggle-row">
-            <input type="checkbox" id="feat-terminal" class="drawer-toggle-check">
+            <input type="checkbox" id="feat-terminal" class="drawer-toggle-check" aria-label="Enable terminal panel">
             <span class="drawer-toggle-label">Enable terminal panel <span class="drawer-hint-inline">(Ctrl+\`)</span></span>
           </label>
           <label class="drawer-toggle-row">
-            <input type="checkbox" id="feat-approval" class="drawer-toggle-check">
+            <input type="checkbox" id="feat-approval" class="drawer-toggle-check" aria-label="Prompt for tool approval">
             <span class="drawer-toggle-label">Prompt for tool approval <span class="drawer-badge-exp">experimental</span></span>
           </label>
           <p class="drawer-hint drawer-hint-risk">⚠ Depends on Claude CLI output format and may not work reliably.</p>
@@ -371,9 +371,12 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
 export function openDrawer(el) {
   el.classList.add("drawer-open");
   el.setAttribute("aria-hidden", "false");
+  el.removeAttribute("inert");
 }
 
 export function closeDrawer(el) {
   el.classList.remove("drawer-open");
   el.setAttribute("aria-hidden", "true");
+  // Keep the off-canvas drawer out of the tab order while closed (4.1.2).
+  el.setAttribute("inert", "");
 }

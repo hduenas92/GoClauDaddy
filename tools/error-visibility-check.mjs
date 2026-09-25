@@ -147,11 +147,13 @@ async function stubBoot(page, { messages = [] } = {}) {
       await wsRoute.send(JSON.stringify({ type: 'done' }));
       await page.waitForSelector('.chat-notice', { timeout: 4000 }).catch(() => {});
       const s = await page.evaluate(() => {
-        const notice = document.querySelector('.chat-notice')?.textContent ?? '';
+        const noticeEl = document.querySelector('.chat-notice');
+        const notice = noticeEl?.textContent ?? '';
         const bubble = [...document.querySelectorAll('.msg-assistant .text-block')]
           .map((e) => e.textContent).join('\n');
         return {
           notice,
+          noticeRole: noticeEl?.getAttribute('role') ?? null,
           bubble,
           sendHidden: document.getElementById('composer-send')?.hidden ?? null,
           stopHidden: document.getElementById('composer-stop')?.hidden ?? null,
@@ -166,7 +168,9 @@ async function stubBoot(page, { messages = [] } = {}) {
         && s.stopHidden === true
         && !/error/i.test(s.status)
         && rejects.length === 0
-        && pageErrors.length === 0;
+        && pageErrors.length === 0
+        // P2-D 4.1.3: the notice must be a live status (role=status or alert).
+        && (s.noticeRole === 'status' || s.noticeRole === 'alert');
       if (!ok) {
         fail(name, JSON.stringify({ s, rejects, pageErrors }).slice(0, 400));
       } else {
@@ -197,6 +201,7 @@ async function stubBoot(page, { messages = [] } = {}) {
     await page.waitForTimeout(1500);
     const s1 = await page.evaluate(() => ({
       errText: document.getElementById('chat-connection-error')?.innerText?.replace(/\s+/g, ' ').trim() ?? '',
+      errRole: document.getElementById('chat-connection-error')?.getAttribute('role') ?? null,
       retry: !!document.getElementById('chat-retry-btn'),
       composer: !!document.getElementById('composer-input'),
     }));
@@ -205,6 +210,8 @@ async function stubBoot(page, { messages = [] } = {}) {
       skip(name, 'the page never attempted a WebSocket — refusal path not exercised');
     } else if (!s1.errText && !s1.retry) {
       fail(name, `no connection-failed message or Retry after WS refusal: ${JSON.stringify({ s1, rejects, pageErrors })}`);
+    } else if (s1.errRole !== 'alert') {
+      fail(name, `connection error must be role=alert for 4.1.3, got ${JSON.stringify(s1.errRole)}`);
     } else if (rejects.length > 0 || pageErrors.length > 0) {
       fail(name, `visible UI appeared but an unhandled rejection/pageerror leaked: ${JSON.stringify({ rejects, pageErrors })}`);
     } else {

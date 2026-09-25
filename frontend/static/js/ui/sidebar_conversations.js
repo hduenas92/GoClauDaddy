@@ -12,7 +12,7 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
   root.innerHTML = `
     <button id="new-conv-btn">＋ New Chat</button>
     <div id="conv-search-wrap">
-      <input id="conv-search" type="text" placeholder="Search chats…" autocomplete="off">
+      <input id="conv-search" type="text" placeholder="Search chats…" autocomplete="off" aria-label="Search chats">
     </div>
     <ul id="conv-list"></ul>
   `;

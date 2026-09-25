@@ -12,7 +12,7 @@ const STATUS_LABEL = { done: "Done", error: "Error", stopped: "Stopped", timeout
 export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
   root.innerHTML = `
     <div id="chat-messages"></div>
-    <div id="chat-status" class="chat-status"></div>
+    <div id="chat-status" class="chat-status" role="status" aria-live="polite"></div>
   `;
   const messagesEl = root.querySelector("#chat-messages");
   const statusEl = root.querySelector("#chat-status");
@@ -356,6 +356,8 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     const { div, bubble, meta, actions } = buildMessageEl("assistant");
     meta.classList.add("status-badge", "status-processing");
     meta.textContent = "Thinking…";
+    // 4.1.3: the streaming indicator is a live status.
+    meta.setAttribute("role", "status");
 
     const thinkEl = document.createElement("details");
     thinkEl.className = "thinking-block";
@@ -675,6 +677,8 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         if (!line) return;
         const notice = document.createElement("div");
         notice.className = "chat-notice";
+        // 4.1.3: the notice is a status message (polite), styled as an error.
+        notice.setAttribute("role", "status");
         notice.textContent = `Non-JSON CLI output ignored: ${line}`;
         messagesEl.appendChild(notice);
         scrollDown();

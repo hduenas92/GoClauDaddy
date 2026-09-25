@@ -40,6 +40,9 @@ export function maybeShowOnboarding() {
 export function showOnboarding() {
   const overlay = document.createElement("div");
   overlay.className = "ob-overlay";
+  // 2.4.3: the tour auto-opens (no trigger button), so dismissal must land
+  // focus somewhere usable — the element focused before, or the composer.
+  const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
   // The tour already moves focus in (render() focuses .ob-btn-primary) but never
   // kept it there: Tab from the last button walked out into the app behind.
@@ -90,6 +93,10 @@ export function showOnboarding() {
     _releaseTrap?.();
     overlay.remove();
     document.removeEventListener("keydown", onKey);
+    const target = (previousFocus?.isConnected && previousFocus !== document.body)
+      ? previousFocus
+      : document.getElementById("composer-input");
+    target?.focus?.();
   }
 
   function onKey(e) {
