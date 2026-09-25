@@ -309,6 +309,11 @@ async def _handle_send_inner(
                     usage["cache_creation_input_tokens"] = step["cache_creation_input_tokens"]
             elif ev_type in ("error", "timeout"):
                 had_error = True
+            elif ev_type == "notice":
+                # Non-JSON CLI stdout (P2-B E1): log it, forward it to the
+                # client as a visible non-fatal notice, and deliberately do NOT
+                # append it to text_parts — it is not Claude's reply.
+                log.warning("Non-JSON CLI stdout line ignored: %s", event.get("text", ""))
 
             # Socket already closed (client navigated away)? Keep draining the
             # generator so the subprocess still finishes and persists.

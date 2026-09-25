@@ -61,6 +61,14 @@ export class ChatSocket {
         resolve();
       }, { once: true });
       this.ws.addEventListener("error", (e) => reject(e), { once: true });
+      // A close BEFORE the first `open` is a refused connection (a proxy or
+      // server answered the upgrade with an error). Without this the promise
+      // never settles: switchToConversation() hangs forever, the composer never
+      // mounts and nothing is shown (P2-B E2). Reject so the caller can show
+      // the retry UI instead.
+      this.ws.addEventListener("close", () => {
+        reject(new Error("Chat connection failed before it opened."));
+      }, { once: true });
     });
   }
 

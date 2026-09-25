@@ -5,7 +5,9 @@ conversation-scoped directory (not a swept OS temp dir) means attachments
 survive restarts and can be re-referenced across turns of the same conversation.
 """
 
+import contextlib
 import datetime
+import errno
 import re
 import uuid
 from pathlib import Path
@@ -22,6 +24,13 @@ _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
 class AttachmentRejected(ValueError):
     pass
+
+
+class DiskFull(OSError):
+    """Distinct out-of-space error — maps to HTTP 507, never a generic 500."""
+
+    def __init__(self) -> None:
+        super().__init__("The disk is full — free up some space, then try again.")
 
 
 class ConversationNotFound(LookupError):
@@ -64,7 +73,16 @@ def save_attachment(
     attachment_id = str(uuid.uuid4())
     stored_name = f"{attachment_id}_{safe_name}"
     stored_path = conv_dir / stored_name
-    stored_path.write_bytes(data)
+    try:
+        stored_path.write_bytes(data)
+    except OSError as exc:
+        # ENOSPC (POSIX) or ERROR_DISK_FULL (winerror 112) — a distinct,
+        # specific failure the frontend can word differently from "too large".
+        if exc.errno == errno.ENOSPC or getattr(exc, "winerror", None) == 112:
+            with contextlib.suppress(OSError):
+                stored_path.unlink(missing_ok=True)  # don't leave a partial file
+            raise DiskFull() from exc
+        raise
 
     now = _now()
     with get_connection() as conn:

@@ -145,10 +145,22 @@ export function mountRightSidebar(root) {
   const toolsEl = root.querySelector("#met-tools");
   const ctxEl   = root.querySelector("#met-ctx");
   const ctxBarEl = root.querySelector("#ctx-bar-fill");
-  let ctxMax = 200_000;
+  // P2-B E5: null means "the context window for the current model is unknown".
+  // CTX% must then show "—", never a number computed against a guessed default.
+  let ctxMax = null;
+  let _currentModel = null;
+  // One r.ok-checked JSON GET for every sidebar poll (P2-B E3/E4/E5).
+  const _getJSON = (url) => fetch(url).then((r) => { if (!r.ok) throw new Error(`${url} ${r.status}`); return r.json(); });
 
   function updateCtx(inputTokens) {
     if (!inputTokens || !ctxEl) return;
+    if (ctxMax == null) {
+      // Unknown context window (e.g. /api/config failed): show the honest
+      // empty state, never a percentage against a made-up denominator.
+      ctxEl.textContent = "—";
+      if (ctxBarEl) { ctxBarEl.style.width = "0%"; ctxBarEl.className = "budget-bar-fill budget-normal"; }
+      return;
+    }
     const pct = Math.min((inputTokens / ctxMax) * 100, 100);
     const currLabel = fmtCompact(inputTokens);
     const maxLabel = fmtCompact(ctxMax);
@@ -158,6 +170,12 @@ export function mountRightSidebar(root) {
       ctxBarEl.classList.remove("budget-normal", "budget-warn", "budget-crit");
       ctxBarEl.classList.add(pct < 60 ? "budget-normal" : pct < 85 ? "budget-warn" : "budget-crit");
     }
+  }
+
+  function _refreshCtx() {
+    const msgs = getState().messages || [];
+    const latestWithCtx = [...msgs].reverse().find(m => m.input_tokens > 0);
+    if (latestWithCtx) updateCtx(latestWithCtx.input_tokens);
   }
 
   function fmtMs(ms) {
@@ -232,8 +250,7 @@ export function mountRightSidebar(root) {
     }
 
     // Context window: latest message's input_tokens is the actual context size for that turn
-    const latestWithCtx = [...msgs].reverse().find(m => m.input_tokens > 0);
-    if (latestWithCtx) updateCtx(latestWithCtx.input_tokens);
+    _refreshCtx();
   });
 
   // Reset every metric row + both progress bars to their empty state.
@@ -252,8 +269,10 @@ export function mountRightSidebar(root) {
   }
 
   function setModel(model) {
-    ctxMax = _ctxByModel[model] ?? 200_000;
+    _currentModel = model;
+    ctxMax = _ctxByModel[model] ?? null;
     _resetMetrics();
+    _refreshCtx();
   }
 
   let _activeConvId = null;
@@ -300,34 +319,51 @@ export function mountRightSidebar(root) {
   }
 
   // --- Model context windows from backend ---
-  fetch("/api/config")
-    .then((r) => r.json())
-    .then((cfg) => {
-      (cfg.models || []).forEach((m) => { _ctxByModel[m.value] = m.context_window; });
-    })
-    .catch(() => {});
+  function _fetchConfig() {
+    _getJSON("/api/config")
+      .then((cfg) => {
+        (cfg.models || []).forEach((m) => { _ctxByModel[m.value] = m.context_window; });
+        // Re-apply for the model currently on screen so a failed first fetch
+        // (CTX showing "—") recovers on the next successful poll.
+        if (_currentModel != null) {
+          ctxMax = _ctxByModel[_currentModel] ?? null;
+          _refreshCtx();
+        }
+      })
+      .catch(() => {});
+  }
+  _fetchConfig();
 
   // --- Server info ---
-  fetch("/api/server/info")
-    .then((r) => r.json())
-    .then((info) => {
-      const body = root.querySelector("#rsb-server-body");
-      if (!body) return;
-      body.innerHTML = `
-        <div class="server-status"><span class="server-dot"></span><span>Online</span></div>
-        <div class="server-url">${escHtml(info.url)}</div>
-        <button class="server-btn" id="rsb-open-browser">⎋ Open in Browser</button>
-      `;
-      body.querySelector("#rsb-open-browser")?.addEventListener("click", () => {
-        window.open(info.url, "_blank");
+  function _fetchServerInfo() {
+    _getJSON("/api/server/info")
+      .then((info) => {
+        const body = root.querySelector("#rsb-server-body");
+        if (!body) return;
+        body.innerHTML = `
+          <div class="server-status"><span class="server-dot"></span><span>Online</span></div>
+          <div class="server-url">${escHtml(info.url)}</div>
+          <button class="server-btn" id="rsb-open-browser">⎋ Open in Browser</button>
+        `;
+        body.querySelector("#rsb-open-browser")?.addEventListener("click", () => {
+          window.open(info.url, "_blank");
+        });
+      })
+      .catch(() => {
+        // P2-B E4: an explicit offline state, never the forever-"Connecting…"
+        // that a failed first fetch used to leave behind.
+        const body = root.querySelector("#rsb-server-body");
+        if (!body) return;
+        body.innerHTML = `
+          <div class="server-status"><span class="server-dot offline"></span><span>Offline — server unreachable</span></div>
+        `;
       });
-    })
-    .catch(() => {});
+  }
+  _fetchServerInfo();
 
   // --- All-chat stats ---
   function _fetchStats() {
-    fetch("/api/server/stats")
-      .then((r) => r.json())
+    _getJSON("/api/server/stats")
       .then((stats) => {
         if (allEl) {
           const total = stats.total_input + stats.total_output;
@@ -370,16 +406,26 @@ export function mountRightSidebar(root) {
           localStorage.setItem(NOTIF_KEY, TODAY);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // P2-B E3: an explicit unavailable state — never "undefined chats"/NaN.
+        if (allEl) allEl.textContent = "—";
+        const costEl = root.querySelector("#met-cost");
+        if (costEl) costEl.textContent = "—";
+        const barEl = root.querySelector("#budget-bar-fill");
+        if (barEl) { barEl.style.width = "0%"; barEl.className = "budget-bar-fill budget-normal"; }
+      });
   }
   _fetchStats();
   // 60s fallback poll in case a turn-end is missed; guarded like the other
   // pollers below. It is a genuine fallback again as of 4-D5 — until then the
   // turn-end refresh it backs up had never fired, so this was carrying the whole
-  // job and the word "fallback" was not true.
+  // job and the word "fallback" was not true. It also carries config and server
+  // info so their failure states recover on the next successful poll (P2-B).
   setInterval(() => {
     if (root.classList.contains("sb-collapsed")) return;
     _fetchStats();
+    _fetchConfig();
+    _fetchServerInfo();
   }, 60_000);
 
   // Budget changed in the settings drawer. Without this the new allowance
@@ -467,8 +513,7 @@ export function mountRightSidebar(root) {
 
   function pollAgents() {
     if (root.classList.contains("sb-collapsed")) return;
-    fetch("/api/agents/status")
-      .then(r => r.json())
+    _getJSON("/api/agents/status")
       .then(agents => {
         if (!agentsBody) return;
         if (agentCount) agentCount.textContent = agents.length;
@@ -484,7 +529,13 @@ export function mountRightSidebar(root) {
           </div>
         `).join("");
       })
-      .catch(() => {});
+      .catch(() => {
+        // P2-B E3: explicit unavailable state, never undefined/NaN.
+        if (!agentsBody) return;
+        if (agentCount) agentCount.textContent = "—";
+        if (agentsSection) agentsSection.hidden = false;
+        agentsBody.innerHTML = '<div class="sb-empty">Unavailable</div>';
+      });
   }
   pollAgents();
   setInterval(pollAgents, 2000);
@@ -507,8 +558,7 @@ export function mountRightSidebar(root) {
   function pollTeams() {
     if (root.classList.contains("sb-collapsed")) return;
     if (!teamsBody || localStorage.getItem("gca_feat_teams") !== "1") return;
-    fetch("/api/teams")
-      .then(r => r.json())
+    _getJSON("/api/teams")
       .then(teams => {
         if (teamCount) teamCount.textContent = teams.length;
         _teamsCount = teams.length;
@@ -527,7 +577,13 @@ export function mountRightSidebar(root) {
           </div>
         `).join("");
       })
-      .catch(() => {});
+      .catch(() => {
+        // P2-B E3: explicit unavailable state, never undefined/NaN.
+        if (!teamsBody) return;
+        if (teamsSection) teamsSection.hidden = false;
+        if (teamCount) teamCount.textContent = "—";
+        teamsBody.innerHTML = '<div class="sb-empty">Unavailable</div>';
+      });
   }
   pollTeams();
   setInterval(pollTeams, 5000);

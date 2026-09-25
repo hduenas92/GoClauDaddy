@@ -62,6 +62,24 @@ let chatPaneRef = null;
 let composerRoot = null;
 let rightSidebarRef = null;
 
+function showChatConnectionError(compRoot, chatPane, conversationId) {
+  // P2-B E2: the WebSocket could not be opened. Give the user a visible message
+  // and a Retry control that re-runs the same switch path — a successful retry
+  // mounts the composer with no page reload.
+  compRoot.innerHTML = `
+    <div id="chat-connection-error" class="chat-connection-error">
+      <p>The chat connection failed — the realtime channel could not be opened.</p>
+      <button id="chat-retry-btn">Retry</button>
+    </div>
+  `;
+  compRoot.querySelector("#chat-retry-btn").addEventListener("click", () => {
+    switchToConversation(conversationId, chatPane, compRoot).catch(() => {
+      // If the retry itself fails, switchToConversation's own catch has already
+      // re-rendered this retry UI; nothing more to do here.
+    });
+  });
+}
+
 async function switchToConversation(id, chatPane, compRoot) {
   if (currentSocket) currentSocket.close();
 
@@ -88,7 +106,17 @@ async function switchToConversation(id, chatPane, compRoot) {
   });
 
   const socket = new ChatSocket(id);
-  await socket.connect();
+  try {
+    await socket.connect();
+  } catch (err) {
+    // P2-B E2: the WS was refused (or closed before it ever opened). Stop any
+    // auto-reconnect the wrapper may have scheduled — the Retry control below
+    // owns reconnection now — and show a visible failure instead of silently
+    // leaving the composer unmounted.
+    socket.close();
+    showChatConnectionError(compRoot, chatPane, id);
+    return;
+  }
   currentSocket = socket;
   chatPane.bindSocket(socket);
   // After bindSocket, never before — checkResync() emits _resync_running /
@@ -365,4 +393,12 @@ async function boot() {
   });
 }
 
-boot().then(() => maybeShowOnboarding());
+boot().then(() => maybeShowOnboarding()).catch((err) => {
+  // P2-B E2: boot() must never end as an unhandled promise rejection. If the
+  // app could not even get far enough to render the composer (the WS catch in
+  // switchToConversation shows its own retry UI), say so visibly.
+  const app = document.getElementById("app");
+  if (app && !app.querySelector("#composer") && !app.querySelector("#chat-retry-btn")) {
+    app.innerHTML = `<div id="boot-msg">Couldn't start GoClaudaddy: ${_esc(String(err?.message || err))}</div>`;
+  }
+});

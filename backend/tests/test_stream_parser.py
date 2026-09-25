@@ -12,8 +12,10 @@ def test_empty_line_yields_nothing():
     assert parse_line("   ") == []
 
 
-def test_non_json_line_becomes_text_event():
-    assert parse_line("some banner output") == [{"type": "text", "text": "some banner output"}]
+def test_non_json_line_becomes_notice_event():
+    # Houston 2026-09-25: non-JSON stdout is an error to surface, NOT Claude's
+    # reply. It must never become assistant text (the old `text` event did).
+    assert parse_line("some banner output") == [{"type": "notice", "text": "some banner output"}]
 
 
 def test_system_init_yields_session_event():

@@ -634,6 +634,19 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         statusEl.textContent = "Response timed out.";
         finishAssistantMessage("timeout", lastUsage);
       }),
+      // P2-B E1: a non-fatal notice (non-JSON CLI stdout). It must be visible
+      // WITHOUT ending the turn — an `error` frame is terminal here (it calls
+      // finishAssistantMessage("error") and restores the composer via the
+      // backend's error-then-done pair), so the notice gets its own frame type.
+      socket.on("notice", (ev) => {
+        const line = String(ev.text || "").trim();
+        if (!line) return;
+        const notice = document.createElement("div");
+        notice.className = "chat-notice";
+        notice.textContent = `Non-JSON CLI output ignored: ${line}`;
+        messagesEl.appendChild(notice);
+        scrollDown();
+      }),
       socket.on("error", (ev) => {
         let msg = "Error";
         if (ev.code === "claude_not_found") {

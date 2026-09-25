@@ -34,9 +34,10 @@ def parse_line(raw_line: str) -> list[dict[str, Any]]:
             tool_m = re.search(r'(?:allow|run|execute)\s+(\w+)', line, re.I)
             tool = tool_m.group(1) if tool_m else "tool"
             return [{"type": "approval_needed", "tool": tool, "action": line.strip(), "id": ""}]
-        # Not JSON (e.g. a stray CLI banner line) — surface it as plain text
-        # rather than silently dropping it.
-        return [{"type": "text", "text": line}]
+        # Not JSON (e.g. a stray CLI banner line). Houston 2026-09-25: this is
+        # an error to surface, NOT Claude's reply — emit a non-fatal `notice`
+        # that the WS handler logs/forwards, never assistant text.
+        return [{"type": "notice", "text": line}]
 
     ev_type = ev.get("type", "")
 

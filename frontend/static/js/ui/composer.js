@@ -201,7 +201,15 @@ export function mountComposer(root, socket, chatPane) {
       pending.push({ id: att.id, name: att.original_name });
       renderStrip();
     } catch (e) {
-      showErrorToast(`Couldn't attach "${file.name}": ${e.message}. Try again, or use a smaller file.`);
+      const msg = e?.message || "upload failed";
+      // P2-B E6: "use a smaller file" only makes sense when the failure is
+      // actually about size. A disk-full error must say the disk is full and
+      // stop there.
+      const sizeHint = /\b(size|larger?|limit|exceed|MB|GB)\b/i.test(msg)
+        ? " Try again, or use a smaller file."
+        : "";
+      const dot = /[.!?]$/.test(msg) ? "" : ".";
+      showErrorToast(`Couldn't attach "${file.name}": ${msg}${dot}${sizeHint}`);
     }
   }
 
