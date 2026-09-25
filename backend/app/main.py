@@ -24,6 +24,7 @@ from app.routers import teams as teams_router
 from app.routers import terminal as terminal_router
 from app.routers import server as server_router
 from app.services import attachments_service
+from app.services import conversations_service
 from app.services.process_registry import registry
 from app.ws.chat_socket import handle_chat_socket
 
@@ -35,6 +36,9 @@ async def lifespan(app: FastAPI):
     removed = attachments_service.prune_orphans()
     if removed:
         log.info("Startup cleanup removed %d orphaned attachment file(s)", removed)
+    healed = conversations_service.heal_stale_busy()
+    if healed:
+        log.info("Startup cleanup marked %d stale busy conversation(s) as error", healed)
     log.info("GoClaudaddy backend started")
     yield
     registry.shutdown_all()

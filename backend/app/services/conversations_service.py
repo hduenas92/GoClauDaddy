@@ -152,6 +152,23 @@ def set_status(conversation_id: str, status: str) -> None:
             )
 
 
+def heal_stale_busy() -> int:
+    """Mark conversations left `busy` by a crash as `error` (startup only).
+
+    The process registry is in-memory, so after a restart nothing can be
+    genuinely busy: a `busy` row is a turn that died mid-flight. Mirrors
+    set_status()'s error transition (status + updated_at + completed_at).
+    """
+    now = _now()
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE conversations SET status = 'error', updated_at = ?, completed_at = ? "
+            "WHERE status = 'busy'",
+            (now, now),
+        )
+        return cur.rowcount
+
+
 def delete_conversation(conversation_id: str) -> None:
     with get_connection() as conn:
         conn.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
