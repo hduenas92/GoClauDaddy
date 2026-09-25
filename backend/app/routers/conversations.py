@@ -89,7 +89,7 @@ def get_conversation(conversation_id: str):
     conv, invalid_model = svc.get_conversation_healed(conversation_id)
     if not conv:
         raise HTTPException(404, "Conversation not found")
-    messages = svc.list_messages(conversation_id)
+    messages = svc.list_messages_with_attachments(conversation_id)
     result = {"conversation": conv, "messages": messages, "model_correction": None}
     if invalid_model is not None:
         result["model_correction"] = {"invalid_model": invalid_model, "corrected_to": conv.model}

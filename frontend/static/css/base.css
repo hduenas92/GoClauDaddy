@@ -52,6 +52,11 @@
      it ships with Windows, so it works with no network at all. */
   --font-shell: 'JetBrains Mono', 'Cascadia Code', monospace;
 
+  /* F3: chat font size. The settings control writes this same variable inline
+     on <html>, which is how a change applies without a reload and without any
+     hard-coded colours. */
+  --chat-font-size: 13px;
+
   /* ---- 4px spacing grid (spec §5) ---- */
   --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
   --space-6: 24px; --space-8: 32px; --space-12: 48px;
@@ -582,7 +587,7 @@ html, body {
   padding: 12px 16px;
   border-radius: 6px;
   line-height: 1.6;
-  font-size: 13px;
+  font-size: var(--chat-font-size);
   font-family: var(--font-shell);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -658,6 +663,20 @@ html, body {
   color: var(--text2);
   padding: 0 4px;
   letter-spacing: 0.05em;
+}
+/* F4: cut-off assistant reply. Token colours only — the ui-check hex rule
+   (hex colours only inside :root/[data-theme]) has nothing to trip on here. */
+.incomplete-badge {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid rgba(var(--warning-rgb) / 0.4);
+  color: var(--warning);
+  background: rgba(var(--warning-rgb) / 0.1);
 }
 
 /* ---- status badges ---- */
@@ -842,6 +861,35 @@ html, body {
   font-size: 11px;
   padding: 0;
 }
+/* F2: image attachments get a thumbnail in the composer chip and in history. */
+.attachment-thumb,
+.msg-attachment-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.4);
+  flex-shrink: 0;
+}
+.msg-attachment-thumb {
+  width: 72px;
+  height: 72px;
+  display: block;
+  margin: 0 0 8px;
+}
+.attachment-chip-name,
+.msg-attachment-name {
+  color: var(--text2);
+  font-size: 11px;
+}
+.msg-attachment-name {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid rgba(var(--accent-rgb) / 0.4);
+  border-radius: 12px;
+  background: var(--elev);
+  margin: 0 0 8px;
+}
 
 #composer-row { display: flex; gap: 8px; align-items: flex-end; }
 
@@ -872,7 +920,7 @@ html, body {
   border-radius: 4px;
   padding: 9px 12px;
   font-family: var(--font-shell);
-  font-size: 13px;
+  font-size: var(--chat-font-size);
   font-weight: 600;
   transition: border-color 0.2s, box-shadow 0.2s;
 }

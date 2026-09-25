@@ -4,6 +4,8 @@ import { setStreaming, loadConversations } from "../state/actions.js";
 import { getTemplates } from "../api/template_cache.js";
 import { interpolateTemplate, openTemplatePicker } from "./template_picker.js";
 import { showErrorToast } from "./modal.js";
+import { clearDraft, loadDraft, saveDraft } from "./composer_draft.js";
+import { attachmentDownloadUrl, isImageName } from "./attachment_view.js";
 
 const _RISKY = /\b(delete|drop|remove|wipe|destroy|format|truncate|uninstall|overwrite|migrate|deploy|execute|rm\s+-rf)\b/i;
 
@@ -175,7 +177,26 @@ export function mountComposer(root, socket, chatPane) {
     pending.forEach((att) => {
       const chip = document.createElement("span");
       chip.className = "attachment-chip";
-      chip.textContent = att.name;
+      const nameEl = document.createElement("span");
+      nameEl.className = "attachment-chip-name";
+      nameEl.textContent = att.name;
+      if (isImageName(att.name)) {
+        // F2: thumbnail for image attachments. alt = filename, per the brief.
+        // src is the download endpoint — file bytes are never inlined.
+        const img = document.createElement("img");
+        img.className = "attachment-thumb";
+        img.alt = att.name;
+        img.src = attachmentDownloadUrl(att.id);
+        img.addEventListener("error", () => {
+          // A missing/deleted file must degrade to the filename chip, not a
+          // broken <img> that hides what was attached.
+          img.remove();
+          chip.prepend(nameEl);
+        });
+        chip.appendChild(img);
+      } else {
+        chip.appendChild(nameEl);
+      }
       const rm = document.createElement("button");
       rm.textContent = "✕";
       rm.addEventListener("click", () => {
@@ -192,6 +213,20 @@ export function mountComposer(root, socket, chatPane) {
     const len = input.value.length;
     charCounter.textContent = len > 50 ? `${len} chars` : "";
     charCounter.classList.toggle("char-warn", len > 4000);
+  }
+
+  // F1: restore the per-conversation draft this composer was remounted for.
+  // mountComposer runs on every conversation switch (main.js), so loading here
+  // covers both first load and switching — and it is also what fixes the plan
+  // ~1521 bug where text typed right after New Chat was destroyed by the
+  // remount: the keystrokes were already saved under the NEW conversation id,
+  // so the fresh composer reads them straight back.
+  const initialDraft = loadDraft(getState().activeConversationId);
+  if (initialDraft) {
+    input.value = initialDraft;
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 200) + "px";
+    updateCharCounter();
   }
 
   async function uploadFile(file) {
@@ -230,7 +265,13 @@ export function mountComposer(root, socket, chatPane) {
       files.forEach(uploadFile);
     }
   });
-  input.addEventListener("input", updateCharCounter);
+  input.addEventListener("input", () => {
+    updateCharCounter();
+    // F1: autosave the draft for the conversation this composer belongs to.
+    // Synchronous on purpose — a debounce would lose the last keystrokes when
+    // the user clicks another conversation immediately after typing.
+    saveDraft(getState().activeConversationId, input.value);
+  });
 
   // Template button in composer footer (added here, not in main.js boot, so footer exists)
   const composerFooter = root.querySelector("#composer-footer");
@@ -250,7 +291,11 @@ export function mountComposer(root, socket, chatPane) {
   root.setText = (text) => {
     input.value = text;
     input.focus();
-    updateCharCounter();
+    // Dispatch rather than calling updateCharCounter() directly: the input
+    // listener is the one place that keeps the counter AND the F1 autosaved
+    // draft in sync, so prefill from quick chips / templates / retry persists
+    // like typed text instead of silently vanishing on the next remount.
+    input.dispatchEvent(new Event("input"));
     // Auto-resize
     input.style.height = "auto";
     input.style.height = Math.min(input.scrollHeight, 200) + "px";
@@ -311,6 +356,7 @@ export function mountComposer(root, socket, chatPane) {
       input.value = "";
       charCounter.textContent = "";
       input.style.height = "";
+      clearDraft(getState().activeConversationId);
       return true;
     }
 
@@ -350,6 +396,7 @@ export function mountComposer(root, socket, chatPane) {
     input.value = "";
     charCounter.textContent = "";
     input.style.height = "";
+    clearDraft(getState().activeConversationId);
     pending.length = 0;
     renderStrip();
     return true;
