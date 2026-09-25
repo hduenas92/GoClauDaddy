@@ -36,6 +36,11 @@ import { chromium } from 'playwright';
 // that is what actually establishes readiness.
 
 const URL = process.env.GCA_URL ?? 'http://127.0.0.1:8765';
+// Harness-only knob for reproducing the template-picker race: delay the real
+// GET /api/flow-templates response by N ms via route interception. Default 0 =
+// untouched. This is the endpoint the picker actually calls (http.js:68); the
+// spec's shorthand "/api/templates" is not a real route.
+const TP_DELAY_MS = Number(process.env.GCA_TP_DELAY_MS ?? 0);
 const browser = await chromium.launch();
 const results = [];
 
@@ -49,6 +54,18 @@ const FOCUSABLE =
 
 async function newPage({ onboarded = true } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  if (TP_DELAY_MS > 0) {
+    // Route interception, scoped to the exact pathname — never a `**/api/**`
+    // glob, which would also match /static/js/api/http.js and break module
+    // loading. GET only: this harness must never write real data.
+    await ctx.route('**/*', async (route) => {
+      const u = new globalThis.URL(route.request().url());
+      if (u.pathname === '/api/flow-templates' && route.request().method() === 'GET') {
+        await new Promise((resolve) => setTimeout(resolve, TP_DELAY_MS));
+      }
+      await route.continue();
+    });
+  }
   await ctx.addInitScript((seen) => {
     try {
       if (seen) localStorage.setItem('gca_onboarded', '1');
@@ -111,6 +128,23 @@ async function overlayBattery(label, selector, open, { onboarded = true } = {}) 
       add(`${label}: tab trap`, 'INCONCLUSIVE', 'Tab from the last control stays inside', 'overlay never opened');
       return;
     }
+
+    // Wait (up to 5 s) for the overlay's own focusable controls to render
+    // before sweeping. The template picker mounts an EMPTY .tp-overlay shell
+    // immediately (template_picker.js:244) and only fills it after
+    // /api/flow-templates resolves (template_picker.js:245-249). A sweep that
+    // runs on the empty shell reports ZERO controls and fails for a reason
+    // that has nothing to do with accessible names — the exact flake this
+    // wait removes. If nothing renders by the deadline the guard below still
+    // FAILs, because sweeping nothing is still not a pass.
+    await page.waitForFunction(
+      ({ sel, foc }) => {
+        const root = document.querySelector(sel);
+        return !!root && root.querySelectorAll(foc).length > 0;
+      },
+      { sel: selector, foc: FOCUSABLE },
+      { timeout: 5000 },
+    ).catch(() => {});
 
     // --- Non-empty-set guard, FIRST (§2.2). A name sweep over zero controls
     // reports a clean pass having measured nothing. That exact failure mode has
@@ -298,6 +332,10 @@ for (const key of ['Enter', 'Space']) {
       add(`.tp-card responds to ${key}`, 'INCONCLUSIVE', 'activating a card selects its template', 'template picker did not open');
       continue;
     }
+    // Same race as the name sweep: the overlay shell is visible before the
+    // cards render. Wait for the card instead of declaring "no templates
+    // exist" the instant the shell appears.
+    await page.waitForSelector('.tp-card', { timeout: 5000 }).catch(() => {});
     const card = await page.$('.tp-card');
     if (!card) {
       add(`.tp-card responds to ${key}`, 'INCONCLUSIVE', 'activating a card selects its template', 'no .tp-card rendered — no templates exist');
