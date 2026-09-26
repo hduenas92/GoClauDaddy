@@ -79,6 +79,7 @@ def save_attachment(
         # ENOSPC (POSIX) or ERROR_DISK_FULL (winerror 112) — a distinct,
         # specific failure the frontend can word differently from "too large".
         if exc.errno == errno.ENOSPC or getattr(exc, "winerror", None) == 112:
+            log.exception("Failed to write attachment %s (disk full): %s", stored_name, exc)
             with contextlib.suppress(OSError):
                 stored_path.unlink(missing_ok=True)  # don't leave a partial file
             raise DiskFull() from exc

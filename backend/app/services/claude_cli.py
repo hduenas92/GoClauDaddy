@@ -178,12 +178,12 @@ async def run(
             creationflags=CREATE_NO_WINDOW,
         )
     except FileNotFoundError:
-        log.error("`claude` CLI not found on PATH")
+        log.exception("`claude` CLI not found on PATH")
         yield {"type": "error", "code": "claude_not_found", "error": "The claude CLI was not found on PATH."}
         yield {"type": "done"}
         return
     except OSError as exc:
-        log.error("Failed to start claude: %s", exc)
+        log.exception("Failed to start claude: %s", exc)
         yield {"type": "error", "error": str(exc)}
         yield {"type": "done"}
         return

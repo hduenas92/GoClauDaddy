@@ -33,13 +33,13 @@ def pick_directory(initial_dir: str | None = None) -> str:
         import tkinter as tk
         from tkinter import filedialog
     except ImportError as exc:  # python built without _tkinter
-        log.warning("Folder picker unavailable: tkinter is not installed (%s)", exc)
+        log.exception("Folder picker unavailable: tkinter is not installed (%s)", exc)
         raise DirPickerUnavailable(_UNAVAILABLE_MSG) from exc
 
     try:
         root = tk.Tk()
     except tk.TclError as exc:  # no DISPLAY / no window station
-        log.warning("Folder picker unavailable: %s", exc)
+        log.exception("Folder picker unavailable: %s", exc)
         raise DirPickerUnavailable(_UNAVAILABLE_MSG) from exc
 
     root.withdraw()

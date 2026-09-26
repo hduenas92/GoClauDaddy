@@ -20,6 +20,7 @@ def _check_writable(path) -> None:
         probe.write_text("ok", encoding="utf-8")
         probe.unlink()
     except OSError as exc:
+        log.exception("Startup check failed: cannot write to %s", path)
         raise StartupCheckError(f"Cannot write to {path}: {exc}") from exc
 
 
@@ -29,6 +30,7 @@ def _check_port_free() -> None:
         try:
             s.bind((HOST, PORT))
         except OSError as exc:
+            log.exception("Startup check failed: port %d is not free", PORT)
             raise StartupCheckError(
                 f"Port {PORT} is already in use — is another GoClaudaddy instance running? ({exc})"
             ) from exc

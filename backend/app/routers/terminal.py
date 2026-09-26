@@ -35,7 +35,7 @@ async def create_terminal():
             creationflags=_CREATE_NO_WINDOW,
         )
     except Exception as exc:
-        log.error("Failed to spawn shell: %s", exc)
+        log.exception("Failed to spawn shell: %s", exc)
         raise HTTPException(500, f"Could not start terminal: {exc}")
 
     _sessions[tid] = proc
