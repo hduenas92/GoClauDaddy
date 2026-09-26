@@ -269,6 +269,52 @@ await axeCase('right sidebar expanded', { sbOpen: true }, async (page) => {
 });
 
 // ===========================================================================
+// P2-R R1 — template card accessible name: title, then a non-letter boundary,
+// then the category. NVDA used to read "Weekly Status Reportreport" because the
+// whole card text is the name; the title and the category badge ran together.
+// ===========================================================================
+{
+  const { ctx, page } = await newPage();
+  try {
+    await bootPage(page);
+    await page.keyboard.press('Control+Shift+T');
+    const card = await page.waitForSelector('.tp-card', { timeout: 5000 }).catch(() => null);
+    if (!card) {
+      add('R1 template card: accessible name separates title from category', 'INCONCLUSIVE',
+        'first .tp-card name contains the title followed by a non-letter boundary before the category',
+        'no .tp-card rendered');
+    } else {
+      const shape = await page.evaluate(() => {
+        const el = document.querySelector('.tp-card');
+        const title = el.querySelector('.tp-card-title')?.textContent?.trim() ?? '';
+        const category = el.querySelector('.tp-card-badge')?.textContent?.trim() ?? '';
+        // Screen-reader model matching the NVDA defect: the card's name is its
+        // aria-label when set, otherwise the non-whitespace text nodes
+        // concatenated with no separator (NVDA read "Weekly Status Reportreport").
+        let name = el.getAttribute('aria-label');
+        if (!name) {
+          name = '';
+          const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+          while (walker.nextNode()) {
+            const t = walker.currentNode.data;
+            if (t.trim()) name += t.trim();
+          }
+        }
+        return { title, category, name };
+      });
+      const titleIdx = shape.name.indexOf(shape.title);
+      const afterTitle = titleIdx >= 0 ? shape.name.slice(titleIdx + shape.title.length) : '';
+      const ok = titleIdx >= 0 && /^[^A-Za-z]/.test(afterTitle) && afterTitle.includes(shape.category);
+      add('R1 template card: accessible name separates title from category', ok ? 'PASS' : 'FAIL',
+        'first card name contains the title followed by a non-letter boundary before the category',
+        `title=${JSON.stringify(shape.title)} category=${JSON.stringify(shape.category)} name=${JSON.stringify(shape.name)}`);
+    }
+  } finally {
+    await ctx.close();
+  }
+}
+
+// ===========================================================================
 // 2.1.1 — keyboard reachability + operability
 // ===========================================================================
 {

@@ -8,6 +8,7 @@ threading.Event (thread-safe) because the server runs in a background thread
 
 import asyncio
 import json
+import logging
 import threading
 import time
 
@@ -666,5 +667,51 @@ def test_setup_guard_is_what_converts_a_raise_into_error_then_done(temp_db, monk
     )
     assert [f["type"] for f in sent] == ["error", "done"], (
         f"expected error then done from the guard, got {[f.get('type') for f in sent]!r}"
+    )
+
+
+def test_setup_guard_logs_warning_when_status_reset_fails_but_flow_unchanged(temp_db, monkeypatch, caplog):
+    """P2-R R3: a status-reset failure inside the setup guard must be logged at
+    WARNING with a stack, not swallowed silently (chat_socket.py:161).
+
+    The L6 audit flagged `with contextlib.suppress(Exception):
+    convs.set_status(conversation_id, "idle")` as able to hide a secondary
+    failure — a DB write failure there would be silent and could leave the
+    conversation stuck `busy`. This test forces the primary setup failure AND
+    the secondary set_status failure, then asserts both that the WARNING record
+    exists (with exc_info) and that the client flow is unchanged: error first,
+    then done.
+    """
+    conv_id = _conv(temp_db)
+    sent: list[dict] = []
+
+    class _FakeWS:
+        async def send_json(self, payload):
+            sent.append(payload)
+
+    def boom(_cid):
+        raise RuntimeError("simulated DB failure during per-turn setup")
+
+    def boom_status(_cid, _status):
+        raise RuntimeError("simulated DB failure while resetting status")
+
+    monkeypatch.setattr(chat_socket.convs, "get_conversation", boom)
+    monkeypatch.setattr(chat_socket.convs, "set_status", boom_status)
+
+    with caplog.at_level(logging.WARNING, logger="goclaudaddy.chat_socket"):
+        asyncio.run(
+            chat_socket._handle_send(_FakeWS(), conv_id, {"message": "x"}, asyncio.Queue())
+        )
+
+    assert [f["type"] for f in sent] == ["error", "done"], (
+        f"expected error then done from the guard, got {[f.get('type') for f in sent]!r}"
+    )
+    records = [
+        r for r in caplog.records
+        if r.levelno == logging.WARNING and "Failed to set status idle" in r.getMessage()
+    ]
+    assert records, "no WARNING record produced for the failed status reset"
+    assert records[-1].exc_info is not None, (
+        f"WARNING record has no stack (exc_info={records[-1].exc_info!r})"
     )
 

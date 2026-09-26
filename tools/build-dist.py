@@ -3,7 +3,7 @@
     python tools/build-dist.py            # build to output/
     python tools/build-dist.py --verify   # build, then re-open and check it
 
-WHAT SHIPS. 175 files, ~9 MB. Everything except the things a clean machine must
+WHAT SHIPS. 173 files, ~1.8 MB raw / 0.6 MB zipped (P2-R R4 measurement). Everything except the things a clean machine must
 create for itself, because the entire point of 5-5 is to find out whether it
 CAN. Shipping .venv would hide a missing dependency; shipping ~/.goclaudaddy
 would hide a broken first-run path; shipping node_modules would suggest a
@@ -25,6 +25,7 @@ machine where diagnosing it is expensive.
 import argparse
 import pathlib
 import sys
+import tempfile
 import zipfile
 
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -64,14 +65,21 @@ def should_skip(rel: pathlib.PurePath) -> bool:
         return True
     if rel.suffix.lower() in EXCLUDE_SUFFIX:
         return True
-    return rel.name in EXCLUDE_NAMES
+    if rel.name in EXCLUDE_NAMES:
+        return True
+    # P2-R R4: screenshots at the repo root, in tools/, and in stitch-design/ are
+    # documentation/test artefacts, not app assets. Only frontend/** PNGs may ship.
+    if rel.suffix.lower() == ".png" and (not rel.parts or rel.parts[0] != "frontend"):
+        return True
+    return False
 
 
-def build():
-    OUT.mkdir(exist_ok=True)
+def build(out_dir: pathlib.Path | None = None):
+    out = pathlib.Path(out_dir) if out_dir is not None else OUT
+    out.mkdir(exist_ok=True)
     version = (REPO / 'VERSION').read_text(encoding='utf-8').strip() \
         if (REPO / 'VERSION').exists() else 'dev'
-    dest = OUT / f'GoClaudaddy-{version}.zip'
+    dest = out / f'GoClaudaddy-{version}.zip'
     if dest.exists():
         dest.unlink()
 
@@ -133,9 +141,58 @@ def verify(dest: pathlib.Path) -> int:
     return bad
 
 
+def check_archive(dest: pathlib.Path) -> int:
+    """P2-R R4 check, run against an archive built to a TEMP path (never output\\).
+
+    Lists every entry, then asserts:
+      - `Launch GoClaudaddy.bat` and `tools/add-user-path.ps1` are present
+      - no `*.png` entry lives outside `frontend/`
+    and reports the uncompressed size carried under `legacy/` (kept by decision).
+    """
+    with zipfile.ZipFile(dest) as z:
+        names = z.namelist()
+        infos = {i.filename: i for i in z.infolist()}
+
+    print(f'\n=== p2-r check: {dest.name} ({len(names):,} entries) ===')
+    bad = 0
+    for nm in sorted(names):
+        print(f'  {nm}')
+
+    missing = [r for r in ('Launch GoClaudaddy.bat', 'tools/add-user-path.ps1') if r not in names]
+    if missing:
+        bad += 1
+        print(f'  MISSING required entries: {missing}')
+    else:
+        print('  Launch GoClaudaddy.bat + tools/add-user-path.ps1 present')
+
+    png_outside = sorted(
+        nm for nm in names
+        if nm.lower().endswith('.png') and not nm.startswith('frontend/')
+    )
+    if png_outside:
+        bad += 1
+        print(f'  PNG OUTSIDE frontend/ SHIPPED: {png_outside}')
+    else:
+        print('  no *.png outside frontend/')
+
+    legacy_names = sorted(nm for nm in names if nm.startswith('legacy/'))
+    legacy_bytes = sum(infos[nm].file_size for nm in legacy_names)
+    print(f'  legacy/ carried: {len(legacy_names):,} entries · '
+          f'{legacy_bytes:,} bytes uncompressed ({legacy_bytes / 1024:.1f} KiB)')
+
+    print(f'\n{"P2-R CHECK PASS" if bad == 0 else "P2-R CHECK FAIL"} ({bad} problem(s))')
+    return bad
+
+
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--verify', action='store_true')
+    ap.add_argument('--check', action='store_true',
+                    help='build to a TEMP dir and assert zip hygiene (never touches output\\)')
     a = ap.parse_args()
+    if a.check:
+        tmp_out = pathlib.Path(tempfile.mkdtemp(prefix='goclaudaddy-dist-check-'))
+        d = build(tmp_out)
+        sys.exit(check_archive(d))
     d = build()
     sys.exit(verify(d) if a.verify else 0)

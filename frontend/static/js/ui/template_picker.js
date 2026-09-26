@@ -155,8 +155,11 @@ export function openTemplatePicker({ onSelect }) {
   function renderCard(t) {
     const preview = t.body.replace(/\{\{[^}]+\}\}/g, "…").substring(0, 80);
     const isCustom = !t.is_builtin;
+    // P2-R R1: NVDA read "Weekly Status Reportreport" because the card's whole
+    // text is its accessible name. Name the card explicitly so the title and
+    // category are separated; the visible DOM is unchanged.
     return `
-      <div class="tp-card" data-id="${escHtml(t.id)}" tabindex="0" role="button">
+      <div class="tp-card" data-id="${escHtml(t.id)}" tabindex="0" role="button" aria-label="${escHtml(t.title)}, ${escHtml(t.category)} category">
         <div class="tp-card-top">
           <span class="tp-card-title">${escHtml(t.title)}</span>
           <span class="tp-card-badge tp-cat-${escHtml(t.category)}">${escHtml(t.category)}</span>

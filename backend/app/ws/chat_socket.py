@@ -158,8 +158,8 @@ async def _handle_send(
         # Never leave the conversation wedged as busy.
         with contextlib.suppress(Exception):
             registry.clear(conversation_id)
-        with contextlib.suppress(Exception):
-            convs.set_status(conversation_id, "idle")
+        try: convs.set_status(conversation_id, "idle")  # P2-R R3: was suppress — log the secondary failure instead of hiding it
+        except Exception: log.warning("Failed to set status idle for conversation %s", conversation_id, exc_info=True)
 
 
 async def _handle_send_inner(
