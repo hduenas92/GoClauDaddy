@@ -51,7 +51,12 @@ from app.main import app
 from app.services import conversations_service as convs
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
-LIVE_PORT = 8766  # P2-K2 instruction: use port 8766 for any server started from this worktree
+
+
+def _free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
 
 
 # ---------------------------------------------------------------------------
@@ -355,18 +360,18 @@ def test_l3_log_rotation_respects_threshold_and_backup_count(tmp_path, monkeypat
 
 
 # ---------------------------------------------------------------------------
-# L4/L5 — SSE /api/server/logs against a real uvicorn server on port 8766
+# L4/L5 — SSE /api/server/logs against a real uvicorn server on a free port
 # ---------------------------------------------------------------------------
 
 
 class _LiveServer:
-    """Real uvicorn subprocess on port 8766 with a temp USERPROFILE/HOME."""
+    """Real uvicorn subprocess on a free port with a temp USERPROFILE/HOME."""
 
     def __init__(self, tmp_path: Path) -> None:
         self.tmp_path = tmp_path
         self.home = tmp_path / "home"
         self.home.mkdir(parents=True, exist_ok=True)
-        self.port = LIVE_PORT
+        self.port = _free_port()
         self.log_path = tmp_path / "server.log"
         self.proc: subprocess.Popen | None = None
         self.log_fh = None
@@ -381,7 +386,7 @@ class _LiveServer:
             try:
                 s.bind(("127.0.0.1", self.port))
             except OSError as exc:
-                raise RuntimeError(f"port {self.port} is not free for the P2-K2 live server") from exc
+                raise RuntimeError(f"port {self.port} is not free for the observability live server") from exc
 
         env = os.environ.copy()
         env["USERPROFILE"] = str(self.home)
