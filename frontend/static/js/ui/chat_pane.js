@@ -13,9 +13,11 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
   root.innerHTML = `
     <div id="chat-messages"></div>
     <div id="chat-status" class="chat-status" role="status" aria-live="polite"></div>
+    <div id="reply-announce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
   `;
   const messagesEl = root.querySelector("#chat-messages");
   const statusEl = root.querySelector("#chat-status");
+  const replyAnnounceEl = root.querySelector("#reply-announce");
 
   let currentAssistantEl = null;
   let currentBubbleEl = null;
@@ -395,6 +397,25 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     scrollDown();
   }
 
+  // 4.1.3: a finished reply is announced ONCE through a dedicated visually-hidden
+  // live region, separate from #chat-status so the per-frame status clearing at
+  // the `text` handler cannot erase it. Streaming itself stays silent.
+  function announceReply(plainText) {
+    const plain = String(plainText ?? "").trim();
+    let msg;
+    if (!plain) {
+      msg = "Claude replied.";
+    } else if (plain.length > 300) {
+      msg = `Claude replied: ${plain.slice(0, 300)}… reply continues`;
+    } else {
+      msg = `Claude replied: ${plain}`;
+    }
+    // Clear, then set on the next tick: a repeated identical reply must still
+    // produce a new live-region announcement.
+    replyAnnounceEl.textContent = "";
+    setTimeout(() => { replyAnnounceEl.textContent = msg; }, 0);
+  }
+
   function _buildToolCallEl(name, inputObj, id, output, isError) {
     const details = document.createElement("details");
     details.className = "tool-call-block";
@@ -603,8 +624,12 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
 
     const box = document.createElement("div");
     box.className = "modal-box";
+    // 4.1.2: every modal must expose role, modality, and an accessible name.
+    box.setAttribute("role", "dialog");
+    box.setAttribute("aria-modal", "true");
+    box.setAttribute("aria-labelledby", "modal-title");
     box.innerHTML = `
-      <h3 class="modal-title">Tool Permission Request</h3>
+      <h3 class="modal-title" id="modal-title">Tool Permission Request</h3>
       <div class="approval-tool">⚡ <strong>${_escHtml(tool || "tool")}</strong></div>
       ${action ? `<p class="approval-action">${_escHtml(action)}</p>` : ""}
       <p class="approval-risk-note">Allow Claude to use this tool?</p>
@@ -779,7 +804,10 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       socket.on("tool_call", (ev) => appendToolCall(ev.name, ev.input ?? {}, ev.id)),
       socket.on("tool_result", (ev) => appendToolResult(ev.tool_use_id, ev.content || "", ev.is_error)),
       socket.on("done", () => {
-        if (currentAssistantEl) finishAssistantMessage("done", lastUsage);
+        if (currentAssistantEl) {
+          announceReply(currentText);
+          finishAssistantMessage("done", lastUsage);
+        }
         setStreaming(false);
       }),
       // Cleanup on ANY close, including a deliberate conversation switch. No

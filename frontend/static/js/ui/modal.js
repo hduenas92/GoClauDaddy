@@ -126,8 +126,12 @@ export function showModal({ title, fields = [], confirmText = "Save", danger = f
 
     const box = document.createElement("div");
     box.className = "modal-box";
+    // 4.1.2: every modal must expose role, modality, and an accessible name.
+    box.setAttribute("role", "dialog");
+    box.setAttribute("aria-modal", "true");
+    box.setAttribute("aria-labelledby", "modal-title");
     box.innerHTML = `
-      <h3 class="modal-title">${escHtml(title)}</h3>
+      <h3 class="modal-title" id="modal-title">${escHtml(title)}</h3>
       <div class="modal-fields">
         ${fields.map((f) => {
           const val = escHtml(initial[f.name] !== undefined ? initial[f.name] : (f.value || ""));
@@ -222,6 +226,10 @@ export function showConfirm({ message, confirmText = "Delete", danger = true }) 
 
     const box = document.createElement("div");
     box.className = "modal-box";
+    // 4.1.2: showConfirm has no title element; the message is its heading text.
+    box.setAttribute("role", "dialog");
+    box.setAttribute("aria-modal", "true");
+    box.setAttribute("aria-label", message);
     box.innerHTML = `
       <p class="modal-confirm-msg">${escHtml(message)}</p>
       <div class="modal-actions">

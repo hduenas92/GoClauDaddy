@@ -1113,6 +1113,98 @@ await focusReturnCase('settings drawer', {}, async (page, trig) => { await trig.
 }
 
 // ===========================================================================
+// P2-L A-dialog — every .modal-box exposes dialog role, modality, and a name
+// ===========================================================================
+{
+  const { ctx, page } = await newPage();
+  try {
+    await bootPage(page);
+    // 1) delete confirmation (showConfirm — no title, named by aria-label).
+    const del = await page.$('.conv-delete');
+    if (!del) {
+      add('A-dialog: modal boxes are named dialogs', 'INCONCLUSIVE',
+        'delete-confirm and a second .modal-box both expose role=dialog, aria-modal=true, and a non-empty accessible name',
+        'no .conv-delete control rendered');
+    } else {
+      await del.click();
+      await page.waitForSelector('.modal-confirm-msg', { state: 'visible', timeout: 5000 }).catch(() => {});
+      const delShape = await page.evaluate(() => {
+        const box = document.querySelector('.modal-confirm-msg')?.closest('.modal-box') ?? null;
+        return box
+          ? { role: box.getAttribute('role'), ariaModal: box.getAttribute('aria-modal'), label: box.getAttribute('aria-label') }
+          : null;
+      });
+      const delNamed = await page.getByRole('dialog', { name: /Delete/ }).count().catch(() => 0);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+
+      // 2) new-project modal (showModal — named by h3#modal-title via aria-labelledby).
+      await page.click('#new-project-btn');
+      await page.waitForSelector('.modal-box', { state: 'visible', timeout: 5000 }).catch(() => {});
+      const projShape = await page.evaluate(() => {
+        const box = document.querySelector('.modal-box');
+        return box
+          ? { role: box.getAttribute('role'), ariaModal: box.getAttribute('aria-modal'), labelledby: box.getAttribute('aria-labelledby') }
+          : null;
+      });
+      const projNamed = await page.getByRole('dialog', { name: /New Project/ }).count().catch(() => 0);
+      const ok = delShape?.role === 'dialog' && delShape?.ariaModal === 'true' && delNamed > 0
+              && projShape?.role === 'dialog' && projShape?.ariaModal === 'true' && projNamed > 0;
+      add('A-dialog: modal boxes are named dialogs', ok ? 'PASS' : 'FAIL',
+        'delete-confirm and a second .modal-box both expose role=dialog, aria-modal=true, and a non-empty accessible name',
+        `delete=${JSON.stringify(delShape)} deleteDialogs=${delNamed} project=${JSON.stringify(projShape)} projectDialogs=${projNamed}`);
+    }
+  } finally {
+    await ctx.close();
+  }
+}
+
+// ===========================================================================
+// P2-L A-reply — finished replies are announced once in a dedicated live region
+// ===========================================================================
+async function replyCase(label, streamText, expectText) {
+  const { ctx, page } = await newPage();
+  try {
+    await bootPage(page);
+    // Stub the first-turn auto-title POST (composer.js:477-485 fires it on the
+    // stubbed done frame) so this read-only harness never writes a real title.
+    await page.route('**/api/conversations/*/auto-title', (r) =>
+      r.request().method() === 'POST'
+        ? r.fulfill({ status: 200, contentType: 'application/json', body: '{"title":"stub"}' })
+        : r.continue());
+    let wsRoute = null;
+    await page.routeWebSocket('**/ws/chat/*', (route) => { wsRoute = route; });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#composer-input', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(800);
+    if (!wsRoute) {
+      add(label, 'INCONCLUSIVE', 'live region empty while text frames stream, then the announced text after done',
+        'no WebSocket route captured');
+      return;
+    }
+    await wsRoute.send(JSON.stringify({ type: 'text', text: streamText }));
+    await page.waitForTimeout(300);
+    const during = await page.evaluate(() => document.getElementById('reply-announce')?.textContent ?? null);
+    await wsRoute.send(JSON.stringify({ type: 'done' }));
+    await page.waitForTimeout(400);
+    const after = await page.evaluate(() => document.getElementById('reply-announce')?.textContent ?? null);
+    const ok = during === '' && after === expectText;
+    add(label, ok ? 'PASS' : 'FAIL',
+      `live region empty while only text frames arrive; equals ${JSON.stringify(expectText)} after done`,
+      `during=${JSON.stringify(during)} after=${JSON.stringify(after)}`);
+  } finally {
+    await ctx.close();
+  }
+}
+
+await replyCase('A-reply-short: reply announced once on done, silent while streaming', 'pong', 'Claude replied: pong');
+{
+  const longText = 'x'.repeat(400);
+  await replyCase('A-reply-long: long reply truncated to 300 chars + "… reply continues"', longText,
+    `Claude replied: ${longText.slice(0, 300)}… reply continues`);
+}
+
+// ===========================================================================
 await browser.close();
 
 console.log('\n=== a11y-check ===\n');

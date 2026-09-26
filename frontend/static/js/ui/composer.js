@@ -41,8 +41,12 @@ function _showAssessment({ level, summary, concerns = [] }) {
 
     const box = document.createElement("div");
     box.className = "modal-box";
+    // 4.1.2: every modal must expose role, modality, and an accessible name.
+    box.setAttribute("role", "dialog");
+    box.setAttribute("aria-modal", "true");
+    box.setAttribute("aria-labelledby", "modal-title");
     box.innerHTML = `
-      <h3 class="modal-title">Task Assessment</h3>
+      <h3 class="modal-title" id="modal-title">Task Assessment</h3>
       <div class="assess-level" style="color:${levelColor}">${level.toUpperCase()} RISK</div>
       <p class="assess-summary">${_escHtml(summary)}</p>
       ${concerns.length ? `<ul class="assess-concerns">${concerns.map(c => `<li>${_escHtml(c)}</li>`).join("")}</ul>` : ""}
