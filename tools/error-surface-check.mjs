@@ -291,6 +291,116 @@ async function expectToast(page, name, mustContain) {
 }
 
 // ---------------------------------------------------------------------------
+// 8. Regenerate failure — chat_pane.js regen click + composer.js _undoFailedSend
+// ---------------------------------------------------------------------------
+{
+  const name = '8. regenerate failure shows a toast and the composer recovers';
+
+  // The regenerate control is only painted when a live turn ends with status
+  // "done" (chat_pane.js:526-561). A real turn spends tokens, so the WS is
+  // stubbed: when the page sends {type:"send"} the stub answers with one text
+  // frame and a done frame, which paints the assistant row and its regen button
+  // without any model call. The done frame also fires the composer's first-turn
+  // auto-title (composer.js:477-485); that POST is fulfilled below so this case
+  // never writes a real title into the live DB.
+  const convRes = await fetch(`${APP_URL}/api/conversations`).then(r => r.json()).catch(() => null);
+  const convList = Array.isArray(convRes) ? convRes : (convRes?.conversations ?? []);
+  if (convList.length === 0) {
+    // Boot creates a conversation (a DB write) when the list is empty — never
+    // do that from a read-only harness.
+    skip(name, 'no conversation exists — boot would create one (a write) to exercise this path');
+  } else {
+    const { ctx, page } = await freshPage();
+    let wsRoute = null;
+    let killWs = false;
+    await page.routeWebSocket(/\/ws\/chat\//, (ws) => {
+      wsRoute = ws;
+      // After the socket is killed below, every reconnect attempt must also die
+      // closed, or a fast reconnect could make socket.send() succeed again and
+      // this case would silently stop exercising the failure.
+      if (killWs) { ws.close(); return; }
+      ws.onMessage((msg) => {
+        let j;
+        try { j = JSON.parse(String(msg)); } catch { return; }
+        if (j.type === 'send') {
+          ws.send(JSON.stringify({ type: 'text', text: 'stub reply' }));
+          ws.send(JSON.stringify({ type: 'done' }));
+        }
+      });
+    });
+    await page.route('**/api/conversations/*/auto-title', (r) =>
+      r.request().method() === 'POST'
+        ? r.fulfill({ status: 200, contentType: 'application/json', body: '{"title":"stub"}' })
+        : r.continue());
+
+    await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1200);
+    const composerInput = await page.$('#composer-input');
+    if (!composerInput) {
+      skip(name, 'composer never mounted');
+    } else {
+      await page.fill('#composer-input', 'regenerate probe');
+      await page.click('#composer-send');
+      await page.waitForSelector('.regen-btn', { state: 'visible', timeout: 5000 }).catch(() => null);
+      if ((await page.locator('.regen-btn').count()) === 0) {
+        skip(name, 'regenerate control never appeared after the stubbed done turn');
+      } else {
+        // Kill the socket and pin the precondition: the page must have OBSERVED
+        // the drop before the regen click, otherwise socket.send() succeeds and
+        // the failure path is never exercised.
+        killWs = true;
+        await wsRoute.close();
+        await page.waitForFunction(() =>
+          (document.getElementById('chat-status')?.textContent || '').includes('Connection lost'),
+          null, { timeout: 4000 }).catch(() => null);
+        const status = await page.$eval('#chat-status', (el) => el.textContent).catch(() => '');
+        if (!status.includes('Connection lost')) {
+          skip(name, `socket drop was not observed (status="${status}") — cannot force the failure`);
+        } else {
+          await page.click('.regen-btn');
+          const toastText = await page.waitForSelector(TOAST, { state: 'visible', timeout: 6000 })
+            .then(() => page.locator(TOAST).first().innerText())
+            .then((t) => t.replace(/\s+/g, ' ').trim())
+            .catch(() => null);
+          const rec = await page.evaluate(() => ({
+            sendHidden: document.getElementById('composer-send')?.hidden,
+            stopHidden: document.getElementById('composer-stop')?.hidden,
+            inputValue: document.getElementById('composer-input')?.value,
+            regenCount: document.querySelectorAll('.regen-btn').length,
+            regenDisabled: document.querySelector('.regen-btn')?.disabled ?? null,
+          }));
+
+          // Same thresholds as expectToast (6s, >=15 chars, no undefined /
+          // [object Object], mustContain), plus the NaN check this task adds.
+          if (!toastText) {
+            fail(name, 'no .error-toast appeared within 6s after a regenerate on a dead socket');
+          } else if (toastText.length < 15) {
+            fail(name, `toast text too thin to be actionable: "${toastText}"`);
+          } else if (/\bundefined\b|\[object Object\]|\bNaN\b/.test(toastText)) {
+            fail(name, `toast leaks a non-message: "${toastText}"`);
+          } else if (!toastText.toLowerCase().includes('try again')) {
+            fail(name, `toast did not mention "try again": "${toastText}"`);
+          } else if (rec.sendHidden === true) {
+            fail(name, 'composer send button stayed hidden after the failure');
+          } else if (rec.stopHidden === false) {
+            fail(name, 'composer stop button stayed visible after the failure');
+          } else if (!rec.inputValue || rec.inputValue.trim() === '') {
+            fail(name, 'composer input was not restored after the failure');
+          } else if (rec.regenCount < 1) {
+            fail(name, 'regenerate control disappeared after the failure');
+          } else if (rec.regenDisabled) {
+            fail(name, 'regenerate control is disabled after the failure');
+          } else {
+            pass(name, `"${toastText.slice(0, 96)}" · composer usable, regen enabled`);
+          }
+        }
+      }
+    }
+    await ctx.close();
+  }
+}
+
+// ---------------------------------------------------------------------------
 await browser.close();
 
 console.log('\n=== error-surface-check ===\n');
@@ -311,11 +421,6 @@ const skipped = results.filter((r) => r.state === 'INCONCLUSIVE');
 const passed = results.filter((r) => r.state === 'PASS');
 
 console.log(`\n${passed.length} passed · ${failed.length} failed · ${skipped.length} inconclusive · ${results.length} case(s) run`);
-console.log('\nNOT COVERED, stated rather than silently omitted:');
-console.log('  chat_pane.js regenerate-failure toast. Reaching it needs composerEl.send()');
-console.log('  to throw, which requires a non-OPEN socket at the moment of a regenerate');
-console.log('  click. That is task 2.9 territory (socket.stop()/send guards) and cannot be');
-console.log('  forced deterministically until those land. Cover it with 2.9, not here.');
 
 if (failed.length) { console.log(`\nRESULT: FAIL — ${failed.length}`); process.exit(1); }
 if (skipped.length) { console.log(`\nRESULT: INCONCLUSIVE — ${skipped.length} path(s) not exercised`); process.exit(2); }
