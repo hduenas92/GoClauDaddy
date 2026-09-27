@@ -82,6 +82,7 @@ export function mountComposer(root, socket, chatPane) {
     <div id="attachment-strip"></div>
     <div id="composer-row">
       <button id="composer-attach" title="Attach file">📎</button>
+      <span class="composer-prompt" aria-hidden="true">&gt;</span>
       <textarea id="composer-input" rows="2" placeholder="Message GoClaudaddy… (drag files, paste image, Enter to send)" aria-label="Message GoClaudaddy"></textarea>
       <button id="composer-send">Send</button>
       <button id="composer-stop" hidden>■ Stop</button>

@@ -38,7 +38,7 @@ await page.goto(URL, { waitUntil: 'domcontentloaded' });
 await page.evaluate(() => document.fonts.ready);
 await page.waitForTimeout(600);
 
-const r = await page.evaluate(() => {
+const r = await page.evaluate(async () => {
   // Width-comparison test: render the same string in the candidate family and in
   // a family that certainly does not exist. If the widths match, the candidate
   // never loaded and both fell back to the same default.
@@ -74,23 +74,9 @@ const r = await page.evaluate(() => {
     }
   }
 
-  const probes = {};
-  for (const [fam, weights] of Object.entries(requested)) {
-    probes[fam] = {
-      loadedApi: document.fonts.check(`16px "${fam}"`),
-      width: widthIn(`"${fam}", "__NoSuchFace__"`),
-      distinctFromFallback: widthIn(`"${fam}", "__NoSuchFace__"`) !== bogus,
-      // A weight that is used but not loaded is faux-bolded silently. Checking
-      // each requested weight is what surfaces the inverse case too: a weight
-      // requested and never used shows up as loaded-but-unreferenced.
-      weights: Object.fromEntries(
-        weights.map((w) => [w, document.fonts.check(`${w} 16px "${fam}"`)]),
-      ),
-    };
-  }
-
   // Every distinct font-weight any rendered element actually asks for, so a
-  // used-but-unrequested weight cannot hide the way DM Sans 700 did.
+  // used-but-unrequested weight cannot hide the way DM Sans 700 did. Computed
+  // on the DEFAULT theme, before the per-theme probes below switch data-theme.
   const usedWeights = {};
   for (const el of document.querySelectorAll('*')) {
     // A form control's text lives in `value`/`placeholder`, not textContent, so
@@ -105,6 +91,56 @@ const r = await page.evaluate(() => {
     const fam = cs.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
     (usedWeights[fam] ??= new Set()).add(Number(cs.fontWeight));
   }
+
+  // P2-U: with two selectable themes, a family may be used by only ONE of them
+  // (DM Sans by Lit Workbench, Inter/Silkscreen by Cyberpunk Console). A family
+  // therefore "renders" if it renders in ANY selectable theme at ANY requested
+  // weight — not just the theme that happens to be active. Measure each theme,
+  // then restore the original.
+  const registry = (Array.isArray(window.GCA_THEMES) && window.GCA_THEMES.length)
+    ? window.GCA_THEMES.map((t) => t.id)
+    : [];
+  const originalTheme = document.documentElement.dataset.theme || '';
+  const themes = [...new Set([originalTheme, ...registry])].filter(Boolean);
+  const settleFonts = async () => { try { await document.fonts.ready; } catch { /* keep going */ } };
+
+  const probes = {};
+  for (const [fam, weights] of Object.entries(requested)) {
+    let distinctFromFallback = false;
+    let renderedWidth = null;
+    let renderedTheme = null;
+    for (const theme of themes) {
+      if (document.documentElement.dataset.theme !== theme) {
+        document.documentElement.dataset.theme = theme;
+        await settleFonts();
+      }
+      for (const w of weights) {
+        const wd = widthIn(`"${fam}", "__NoSuchFace__"`, w);
+        if (wd !== bogus) {
+          distinctFromFallback = true;
+          if (renderedWidth == null) { renderedWidth = wd; renderedTheme = theme; }
+        }
+      }
+    }
+    if (document.documentElement.dataset.theme !== originalTheme) {
+      document.documentElement.dataset.theme = originalTheme;
+      await settleFonts();
+    }
+    probes[fam] = {
+      loadedApi: weights.some((w) => document.fonts.check(`${w} 16px "${fam}"`)),
+      width: renderedWidth ?? widthIn(`"${fam}", "__NoSuchFace__"`, weights[0]),
+      renderedTheme,
+      distinctFromFallback,
+      // A weight that is used but not loaded is faux-bolded silently. Checking
+      // each requested weight is what surfaces the inverse case too: a weight
+      // requested and never used shows up as loaded-but-unreferenced.
+      weights: Object.fromEntries(
+        weights.map((w) => [w, document.fonts.check(`${w} 16px "${fam}"`)]),
+      ),
+    };
+  }
+
+  await settleFonts();
 
   // what the real UI elements resolve to, and what they actually render as
   const sample = (sel) => {

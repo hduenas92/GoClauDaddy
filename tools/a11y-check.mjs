@@ -269,6 +269,97 @@ await axeCase('right sidebar expanded', { sbOpen: true }, async (page) => {
 });
 
 // ===========================================================================
+// P2-U — the right column is now a set of framed panels (Session / Month /
+// Project / Server) that REPLACES the old Metrics/Server rail. These cases
+// pin the new surface: complementary landmark + name, the four required
+// panels present and titled, and keyboard collapsibility.
+// ===========================================================================
+{
+  const { ctx, page } = await newPage({ sbOpen: true });
+  try {
+    await bootPage(page);
+    const shape = await page.evaluate(() => {
+      const aside = document.getElementById('right-sidebar');
+      const panels = [...document.querySelectorAll('#right-sidebar details.rsb-panel')];
+      return {
+        tag: aside ? aside.tagName.toLowerCase() : null,
+        label: aside?.getAttribute('aria-label') ?? null,
+        panelCount: panels.length,
+        ids: panels.map((p) => p.id),
+        titles: panels.map((p) => p.querySelector('.rsb-panel-title')?.textContent?.trim() ?? ''),
+      };
+    });
+    const needed = ['rsb-panel-session', 'rsb-panel-month', 'rsb-panel-project', 'rsb-panel-server'];
+    const hasAll = needed.every((id) => shape.ids.includes(id));
+    const hasTitles = ['SESSION', 'MONTH', 'PROJECT', 'SERVER'].every((t) => shape.titles.includes(t));
+    const ok = shape.tag === 'aside' && !!shape.label && shape.panelCount >= 4 && hasAll && hasTitles;
+    add('P2-U right column: complementary landmark with labelled Session/Month/Project/Server panels',
+      ok ? 'PASS' : 'FAIL',
+      'aside#right-sidebar carries an aria-label and contains the four required framed panels, each titled',
+      JSON.stringify(shape));
+  } finally {
+    await ctx.close();
+  }
+}
+
+{
+  const { ctx, page } = await newPage({ sbOpen: true });
+  try {
+    await bootPage(page);
+    const r = await page.evaluate(() => {
+      const p = document.querySelector('#rsb-panel-session');
+      if (!p) return { present: false };
+      const summary = p.querySelector('summary');
+      return {
+        present: true,
+        open: p.open,
+        summaryText: summary?.textContent?.trim() ?? '',
+        hasBody: !!p.querySelector('.rsb-panel-body'),
+      };
+    });
+    const ok = r.present && r.open && r.summaryText.length > 0 && r.hasBody;
+    add('P2-U right column: SESSION panel is open by default with a named summary',
+      ok ? 'PASS' : 'FAIL',
+      'SESSION panel open, summary has a name, body present',
+      JSON.stringify(r));
+  } finally {
+    await ctx.close();
+  }
+}
+
+{
+  const { ctx, page } = await newPage({ sbOpen: true });
+  try {
+    await bootPage(page);
+    const before = await page.evaluate(() => {
+      const p = document.querySelector('#rsb-panel-session');
+      return p ? p.open : null;
+    });
+    if (before == null) {
+      add('P2-U right column: SESSION panel collapses/expands by keyboard', 'INCONCLUSIVE',
+        'Enter on the focused summary toggles the panel closed then open again',
+        'no #rsb-panel-session rendered');
+    } else {
+      const summary = await page.$('#rsb-panel-session summary');
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(200);
+      const afterFirst = await page.evaluate(() => document.querySelector('#rsb-panel-session')?.open ?? null);
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(200);
+      const afterSecond = await page.evaluate(() => document.querySelector('#rsb-panel-session')?.open ?? null);
+      const ok = before === true && afterFirst === false && afterSecond === true;
+      add('P2-U right column: SESSION panel collapses/expands by keyboard',
+        ok ? 'PASS' : 'FAIL',
+        'Enter on the focused summary toggles the panel closed then open again',
+        `beforeOpen=${before} afterFirst=${afterFirst} afterSecond=${afterSecond}`);
+    }
+  } finally {
+    await ctx.close();
+  }
+}
+
+// ===========================================================================
 // P2-R R1 — template card accessible name: title, then a non-letter boundary,
 // then the category. NVDA used to read "Weekly Status Reportreport" because the
 // whole card text is the name; the title and the category badge ran together.
@@ -577,11 +668,12 @@ await trapCase('onboarding tour', { onboarded: false }, async () => {}, '.ob-ove
 // 2.2.2 — honeycomb animation under prefers-reduced-motion
 // ===========================================================================
 {
-  // Normal motion: honeycomb.js animates on load and on activity, then settles
-  // to a still frame after 5 s idle — when settled, NO rAF callbacks are
-  // scheduled (honeycomb.js cancelAnimationFrame), so the instrumented count
-  // must be flat. Reduced motion: the loop never starts.
-  async function measureSettle(reduced) {
+  // Normal motion: the mockup animates continuously (time += 0.008 inside an
+  // unconditional requestAnimationFrame(render) loop, screen.html:855,921), and
+  // P2-Y removed the old 5 s settle-and-freeze — so the normal-motion half now
+  // proves the loop KEEPS ticking through 5+ s idle windows. Reduced motion:
+  // the loop never starts, which is the 2.2.2 guarantee this case exists for.
+  async function measureMotion(reduced) {
     const ctx = await browser.newContext({
       viewport: { width: 600, height: 400 },
       reducedMotion: reduced ? 'reduce' : 'no-preference',
@@ -608,17 +700,17 @@ await trapCase('onboarding tour', { onboarded: false }, async () => {}, '.ob-ove
 
     if (reduced) {
       await ctx.close();
-      return { grew: t2 > t1, counts: { t1, t2 }, settledFlat: null, resumed: null, resettledFlat: null };
+      return { grew: t2 > t1, counts: { t1, t2 }, stillAnimatingAfterIdle: null, resumed: null, stillAnimatingAfterSecondIdle: null };
     }
 
-    // Wait out the 5 s settle (the focus event above restarted the timer), then
-    // prove the loop is OFF: the rAF count must not move over another window.
+    // P2-Y: 5+ s idle must NOT stop the loop (the old settle is gone).
     await page.waitForTimeout(5200);
     const s1 = await page.evaluate(() => window.__rafCount);
     await page.waitForTimeout(700);
     const s2 = await page.evaluate(() => window.__rafCount);
 
-    // Activity restarts it: a synthetic pointermove is user activity.
+    // Activity must not be required to keep it alive either — after a synthetic
+    // pointermove and another idle window it still ticks.
     await page.evaluate(() => {
       window.dispatchEvent(new PointerEvent('pointermove', { clientX: 10, clientY: 10, bubbles: true }));
     });
@@ -627,7 +719,7 @@ await trapCase('onboarding tour', { onboarded: false }, async () => {}, '.ob-ove
     await page.waitForTimeout(600);
     const r2 = await page.evaluate(() => window.__rafCount);
 
-    // And it settles again 5 s later.
+    // And it still ticks 5+ s later.
     await page.waitForTimeout(5200);
     const q1 = await page.evaluate(() => window.__rafCount);
     await page.waitForTimeout(700);
@@ -636,19 +728,19 @@ await trapCase('onboarding tour', { onboarded: false }, async () => {}, '.ob-ove
     await ctx.close();
     return {
       grew: t2 > t1,
-      settledFlat: s1 === s2,
+      stillAnimatingAfterIdle: s2 > s1,
       resumed: r2 > r1,
-      resettledFlat: q1 === q2,
+      stillAnimatingAfterSecondIdle: q2 > q1,
       counts: { t1, t2, s1, s2, r1, r2, q1, q2 },
     };
   }
-  const normal = await measureSettle(false);
-  const reduced = await measureSettle(true);
-  const ok = normal.grew && normal.settledFlat && normal.resumed && normal.resettledFlat
+  const normal = await measureMotion(false);
+  const reduced = await measureMotion(true);
+  const ok = normal.grew && normal.stillAnimatingAfterIdle && normal.resumed && normal.stillAnimatingAfterSecondIdle
              && !reduced.grew;
-  add('2.2.2 honeycomb settles after 5 s idle and restarts on activity', ok ? 'PASS' : 'FAIL',
-    'normal motion: rAF grows while active, stays flat after 5 s idle, grows again on activity, flat after a second settle; reduced motion: never grows',
-    `normal grew=${normal.grew} settledFlat=${normal.settledFlat} resumed=${normal.resumed} resettledFlat=${normal.resettledFlat} counts=${JSON.stringify(normal.counts)}; reduced grew=${reduced.grew} counts=${JSON.stringify(reduced.counts)}`);
+  add('2.2.2 honeycomb keeps continuous low-amplitude motion; reduced motion stops it', ok ? 'PASS' : 'FAIL',
+    'normal motion: rAF keeps growing through 5+ s idle windows; reduced motion: never grows',
+    `normal grew=${normal.grew} afterIdle=${normal.stillAnimatingAfterIdle} resumed=${normal.resumed} afterSecondIdle=${normal.stillAnimatingAfterSecondIdle} counts=${JSON.stringify(normal.counts)}; reduced grew=${reduced.grew} counts=${JSON.stringify(reduced.counts)}`);
 }
 
 // ===========================================================================

@@ -166,7 +166,7 @@ async function boot() {
       <div id="composer"></div>
     </main>
 
-    <aside id="right-sidebar" aria-label="Metrics and server"></aside>
+    <aside id="right-sidebar" aria-label="Session, month, project and server panels"></aside>
 
     <div id="shortcuts-overlay" class="shortcuts-overlay" hidden>
       <div class="shortcuts-box">

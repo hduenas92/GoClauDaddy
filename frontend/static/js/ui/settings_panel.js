@@ -46,7 +46,8 @@ const THEME_STORAGE_KEY = "gca_theme";
 const FONT_SIZE_STORAGE_KEY = "gca_chat_font_size";
 const FONT_SIZE_OPTIONS = [
   { value: "12px", label: "Small (12px)" },
-  { value: "13px", label: "Medium (13px)" },
+  { value: "13px", label: "Compact (13px)" },
+  { value: "14px", label: "Medium (14px)" },
   { value: "16px", label: "Large (16px)" },
 ];
 function getThemes() {
@@ -171,7 +172,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
   let storedFont = null;
   try { storedFont = localStorage.getItem(FONT_SIZE_STORAGE_KEY); } catch { /* private mode */ }
   if (!FONT_SIZE_OPTIONS.some((o) => o.value === storedFont)) {
-    storedFont = "13px"; // the :root default; bootstrap keeps a valid value valid
+    storedFont = "14px"; // the :root default; bootstrap keeps a valid value valid
   }
   fontSelect.value = storedFont;
   fontSelect.addEventListener("change", () => {

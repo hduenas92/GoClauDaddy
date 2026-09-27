@@ -34,155 +34,164 @@ export function userBudget() {
   }
 }
 
+/**
+ * P2-U: the right column is now a set of framed panels, each with a coloured
+ * title strip and a badge — the look of the mockup's right column, but every
+ * value is REAL data from an existing endpoint or existing client state:
+ *
+ *   SESSION  model, messages, tokens in/out, conversation cost, context %
+ *   MONTH    this month's cost vs the user's budget
+ *   PROJECT  name + working dir of the conversation's project
+ *   SERVER   status + URL from /api/server/info
+ *   LOG      the existing /api/server/logs SSE stream (kept so the real
+ *            console log surface survives; ui-check seeds its contrast probes
+ *            into #rsb-console)
+ *
+ * The old Metrics/Server rail (met-cost / met-elapsed / met-rate / met-last /
+ * met-chat / met-steps / met-tools / met-all + Agents + Teams) is GONE. Its
+ * real numbers merged into the panels above; nothing is duplicated.
+ */
 export function mountRightSidebar(root) {
   root.innerHTML = `
-    <details class="sb-section" open>
-      <summary><span>METRICS</span><span class="sb-section-arrow">▶</span></summary>
-      <div class="sb-section-body">
+    <details class="rsb-panel glow" id="rsb-panel-session" open>
+      <summary>
+        <span class="rsb-panel-title">SESSION</span>
+        <span class="rsb-panel-badge" id="rsb-session-badge">LIVE</span>
+        <span class="rsb-panel-arrow">▶</span>
+      </summary>
+      <div class="rsb-panel-body">
+        <div class="metric-row">
+          <span class="metric-label">MODEL</span>
+          <span class="metric-value" id="met-model">—</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">MESSAGES</span>
+          <span class="metric-value" id="met-messages">—</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">TOKENS</span>
+          <span class="metric-value" id="met-tokens">—</span>
+        </div>
         <div class="metric-row">
           <span class="metric-label">COST</span>
           <span class="metric-value" id="met-cost" title="Tracks conversations in this app only; total CaaS spend may be higher">—</span>
         </div>
-        <div class="budget-bar-wrap">
-          <div class="budget-bar-fill" id="budget-bar-fill"></div>
+        <div class="meter-row">
+          <div class="meter-left">
+            <span class="metric-label">CTX</span>
+            <span class="meter-ref" id="met-ctx-ref">—</span>
+          </div>
+          <div class="meter-bar"><div class="budget-bar-fill budget-normal" id="ctx-bar-fill"></div></div>
+          <span class="meter-pct" id="met-ctx">—</span>
+        </div>
+      </div>
+    </details>
+    <details class="rsb-panel glow" id="rsb-panel-month" open>
+      <summary>
+        <span class="rsb-panel-title">MONTH</span>
+        <span class="rsb-panel-badge" id="rsb-month-badge">EST</span>
+        <span class="rsb-panel-arrow">▶</span>
+      </summary>
+      <div class="rsb-panel-body">
+        <div class="metric-row">
+          <span class="metric-label">COST</span>
+          <span class="metric-value" id="met-month-cost">—</span>
+        </div>
+        <div class="meter-row">
+          <div class="meter-left">
+            <span class="metric-label">BUDGET</span>
+            <span class="meter-ref" id="met-budget-ref">—</span>
+          </div>
+          <div class="meter-bar"><div class="budget-bar-fill budget-normal" id="budget-bar-fill"></div></div>
+          <span class="meter-pct" id="met-budget-pct">—</span>
         </div>
         <div class="budget-link-row">
           <a href="https://caas.open-webui.godaddy.com/apiKeys" target="_blank" class="budget-link">Check Balance →</a>
         </div>
+      </div>
+    </details>
+    <details class="rsb-panel glow" id="rsb-panel-project" open>
+      <summary>
+        <span class="rsb-panel-title">PROJECT</span>
+        <span class="rsb-panel-badge" id="rsb-project-badge">DIR</span>
+        <span class="rsb-panel-arrow">▶</span>
+      </summary>
+      <div class="rsb-panel-body">
         <div class="metric-row">
-          <span class="metric-label">CTX</span>
-          <span class="metric-value" id="met-ctx">—</span>
-        </div>
-        <div class="budget-bar-wrap">
-          <div class="budget-bar-fill budget-normal" id="ctx-bar-fill"></div>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">ELAPSED</span>
-          <span class="metric-value" id="met-elapsed">—</span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">TOK/S</span>
-          <span class="metric-value" id="met-rate">—</span>
+          <span class="metric-label">NAME</span>
+          <span class="metric-value" id="met-project">—</span>
         </div>
         <div class="metric-row">
-          <span class="metric-label">LAST</span>
-          <span class="metric-value" id="met-last">—</span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">THIS CHAT</span>
-          <span class="metric-value" id="met-chat">—</span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">STEPS</span>
-          <span class="metric-value" id="met-steps">—</span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">TOOLS</span>
-          <span class="metric-value" id="met-tools">—</span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">ALL CHATS</span>
-          <span class="metric-value" id="met-all">—</span>
+          <span class="metric-label">DIR</span>
+          <span class="metric-value rsb-project-dir" id="met-project-dir">—</span>
         </div>
       </div>
     </details>
-    <details class="sb-section" open>
-      <summary><span>SERVER</span><span class="sb-section-arrow">▶</span></summary>
-      <div class="sb-section-body" id="rsb-server-body">
+    <details class="rsb-panel glow" id="rsb-panel-server" open>
+      <summary>
+        <span class="rsb-panel-title">SERVER</span>
+        <span class="rsb-panel-badge" id="rsb-server-badge">—</span>
+        <span class="rsb-panel-arrow">▶</span>
+      </summary>
+      <div class="rsb-panel-body" id="rsb-server-body">
         <div class="server-status" role="status"><span class="server-dot"></span><span>Connecting…</span></div>
       </div>
     </details>
-    <details class="sb-section">
-      <summary><span>CONSOLE</span><span class="sb-section-arrow">▶</span></summary>
-      <div class="sb-section-body">
+    <details class="rsb-panel glow" id="rsb-panel-log">
+      <summary>
+        <span class="rsb-panel-title">LOG</span>
+        <span class="rsb-panel-badge">SSE</span>
+        <span class="rsb-panel-arrow">▶</span>
+      </summary>
+      <div class="rsb-panel-body">
         <div class="console-log" id="rsb-console"></div>
-      </div>
-    </details>
-    <details class="sb-section">
-      <summary>
-        <span class="sb-section-icon">⚡</span>
-        <span>AGENTS</span>
-        <span class="sb-section-count" id="rsb-agent-count">0</span>
-        <span class="sb-section-arrow">▶</span>
-      </summary>
-      <div class="sb-section-body" id="rsb-agents-body">
-        <div class="sb-empty">No agents running</div>
-      </div>
-    </details>
-    <details class="sb-section" id="sb-teams" hidden>
-      <summary>
-        <span class="sb-section-icon">⬡</span>
-        <span>TEAMS</span>
-        <span class="sb-section-count" id="rsb-team-count">0</span>
-        <span class="sb-section-arrow">▶</span>
-      </summary>
-      <div class="sb-section-body" id="rsb-teams-body">
-        <div class="sb-empty">No teams</div>
       </div>
     </details>
   `;
 
-  // Persist <details> open/closed state per section
-  root.querySelectorAll("details.sb-section").forEach((el) => {
-    const key = `gca_sb_${el.id || el.querySelector("summary span")?.textContent?.trim()}`;
+  // Persist <details> open/closed state per panel.
+  root.querySelectorAll("details.rsb-panel").forEach((el) => {
+    const key = `gca_rsb_${el.id}`;
     const saved = localStorage.getItem(key);
     if (saved === "0") el.removeAttribute("open");
     else if (saved === "1") el.setAttribute("open", "");
     el.addEventListener("toggle", () => {
-      localStorage.setItem(key, el.open ? "1" : "0");
+      try { localStorage.setItem(key, el.open ? "1" : "0"); } catch { /* private mode */ }
     });
   });
 
   // Populated from /api/config on mount; safe fallback until fetch resolves.
   let _ctxByModel = {};
 
-  const elEl    = root.querySelector("#met-elapsed");
-  const rateEl  = root.querySelector("#met-rate");
-  const lastEl  = root.querySelector("#met-last");
-  const chatEl  = root.querySelector("#met-chat");
-  const allEl   = root.querySelector("#met-all");
-  const stepsEl = root.querySelector("#met-steps");
-  const toolsEl = root.querySelector("#met-tools");
-  const ctxEl   = root.querySelector("#met-ctx");
-  const ctxBarEl = root.querySelector("#ctx-bar-fill");
+  const modelEl   = root.querySelector("#met-model");
+  const messagesEl = root.querySelector("#met-messages");
+  const tokensEl  = root.querySelector("#met-tokens");
+  const costEl    = root.querySelector("#met-cost");
+  const ctxEl     = root.querySelector("#met-ctx");
+  const ctxRefEl  = root.querySelector("#met-ctx-ref");
+  const ctxBarEl  = root.querySelector("#ctx-bar-fill");
+  const monthCostEl = root.querySelector("#met-month-cost");
+  const budgetPctEl = root.querySelector("#met-budget-pct");
+  const budgetRefEl = root.querySelector("#met-budget-ref");
+  const budgetBarEl = root.querySelector("#budget-bar-fill");
+  const projectEl = root.querySelector("#met-project");
+  const projectDirEl = root.querySelector("#met-project-dir");
+  const serverBadgeEl = root.querySelector("#rsb-server-badge");
+
   // P2-B E5: null means "the context window for the current model is unknown".
   // CTX% must then show "—", never a number computed against a guessed default.
   let ctxMax = null;
   let _currentModel = null;
+  let _activeConvId = null;
   // One r.ok-checked JSON GET for every sidebar poll (P2-B E3/E4/E5).
   const _getJSON = (url) => fetch(url).then((r) => { if (!r.ok) throw new Error(`${url} ${r.status}`); return r.json(); });
 
-  function updateCtx(inputTokens) {
-    if (!inputTokens || !ctxEl) return;
-    if (ctxMax == null) {
-      // Unknown context window (e.g. /api/config failed): show the honest
-      // empty state, never a percentage against a made-up denominator.
-      ctxEl.textContent = "—";
-      if (ctxBarEl) { ctxBarEl.style.width = "0%"; ctxBarEl.className = "budget-bar-fill budget-normal"; }
-      return;
-    }
-    const pct = Math.min((inputTokens / ctxMax) * 100, 100);
-    const currLabel = fmtCompact(inputTokens);
-    const maxLabel = fmtCompact(ctxMax);
-    ctxEl.textContent = `${Math.round(pct)}% · ${currLabel} / ${maxLabel}`;
-    if (ctxBarEl) {
-      ctxBarEl.style.width = `${pct}%`;
-      ctxBarEl.classList.remove("budget-normal", "budget-warn", "budget-crit");
-      ctxBarEl.classList.add(pct < 60 ? "budget-normal" : pct < 85 ? "budget-warn" : "budget-crit");
-    }
-  }
+  const MODEL_LABELS = {
+    "claude-sonnet-4-6": "Sonnet 4.6",
+    "claude-opus-4-5": "Opus 4.5",
+    "claude-haiku-4-5-20251001": "Haiku 4.5",
+  };
 
-  function _refreshCtx() {
-    const msgs = getState().messages || [];
-    const latestWithCtx = [...msgs].reverse().find(m => m.input_tokens > 0);
-    if (latestWithCtx) updateCtx(latestWithCtx.input_tokens);
-  }
-
-  function fmtMs(ms) {
-    const s = Math.floor(ms / 1000);
-    const m = Math.floor(s / 60);
-    return `${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-  }
   function fmtTok(n) {
     return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
   }
@@ -198,127 +207,74 @@ export function mountRightSidebar(root) {
     return `${r % 1 === 0 ? r : r.toFixed(1)}${useM ? "M" : "k"}`;
   }
 
-  // --- Metrics: live elapsed timer ---
-  let streamStart = null;
-  let elapsedTimer = null;
-  let prevStreaming = false;
-  // Phase 4 (4-D5). What stood here read `state.lastEventType`, which NOTHING in
-  // the frontend or the backend has ever written — measured: two references in
-  // this file, both reads, zero writes anywhere. So the condition was
-  // permanently false and `_fetchStats()` on turn completion never ran once.
-  //
-  // It was not merely dead. The 60s interval below calls itself a "fallback poll
-  // in case a 'done' event is missed" — but with this branch inert that fallback
-  // was the ONLY mechanism, so COST and ALL CHATS could sit stale for up to a
-  // minute after a turn ended while a comment claimed otherwise. Same shape as
-  // v15 in 4-P1: a primary path that never ran and a fallback silently carrying
-  // the whole load.
-  //
-  // So it is WIRED rather than deleted, onto the falling edge below, which uses
-  // `streaming` — a field the store actually has and actually writes.
-
-  subscribe((state) => {
-    if (state.streaming && !prevStreaming) {
-      streamStart = Date.now();
-      if (elEl) elEl.classList.add("streaming");
-      clearInterval(elapsedTimer);
-      elapsedTimer = setInterval(() => {
-        if (elEl && streamStart) elEl.textContent = fmtMs(Date.now() - streamStart);
-      }, 500);
-    } else if (!state.streaming && prevStreaming) {
-      clearInterval(elapsedTimer);
-      elapsedTimer = null;
-      if (elEl) elEl.classList.remove("streaming");
-      // A turn just ended: refresh COST / ALL CHATS now rather than waiting out
-      // the 60s poll. This is the line the dead lastEventType branch was meant
-      // to be.
-      _fetchStats();
+  function updateCtx(inputTokens) {
+    if (!inputTokens || !ctxEl) return;
+    if (ctxMax == null) {
+      // Unknown context window (e.g. /api/config failed): show the honest
+      // empty state, never a percentage against a made-up denominator.
+      ctxEl.textContent = "—";
+      if (ctxRefEl) ctxRefEl.textContent = "—";
+      if (ctxBarEl) { ctxBarEl.style.width = "0%"; ctxBarEl.className = "budget-bar-fill budget-normal"; }
+      return;
     }
-    prevStreaming = state.streaming;
-
-    // This-chat totals from store messages.
-    // Sum (input[i] + output[i]) per turn — that's the actual tokens billed for each API call.
-    // Never sum input_tokens alone: each turn's input already includes all prior outputs,
-    // so summing only inputs double-counts every previous turn's context.
-    const msgs = state.messages || [];
-    const sessionBilled = msgs.reduce((s, m) => s + (m.input_tokens || 0) + (m.output_tokens || 0), 0);
-    const sessionOut    = msgs.reduce((s, m) => s + (m.output_tokens || 0), 0);
-    if (chatEl) {
-      chatEl.textContent = sessionBilled > 0
-        ? `${fmtTok(sessionBilled)} (↓${fmtTok(sessionOut)} out)`
-        : "—";
+    const pct = Math.min((inputTokens / ctxMax) * 100, 100);
+    const currLabel = fmtCompact(inputTokens);
+    const maxLabel = fmtCompact(ctxMax);
+    // P2-V: the exact percentage sits on its own on the right; the real
+    // current/max token counts stay next to the label as the reference
+    // point. No fabricated reset timestamp exists in any endpoint.
+    ctxEl.textContent = `${Math.round(pct)}%`;
+    if (ctxRefEl) ctxRefEl.textContent = `${currLabel} / ${maxLabel}`;
+    if (ctxBarEl) {
+      ctxBarEl.style.width = `${pct}%`;
+      ctxBarEl.classList.remove("budget-normal", "budget-warn", "budget-crit");
+      ctxBarEl.classList.add(pct < 60 ? "budget-normal" : pct < 85 ? "budget-warn" : "budget-crit");
     }
-
-    // Context window: latest message's input_tokens is the actual context size for that turn
-    _refreshCtx();
-  });
-
-  // Reset every metric row + both progress bars to their empty state.
-  function _resetMetrics() {
-    [lastEl, rateEl, elEl, chatEl, stepsEl, toolsEl, ctxEl, allEl].forEach((el) => {
-      if (el) el.textContent = "—";
-    });
-    const costEl = root.querySelector("#met-cost");
-    if (costEl) costEl.textContent = "—";
-    if (elEl) elEl.classList.remove("streaming");
-    const barEl = root.querySelector("#budget-bar-fill");
-    if (barEl) { barEl.style.width = "0%"; barEl.className = "budget-bar-fill budget-normal"; }
-    if (ctxBarEl) { ctxBarEl.style.width = "0%"; ctxBarEl.className = "budget-bar-fill budget-normal"; }
-    clearInterval(elapsedTimer);
-    elapsedTimer = null;
   }
 
-  function setModel(model) {
-    _currentModel = model;
-    ctxMax = _ctxByModel[model] ?? null;
-    _resetMetrics();
-    _refreshCtx();
+  function _refreshCtx() {
+    const msgs = getState().messages || [];
+    const latestWithCtx = [...msgs].reverse().find(m => m.input_tokens > 0);
+    if (latestWithCtx) updateCtx(latestWithCtx.input_tokens);
   }
 
-  let _activeConvId = null;
+  function _renderMessages() {
+    const msgs = getState().messages || [];
+    if (messagesEl) messagesEl.textContent = msgs.length > 0 ? String(msgs.length) : "—";
+  }
 
-  function setConversation(conversationId) {
-    if (conversationId !== _activeConvId) {
-      _activeConvId = conversationId;
-      _resetMetrics();
-      _fetchStats(); // repopulate COST / ALL CHATS immediately rather than leaving them blank
+  function _renderProject(projectId) {
+    const project = getState().projects.find(p => p.id === projectId);
+    if (!project) {
+      if (projectEl) projectEl.textContent = "—";
+      if (projectDirEl) projectDirEl.textContent = "—";
+      return;
     }
-    if (!conversationId) return;
-    fetch(`/api/conversations/${conversationId}/stats`)
-      .then(r => r.ok ? r.json() : null)
-      .then(stats => {
-        if (!stats) return;
-        if (stepsEl) stepsEl.textContent = stats.step_count > 0 ? String(stats.step_count) : "—";
-        if (toolsEl) toolsEl.textContent = stats.tool_call_count > 0 ? String(stats.tool_call_count) : "—";
+    if (projectEl) projectEl.textContent = project.name || "—";
+    if (projectDirEl) projectDirEl.textContent = project.working_dir || "—";
+  }
+
+  // --- Session panel: conversation stats (real endpoint, no invented sums) ---
+  function _fetchConvStats() {
+    if (!_activeConvId) return;
+    _getJSON(`/api/conversations/${_activeConvId}/stats`)
+      .then((stats) => {
+        const ti = stats.tokens_in;
+        const to = stats.tokens_out;
+        const cost = stats.cost_usd;
+        if (tokensEl) {
+          tokensEl.textContent = (ti == null && to == null) ? "—" : `↑${fmtTok(ti ?? 0)} ↓${fmtTok(to ?? 0)}`;
+        }
+        if (costEl) costEl.textContent = cost == null ? "—" : `$${Number(cost).toFixed(4)}`;
       })
-      .catch(() => {});
+      .catch(() => {
+        // P2-B E3: an explicit unavailable state, never undefined/NaN.
+        if (tokensEl) tokensEl.textContent = "—";
+        if (costEl) costEl.textContent = "—";
+      });
   }
 
-  // Called from main.js when an assistant message finishes — also refreshes cost/stats
-  function notifyComplete(usage, elapsedMs) {
-    _fetchStats();
-    if (_activeConvId) setConversation(_activeConvId);
-    if (!usage) return;
-    const { input_tokens: inp = 0, output_tokens: out = 0 } = usage;
-    if (inp) updateCtx(inp);
-
-    if (elEl && elapsedMs != null) {
-      elEl.textContent = fmtMs(elapsedMs);
-      elEl.classList.remove("streaming");
-    }
-    if (rateEl && out > 0 && elapsedMs > 0) {
-      rateEl.textContent = `${(out / (elapsedMs / 1000)).toFixed(1)} tok/s`;
-    }
-    if (lastEl) {
-      const parts = [];
-      if (inp) parts.push(`↑${fmtTok(inp)}`);
-      if (out) parts.push(`↓${fmtTok(out)}`);
-      if (elapsedMs != null) parts.push(fmtMs(elapsedMs));
-      lastEl.textContent = parts.join(" ") || "—";
-    }
-  }
-
-  // --- Model context windows from backend ---
+  // --- Session panel: context window from the backend config ---
   function _fetchConfig() {
     _getJSON("/api/config")
       .then((cfg) => {
@@ -332,13 +288,13 @@ export function mountRightSidebar(root) {
       })
       .catch(() => {});
   }
-  _fetchConfig();
 
-  // --- Server info ---
+  // --- Server panel ---
   function _fetchServerInfo() {
     _getJSON("/api/server/info")
       .then((info) => {
         const body = root.querySelector("#rsb-server-body");
+        if (serverBadgeEl) serverBadgeEl.textContent = "ONLINE";
         if (!body) return;
         body.innerHTML = `
           <div class="server-status" role="status"><span class="server-dot"></span><span>Online</span></div>
@@ -352,6 +308,7 @@ export function mountRightSidebar(root) {
       .catch(() => {
         // P2-B E4: an explicit offline state, never the forever-"Connecting…"
         // that a failed first fetch used to leave behind.
+        if (serverBadgeEl) serverBadgeEl.textContent = "OFFLINE";
         const body = root.querySelector("#rsb-server-body");
         if (!body) return;
         body.innerHTML = `
@@ -359,19 +316,11 @@ export function mountRightSidebar(root) {
         `;
       });
   }
-  _fetchServerInfo();
 
-  // --- All-chat stats ---
+  // --- Month panel: all-chat stats ---
   function _fetchStats() {
     _getJSON("/api/server/stats")
       .then((stats) => {
-        if (allEl) {
-          const total = stats.total_input + stats.total_output;
-          allEl.textContent = total > 0
-            ? `${fmtTok(total)} tok / ${stats.chat_count} chats`
-            : `${stats.chat_count} chats`;
-        }
-
         // Cost + budget bar.
         //
         // The denominator is the USER'S CaaS allowance, which the server has no
@@ -386,16 +335,18 @@ export function mountRightSidebar(root) {
         // treatment the theme and the assess feature flag already get. It also
         // avoids a migration to re-add the app-wide config table that v19
         // dropped for having no consumers.
-        const costEl = root.querySelector("#met-cost");
-        const barEl  = root.querySelector("#budget-bar-fill");
         const cost   = stats.monthly_cost_usd ?? 0;
         const budget = userBudget() ?? stats.budget_usd ?? 200;
-        if (costEl) costEl.textContent = `~$${cost.toFixed(2)} / $${budget.toFixed(0)}`;
-        if (barEl) {
-          const pct = Math.min((cost / budget) * 100, 100);
-          barEl.style.width = `${pct}%`;
-          barEl.classList.remove("budget-normal", "budget-warn", "budget-crit");
-          barEl.classList.add(pct < 60 ? "budget-normal" : pct < 85 ? "budget-warn" : "budget-crit");
+        if (monthCostEl) monthCostEl.textContent = `~$${Number(cost).toFixed(2)}`;
+        const pct = Math.min((cost / budget) * 100, 100);
+        // P2-V: exact percentage on the right, real cost/budget as the
+        // reference on the left. No fabricated billing-cycle reset time.
+        if (budgetPctEl) budgetPctEl.textContent = `${Math.round(pct)}%`;
+        if (budgetRefEl) budgetRefEl.textContent = `~$${Number(cost).toFixed(2)} / $${Number(budget).toFixed(0)}`;
+        if (budgetBarEl) {
+          budgetBarEl.style.width = `${pct}%`;
+          budgetBarEl.classList.remove("budget-normal", "budget-warn", "budget-crit");
+          budgetBarEl.classList.add(pct < 60 ? "budget-normal" : pct < 85 ? "budget-warn" : "budget-crit");
         }
 
         // Daily toast — deduped by date so repeated _fetchStats calls don't re-show it
@@ -408,24 +359,87 @@ export function mountRightSidebar(root) {
       })
       .catch(() => {
         // P2-B E3: an explicit unavailable state — never "undefined chats"/NaN.
-        if (allEl) allEl.textContent = "—";
-        const costEl = root.querySelector("#met-cost");
-        if (costEl) costEl.textContent = "—";
-        const barEl = root.querySelector("#budget-bar-fill");
-        if (barEl) { barEl.style.width = "0%"; barEl.className = "budget-bar-fill budget-normal"; }
+        if (monthCostEl) monthCostEl.textContent = "—";
+        if (budgetPctEl) budgetPctEl.textContent = "—";
+        if (budgetRefEl) budgetRefEl.textContent = "—";
+        if (budgetBarEl) { budgetBarEl.style.width = "0%"; budgetBarEl.className = "budget-bar-fill budget-normal"; }
       });
   }
+
+  // Reset every panel field + both progress bars to their empty state.
+  function _resetMetrics() {
+    [tokensEl, costEl, ctxEl, ctxRefEl, monthCostEl, budgetPctEl, budgetRefEl, projectEl, projectDirEl].forEach((el) => {
+      if (el) el.textContent = "—";
+    });
+    if (modelEl) modelEl.textContent = "—";
+    if (messagesEl) messagesEl.textContent = "—";
+    if (ctxBarEl) { ctxBarEl.style.width = "0%"; ctxBarEl.className = "budget-bar-fill budget-normal"; }
+    if (budgetBarEl) { budgetBarEl.style.width = "0%"; budgetBarEl.className = "budget-bar-fill budget-normal"; }
+  }
+
+  function setModel(model) {
+    _currentModel = model;
+    ctxMax = _ctxByModel[model] ?? null;
+    if (modelEl) modelEl.textContent = MODEL_LABELS[model] ?? model ?? "—";
+    _refreshCtx();
+  }
+
+  function setConversation(conversationId) {
+    if (conversationId !== _activeConvId) {
+      _activeConvId = conversationId;
+      _resetMetrics();
+      _fetchStats(); // repopulate MONTH immediately rather than leaving it blank
+    }
+    if (!conversationId) return;
+    const conv = getState().conversations.find(c => c.id === conversationId);
+    if (conv) {
+      if (modelEl) modelEl.textContent = MODEL_LABELS[conv.model] ?? conv.model ?? "—";
+      _renderProject(conv.project_id);
+    }
+    _renderMessages();
+    _fetchConvStats();
+    _refreshCtx();
+  }
+
+  // Called from main.js when an assistant message finishes — also refreshes stats
+  function notifyComplete(usage) {
+    _fetchStats();
+    _fetchConvStats();
+    if (!usage) return;
+    const { input_tokens: inp = 0 } = usage;
+    if (inp) updateCtx(inp);
+  }
+
+  // --- Existing stats-refresh behaviour, wired onto the store's streaming
+  // falling edge (the same edge stats-refresh-check.mjs drives). A turn ENDING
+  // refreshes stats; a turn STARTING or an unrelated store change does not. ---
+  let prevStreaming = getState().streaming;
+  subscribe((state) => {
+    if (state.streaming && !prevStreaming) {
+      // Turn started: nothing has been billed yet, so no fetch.
+    } else if (!state.streaming && prevStreaming) {
+      // A turn just ended: refresh conversation + server stats now rather than
+      // waiting out the 60s poll.
+      _fetchStats();
+      _fetchConvStats();
+    }
+    prevStreaming = state.streaming;
+    _renderMessages();
+    _refreshCtx();
+  });
+
+  _fetchConfig();
+  _fetchServerInfo();
   _fetchStats();
   // 60s fallback poll in case a turn-end is missed; guarded like the other
-  // pollers below. It is a genuine fallback again as of 4-D5 — until then the
-  // turn-end refresh it backs up had never fired, so this was carrying the whole
-  // job and the word "fallback" was not true. It also carries config and server
-  // info so their failure states recover on the next successful poll (P2-B).
+  // pollers below. It carries config and server info so their failure states
+  // recover on the next successful poll (P2-B).
   setInterval(() => {
     if (root.classList.contains("sb-collapsed")) return;
     _fetchStats();
     _fetchConfig();
     _fetchServerInfo();
+    if (_activeConvId) _fetchConvStats();
   }, 60_000);
 
   // Budget changed in the settings drawer. Without this the new allowance
@@ -507,88 +521,6 @@ export function mountRightSidebar(root) {
       consoleEl.appendChild(line);
     };
   }
-
-  // --- Active agents polling ---
-  const agentsBody = root.querySelector("#rsb-agents-body");
-  const agentCount = root.querySelector("#rsb-agent-count");
-  const agentsSection = agentsBody?.closest("details.sb-section");
-
-  function pollAgents() {
-    if (root.classList.contains("sb-collapsed")) return;
-    _getJSON("/api/agents/status")
-      .then(agents => {
-        if (!agentsBody) return;
-        if (agentCount) agentCount.textContent = agents.length;
-        if (agentsSection) agentsSection.hidden = agents.length === 0;
-        if (agents.length === 0) {
-          agentsBody.innerHTML = '<div class="sb-empty">No agents running</div>';
-          return;
-        }
-        agentsBody.innerHTML = agents.map(a => `
-          <div class="metric-row">
-            <span class="metric-label" title="${escHtml(a.conversation_id)}">${escHtml(a.name.slice(0, 18))}</span>
-            <span class="metric-value streaming">${escHtml(String(a.elapsed_s))}s</span>
-          </div>
-        `).join("");
-      })
-      .catch(() => {
-        // P2-B E3: explicit unavailable state, never undefined/NaN.
-        if (!agentsBody) return;
-        if (agentCount) agentCount.textContent = "—";
-        if (agentsSection) agentsSection.hidden = false;
-        agentsBody.innerHTML = '<div class="sb-empty">Unavailable</div>';
-      });
-  }
-  pollAgents();
-  setInterval(pollAgents, 2000);
-
-  // --- Team sessions (feature-flagged) ---
-  const teamsSection = root.querySelector("#sb-teams");
-  const teamsBody = root.querySelector("#rsb-teams-body");
-  const teamCount = root.querySelector("#rsb-team-count");
-
-  let _teamsCount = 0;
-
-  function _applyTeamsFlag() {
-    if (teamsSection) teamsSection.hidden = localStorage.getItem("gca_feat_teams") !== "1" || _teamsCount === 0;
-  }
-  _applyTeamsFlag();
-  window.addEventListener("gca:feature", (e) => {
-    if (e.detail?.name === "teams") _applyTeamsFlag();
-  });
-
-  function pollTeams() {
-    if (root.classList.contains("sb-collapsed")) return;
-    if (!teamsBody || localStorage.getItem("gca_feat_teams") !== "1") return;
-    _getJSON("/api/teams")
-      .then(teams => {
-        if (teamCount) teamCount.textContent = teams.length;
-        _teamsCount = teams.length;
-        _applyTeamsFlag();
-        if (!teamsBody) return;
-        if (teams.length === 0) {
-          teamsBody.innerHTML = '<div class="sb-empty">No teams</div>';
-          return;
-        }
-        // Slice the raw string BEFORE escaping — escaping first then slicing can
-        // cut an entity in half (`&amp;` -> `&am`) and emit broken markup.
-        teamsBody.innerHTML = teams.map(t => `
-          <div class="metric-row">
-            <span class="metric-label" title="${escHtml(t.id)}">${escHtml(String(t.name ?? "").slice(0, 16))}</span>
-            <span class="metric-value">~$${(t.cost_usd || 0).toFixed(3)} · ${Number(t.members?.length ?? 0)} agents</span>
-          </div>
-        `).join("");
-      })
-      .catch(() => {
-        // P2-B E3: explicit unavailable state, never undefined/NaN.
-        if (!teamsBody) return;
-        if (teamsSection) teamsSection.hidden = false;
-        if (teamCount) teamCount.textContent = "—";
-        teamsBody.innerHTML = '<div class="sb-empty">Unavailable</div>';
-      });
-  }
-  pollTeams();
-  setInterval(pollTeams, 5000);
 
   return { notifyComplete, setModel, setConversation };
 }

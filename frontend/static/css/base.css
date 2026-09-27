@@ -29,6 +29,12 @@
   --error-rgb:         226 86 75;     /* Fault Red     #E2564B */
   --shadow-rgb:        0 0 0;
 
+  /* P2-U: these two were referenced by component rules but never defined,
+     so `color: var(--violet)` / `var(--cyan)` silently fell back to the
+     inherited colour. Define them once, for both themes. */
+  --violet: #a78bfa;
+  --cyan:   #38bdf8;
+
   /* ---- solid convenience colors (use these for `color:`) ---- */
   --ground:        rgb(var(--ground-rgb));
   --panel:         rgb(var(--panel-rgb));
@@ -54,17 +60,26 @@
      Mono always loads first. 'Cascadia Code' stays as the real local fallback:
      it ships with Windows, so it works with no network at all. */
   --font-shell: 'JetBrains Mono', 'Cascadia Code', monospace;
+  /* P2-U: pixel face for the Cyberpunk Console panel headers. Requested in
+     index.html next to the other families; font-check verifies it renders. */
+  --font-hud:   'Silkscreen', 'JetBrains Mono', monospace;
 
   /* F3: chat font size. The settings control writes this same variable inline
      on <html>, which is how a change applies without a reload and without any
-     hard-coded colours. */
-  --chat-font-size: 13px;
+     hard-coded colours. P2-Y: 14px = the mockup's text-sm message prose
+     (screen.html:396,444). */
+  --chat-font-size: 14px;
 
   /* ---- 4px spacing grid (spec §5) ---- */
   --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
   --space-6: 24px; --space-8: 32px; --space-12: 48px;
   --radius:    4px;   /* spec: <=4px, no pills for primary actions */
   --radius-lg: 8px;
+
+  /* P2-V: floating-composer geometry. Overridden per theme and by the
+     narrow-width media queries further down. */
+  --p2v-left-rail:  256px;
+  --p2v-right-rail: 220px;
 
   /* ---- back-compat aliases: keep until the migration is fully applied ---- */
   --bg:     var(--ground);
@@ -105,6 +120,63 @@
   --shadow-rgb:        0 0 0;
 }
 
+/* ============================================================
+   P2-U — CYBERPUNK CONSOLE theme (default for new users)
+   Colours and faces read from the Stitch mockup screen.html:
+     #07070B ground · #0F0F17 panel · #141320 surface · #1A192A elevated
+     #14B8A6 / #2DD4BF teal · #38BDF8 sky · #FBBF24 amber · #F43F5E rose
+     #34D399 green · #A78BFA violet · #F8FAFC text · #94A3B8 muted
+   Channel triplets only — every component rule composes from these tokens,
+   and honeycomb.js re-reads --accent-rgb/--accent-hi-rgb on data-theme
+   changes (honeycomb.js:22-35), so the canvas re-tints from this block.
+   ============================================================ */
+[data-theme="cyberpunk-console"] {
+  --ground-rgb:        7 7 11;
+  --panel-rgb:         15 15 23;
+  --surface-rgb:       20 19 32;
+  --hover-rgb:         26 25 42;
+  --border-quiet-rgb:  20 184 166;
+  --border-strong-rgb: 45 212 191;
+  --text-primary-rgb:   248 250 252;
+  --text-secondary-rgb: 148 163 184;
+  --text-muted-rgb:     148 163 184;
+  --accent-rgb:        20 184 166;
+  --accent-hi-rgb:     45 212 191;
+  --cta-rgb:           56 189 248;
+  --working-rgb:       251 191 36;
+  --success-rgb:       52 211 153;
+  --warning-rgb:       229 161 63;
+  --error-rgb:         244 63 94;
+  --shadow-rgb:        0 0 0;
+  /* P2-Y: the mockup body is JetBrains Mono everywhere and has no font-sans
+     section (screen.html:50,168,396,444 — verified by grep, zero matches), so
+     the default shell type is the mono stack, not Inter. */
+  --font-ui: var(--font-shell);
+  --violet: #a78bfa;
+  --cyan:   #38bdf8;
+  /* P2-V: the right column is wider in this theme (w-80). */
+  --p2v-right-rail: 320px;
+  /* P2-W: mockup role triplets + semantic role variables, so message roles,
+     status pills and panel headers stop aliasing --accent-rgb. Values are the
+     mockup's amber/rose/sky from the P2-U palette comment above. */
+  --amber-rgb:        251 191 36;   /* mockup amber #FBBF24 */
+  --rose-rgb:         244 63 94;    /* mockup rose  #F43F5E */
+  --sky-rgb:          56 189 248;   /* mockup sky   #38BDF8 */
+  --role-user:        rgb(var(--amber-rgb));
+  --role-assistant:   rgb(var(--sky-rgb));
+  --role-system:      var(--violet);
+  --role-error:       rgb(var(--rose-rgb));
+  --status-warn:      rgb(var(--amber-rgb));
+  /* lvl-info sits on the LOG console, whose backdrop is the honeycomb + the
+     panel glow bloom (teal-tinted, brighter than the old flat panel). The
+     mockup sky (#38BDF8) measured 2.97:1 there, and P2-W's light sky
+     (#BAE6FD) cleared the old dimmer bloom but fell to 4.46:1 once P2-X
+     strengthened the glow — so the info role uses an even lighter sky step
+     that clears AA on the brighter composited background. */
+  --status-info:      rgb(200 240 255);
+  --panel-header:     rgb(var(--accent-hi-rgb));
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
@@ -131,16 +203,44 @@ html, body {
   width: 100%;
   height: 100%;
 }
+/* P2-Y: the mockup canvas sits at z-0 BEHIND the ambient wash (both are
+   z-0, and the wash comes later in DOM order — screen.html:172,174). The
+   canvas must not paint above the wash; #app still sits above both at
+   z-index 10. */
+[data-theme="cyberpunk-console"] .honeycomb-canvas { opacity: 1; z-index: 0; }
 .ambient-bg {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.4;
+  opacity: 0.25;
   background-image:
-    radial-gradient(circle at 15% 20%, rgba(var(--accent-rgb) / 0.14) 0%, transparent 45%),
-    radial-gradient(circle at 85% 80%, rgba(var(--accent-hi-rgb) / 0.12) 0%, transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(var(--accent-hi-rgb) / 0.08) 0%, transparent 55%);
+    radial-gradient(circle at 15% 20%, rgba(20, 184, 166, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.04) 0%, transparent 55%);
+}
+/* P2-Y: the mockup's two large blurred accent blobs (screen.html:176-177).
+   bg-cyber-teal/3 = rgba(20,184,166,0.03) at 700x320 blur(160px);
+   bg-neon-violet/3 = rgba(139,92,246,0.03) at 600x380 blur(170px). */
+.ambient-blob-teal {
+  position: fixed;
+  top: 0;
+  left: 25%;
+  width: 700px;
+  height: 320px;
+  background: rgba(20, 184, 166, 0.03);
+  filter: blur(160px);
+  pointer-events: none;
+}
+.ambient-blob-violet {
+  position: fixed;
+  bottom: 40px;
+  right: 40px;
+  width: 600px;
+  height: 380px;
+  background: rgba(139, 92, 246, 0.03);
+  filter: blur(170px);
+  pointer-events: none;
 }
 .scanline-overlay {
   position: fixed;
@@ -205,7 +305,7 @@ html, body {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   user-select: none;
-  transition: color 0.15s, background 0.15s;
+  transition: color 0.15s, background 0.15s, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .sb-section > summary:hover { color: var(--teal-b); background: rgba(var(--accent-rgb) / 0.04); }
 .sb-section > summary::-webkit-details-marker,
@@ -333,7 +433,7 @@ html, body {
    SIDEBAR
    ============================================================ */
 #sidebar {
-  width: 240px;
+  width: 256px;
   flex-shrink: 0;
   background: rgba(var(--panel-rgb) / 0.88);
   backdrop-filter: blur(8px);
@@ -341,7 +441,7 @@ html, body {
   box-shadow: 4px 0 18px rgba(var(--accent-rgb) / 0.12);
   display: flex;
   flex-direction: column;
-  padding: 10px;
+  padding: 12px;
   overflow-y: auto;
 }
 
@@ -1656,7 +1756,7 @@ textarea.modal-input { resize: vertical; min-height: 72px; }
   cursor: pointer;
   font-size: 11px;
   font-family: inherit;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .copy-btn:hover,
 .msg-action-btn:hover,
@@ -1683,15 +1783,19 @@ pre { position: relative; }
   position: absolute;
   top: 6px;
   right: 6px;
-  background: rgba(var(--accent-rgb) / 0.15);
+  /* P2-X: opaque surface ground — the translucent accent tint let the
+     honeycomb/glow bleed through behind the 11px label and pulled the lit
+     theme's COPY button to 4.44:1 (needs 4.5). text-secondary is the same
+     value as text-muted in cyber, brighter in lit. */
+  background: rgb(var(--surface-rgb));
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.4);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   border-radius: 3px;
   padding: 2px 8px;
   cursor: pointer;
   font-size: 11px;
   font-family: inherit;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .code-copy-btn:hover,
 .code-copy-btn:focus-visible {
@@ -1796,7 +1900,7 @@ pre { position: relative; }
   gap: 4px;
   text-align: left;
   font: inherit;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.15s, background 0.15s, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .featured-card:hover { border-color: var(--teal); background: rgba(var(--accent-rgb) / 0.12); }
 .featured-card-title { font-size: 11px; font-weight: 600; color: var(--text); }
@@ -1834,6 +1938,7 @@ pre { position: relative; }
   padding: 2px 8px;
   cursor: pointer;
   letter-spacing: 0.04em;
+  transition: border-color 0.15s, color 0.15s, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 #template-btn:hover { border-color: var(--teal); color: var(--teal-b); }
 
@@ -2455,6 +2560,249 @@ textarea::placeholder {
   box-shadow: 0 0 5px rgba(var(--error-rgb) / 0.6);
 }
 
+/* ============================================================
+   P2-U — RIGHT COLUMN FRAMED PANELS (Session / Month / Project /
+   Server / Log). Replaces the old Metrics/Server rail: the real
+   data the rail showed now lives in these panels and nowhere else.
+   Panel chrome is token-driven so both themes get it; the cyber
+   theme adds the mockup's Silkscreen title strips and glow.
+   ============================================================ */
+.rsb-panel {
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.35);
+  border-radius: 6px;
+  margin: 0 10px 10px;
+  background: rgba(var(--surface-rgb) / 0.35);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.rsb-panel > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  border-bottom: 1px solid rgba(var(--accent-rgb) / 0.25);
+  background: rgba(var(--panel-rgb) / 0.8);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color 0.15s, background 0.15s, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.rsb-panel > summary:hover { color: var(--teal-b); }
+.rsb-panel > summary::-webkit-details-marker,
+.rsb-panel > summary::marker { display: none; }
+.rsb-panel-title {
+  color: var(--accent-hi);
+  letter-spacing: 0.08em;
+}
+.rsb-panel-badge {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: rgba(var(--accent-rgb) / 0.15);
+  color: var(--accent-hi);
+  font-variant-numeric: tabular-nums;
+}
+.rsb-panel-arrow { font-size: 10px; opacity: 0.4; transition: transform 0.15s; }
+.rsb-panel[open] > summary .rsb-panel-arrow { transform: rotate(90deg); }
+.rsb-panel-body { padding: 6px 10px 10px; }
+.rsb-project-dir {
+  word-break: break-all;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-shell);
+}
+
+/* ============================================================
+   P2-U — CYBERPUNK CONSOLE component overrides.
+   Colours are already token-driven; this section only changes
+   framing, typography and the console chrome to match the mockup.
+   ============================================================ */
+
+/* Console typography: Inter for small UI, Silkscreen for panel headers. */
+[data-theme="cyberpunk-console"] .rsb-panel > summary,
+[data-theme="cyberpunk-console"] .sb-section > summary,
+[data-theme="cyberpunk-console"] .drawer-title,
+[data-theme="cyberpunk-console"] .modal-title,
+[data-theme="cyberpunk-console"] .shortcuts-header,
+[data-theme="cyberpunk-console"] .tp-title,
+[data-theme="cyberpunk-console"] .term-title {
+  font-family: var(--font-hud);
+  letter-spacing: 0.06em;
+}
+[data-theme="cyberpunk-console"] #chat-header,
+[data-theme="cyberpunk-console"] .header-btn,
+[data-theme="cyberpunk-console"] #composer-footer,
+[data-theme="cyberpunk-console"] .chat-status {
+  font-family: var(--font-shell);
+}
+
+/* Right column — full-height framed column, mockup width (w-80). */
+[data-theme="cyberpunk-console"] #right-sidebar {
+  width: 320px;
+  background: rgba(var(--panel-rgb) / 0.88);
+  border-left: 1px solid rgba(var(--accent-rgb) / 0.55);
+  box-shadow: -4px 0 18px rgba(var(--accent-rgb) / 0.12);
+}
+[data-theme="cyberpunk-console"] .rsb-panel {
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.55);
+  box-shadow: 0 0 14px rgba(var(--accent-rgb) / 0.15);
+}
+[data-theme="cyberpunk-console"] .rsb-panel > summary {
+  background: rgba(var(--panel-rgb) / 0.9);
+  border-bottom: 1px solid rgba(var(--accent-rgb) / 0.4);
+}
+[data-theme="cyberpunk-console"] .rsb-panel-title {
+  color: var(--accent-hi);
+  text-shadow: 0 0 8px rgba(var(--accent-hi-rgb) / 0.35);
+}
+[data-theme="cyberpunk-console"] .rsb-panel-badge {
+  background: rgba(var(--accent-hi-rgb) / 0.12);
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.35);
+}
+
+/* Frames everywhere: left-rail sections get a title strip + border. */
+[data-theme="cyberpunk-console"] #sidebar-projects,
+[data-theme="cyberpunk-console"] #sidebar-conversations {
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.35);
+  border-radius: 6px;
+  background: rgba(var(--surface-rgb) / 0.35);
+  padding: 8px;
+  margin-bottom: 10px;
+}
+[data-theme="cyberpunk-console"] #sidebar-projects::before,
+[data-theme="cyberpunk-console"] #sidebar-conversations::before {
+  display: block;
+  font-family: var(--font-hud);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--accent-hi);
+  text-shadow: 0 0 8px rgba(var(--accent-hi-rgb) / 0.35);
+  border-bottom: 1px solid rgba(var(--accent-rgb) / 0.3);
+  padding: 0 2px 6px;
+  margin-bottom: 8px;
+}
+[data-theme="cyberpunk-console"] #sidebar-projects::before { content: "// PROJECTS"; }
+[data-theme="cyberpunk-console"] #sidebar-conversations::before { content: "// MESSAGES"; }
+
+/* Chat header: framed console strip, pixel title. */
+[data-theme="cyberpunk-console"] #chat-header {
+  border-bottom: 1px solid rgba(var(--accent-rgb) / 0.65);
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb) / 0.15);
+  background: rgba(var(--panel-rgb) / 0.92);
+}
+[data-theme="cyberpunk-console"] .conv-title-text {
+  font-family: var(--font-hud);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+[data-theme="cyberpunk-console"] .conv-subtitle { font-family: var(--font-shell); }
+
+/* Messages: every message becomes a framed panel whose .msg-meta is the
+   title bar. Flex `order` moves the existing meta above the bubble with no
+   DOM change, so Lit Workbench keeps its exact current layout. */
+[data-theme="cyberpunk-console"] .msg {
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.4);
+  background: rgba(var(--panel-rgb) / 0.72);
+  border-radius: 6px;
+  box-shadow: 0 0 16px rgba(var(--accent-rgb) / 0.12);
+  overflow: hidden;
+}
+[data-theme="cyberpunk-console"] .msg .msg-meta {
+  order: 0;
+  width: 100%;
+  margin: 0;
+  padding: 5px 10px;
+  border-bottom: 1px solid rgba(var(--accent-rgb) / 0.35);
+  background: rgba(var(--surface-rgb) / 0.55);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: var(--font-shell);
+  font-size: 10px;
+}
+[data-theme="cyberpunk-console"] .msg .stage-strip { order: 1; border-radius: 0; }
+[data-theme="cyberpunk-console"] .msg .msg-bubble {
+  order: 2;
+  width: 100%;
+  border: none;
+  border-left: none;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 12px 14px;
+}
+[data-theme="cyberpunk-console"] .msg .msg-actions { order: 3; padding: 0 10px 8px; }
+
+/* Code blocks: header bar (language + copy button) above the code body. */
+[data-theme="cyberpunk-console"] .msg-bubble pre {
+  background: rgb(var(--ground-rgb));
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.8);
+  box-shadow: 0 0 22px rgba(var(--accent-rgb) / 0.28), 0 0 2px rgba(var(--accent-hi-rgb) / 1);
+  border-radius: 4px;
+  padding: 0;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+[data-theme="cyberpunk-console"] .msg-bubble pre code {
+  display: block;
+  padding: 12px;
+  font-size: 12px;
+}
+[data-theme="cyberpunk-console"] .code-copy-btn {
+  top: 5px;
+  right: 6px;
+  font-family: var(--font-shell);
+  text-transform: uppercase;
+}
+
+/* Status strip under the chat: bordered console row. */
+[data-theme="cyberpunk-console"] .chat-status {
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.4);
+  border-radius: 4px;
+  background: rgba(var(--ground-rgb) / 0.55);
+  padding: 6px 12px;
+  margin: 0 4px 2px;
+  color: var(--text-secondary);
+}
+
+/* Console composer: terminal input line with a `>` prompt and a bordered
+   status row; the primary action is the amber #composer-send button. */
+.composer-prompt { display: none; }
+[data-theme="cyberpunk-console"] .composer-prompt {
+  display: block;
+  color: var(--accent-hi);
+  font-family: var(--font-shell);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 40px;
+  user-select: none;
+  flex-shrink: 0;
+  text-shadow: 0 0 8px rgba(var(--accent-hi-rgb) / 0.4);
+}
+[data-theme="cyberpunk-console"] #composer-footer {
+  border-top: 1px solid rgba(var(--accent-hi-rgb) / 0.25);
+  margin-top: 8px;
+  padding-top: 6px;
+}
+
+/* P2-U idle-CPU: the empty-state glyph's infinite text-shadow pulse is the
+   one continuous CSS animation left after the honeycomb settles. The cyber
+   theme uses a static glow instead, which keeps perf-check's 6% idle gate
+   (tools/perf-check.mjs:53) with its threshold untouched. */
+[data-theme="cyberpunk-console"] .empty-state-glyph {
+  animation: none;
+  text-shadow: 0 0 24px rgba(var(--accent-rgb) / 0.45);
+}
+
 /* ---- 1.4.4 / 1.4.10: reflow without clipping or page-level horizontal scroll.
    Header content wraps instead of clipping; the composer row wraps so the input
    keeps a usable width; the right sidebar becomes an overlay at narrow widths
@@ -2476,6 +2824,372 @@ textarea::placeholder {
   #sidebar { width: 160px; }
 }
 
+/* ============================================================
+   P2-V — VISUAL / INTERACTION FIDELITY
+   Glow language, hover physics, usability-first meters, code
+   block chrome and the floating composer dock. All colours stay
+   token-driven; the reduced-motion block below neutralises the
+   motion (and the extra block after it kills the hover lift).
+   ============================================================ */
+
+/* ---- 1. Glow language: a soft coloured box-shadow on every framed
+   panel. Teal by default, role colour where the surface already uses
+   rose / sky / green / amber. ---- */
+[data-theme="cyberpunk-console"] #sidebar-projects,
+[data-theme="cyberpunk-console"] #sidebar-conversations {
+  box-shadow: 0 0 16px -2px rgba(var(--accent-hi-rgb) / 0.3);
+}
+[data-theme="cyberpunk-console"] #chat-header {
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb) / 0.2),
+              0 0 16px -2px rgba(var(--accent-hi-rgb) / 0.35);
+}
+[data-theme="cyberpunk-console"] .rsb-panel {
+  box-shadow: 0 0 16px -2px rgba(var(--accent-hi-rgb) / 0.35);
+}
+[data-theme="cyberpunk-console"] .msg {
+  box-shadow: 0 0 16px -2px rgba(var(--accent-hi-rgb) / 0.3);
+}
+[data-theme="cyberpunk-console"] .chat-status {
+  box-shadow: 0 0 14px -2px rgba(var(--accent-hi-rgb) / 0.3);
+}
+[data-theme="cyberpunk-console"] .msg .msg-meta.status-processing {
+  box-shadow: inset 0 -1px 0 rgba(var(--working-rgb) / 0.7), 0 0 10px rgba(var(--working-rgb) / 0.18);
+}
+[data-theme="cyberpunk-console"] .msg .msg-meta.status-done {
+  box-shadow: inset 0 -1px 0 rgba(var(--success-rgb) / 0.7), 0 0 10px rgba(var(--success-rgb) / 0.18);
+}
+[data-theme="cyberpunk-console"] .msg .msg-meta.status-error {
+  box-shadow: inset 0 -1px 0 rgba(var(--error-rgb) / 0.7), 0 0 10px rgba(var(--error-rgb) / 0.18);
+}
+[data-theme="cyberpunk-console"] .msg .msg-meta.status-stopped,
+[data-theme="cyberpunk-console"] .msg .msg-meta.status-timeout {
+  box-shadow: inset 0 -1px 0 rgba(var(--warning-rgb) / 0.7), 0 0 10px rgba(var(--warning-rgb) / 0.18);
+}
+
+/* ---- 2. Hover physics: lift + scale on hover, one-shot diagonal
+   shimmer sweep on ::before. The sweep is a background-position
+   animation confined to inset:0, so it needs no overflow clipping
+   and never fights the ::after tooltips on [data-tooltip]. ---- */
+.rsb-panel > summary,
+.sb-section > summary,
+.conv-item,
+.project-item,
+.quick-chip,
+.server-btn,
+.copy-btn,
+.msg-action-btn,
+#new-conv-btn,
+#new-project-btn,
+#composer-attach,
+#composer-row button:not(#composer-attach),
+#template-btn,
+.featured-card,
+.header-btn,
+.code-tabbar .code-copy-btn {
+  position: relative;
+}
+.rsb-panel > summary::before,
+.sb-section > summary::before,
+.conv-item::before,
+.project-item::before,
+.quick-chip::before,
+.server-btn::before,
+.copy-btn::before,
+.msg-action-btn::before,
+.code-copy-btn::before,
+#new-conv-btn::before,
+#new-project-btn::before,
+#composer-attach::before,
+#composer-row button:not(#composer-attach)::before,
+#template-btn::before,
+.featured-card::before,
+.header-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.16) 50%, transparent 70%);
+  background-size: 250% 100%;
+  background-position: 130% 0;
+  background-repeat: no-repeat;
+  opacity: 0;
+  pointer-events: none;
+}
+.rsb-panel > summary:hover::before,
+.sb-section > summary:hover::before,
+.conv-item:hover::before,
+.project-item:hover::before,
+.quick-chip:hover::before,
+.server-btn:hover::before,
+.copy-btn:hover::before,
+.msg-action-btn:hover::before,
+.code-copy-btn:hover::before,
+#new-conv-btn:hover::before,
+#new-project-btn:hover::before,
+#composer-attach:hover::before,
+#composer-row button:not(#composer-attach):hover::before,
+#template-btn:hover::before,
+.featured-card:hover::before,
+.header-btn:hover::before {
+  opacity: 1;
+  animation: p2v-shimmer-sweep 0.6s ease;
+}
+@keyframes p2v-shimmer-sweep {
+  from { background-position: 130% 0; }
+  to   { background-position: -30% 0; }
+}
+.rsb-panel > summary:hover,
+.sb-section > summary:hover,
+.conv-item:hover,
+.project-item:hover,
+.quick-chip:hover,
+.server-btn:hover,
+.copy-btn:hover,
+.msg-action-btn:hover,
+.code-copy-btn:hover,
+#new-conv-btn:hover,
+#new-project-btn:hover,
+#composer-attach:hover,
+#composer-row button:not(#composer-attach):hover,
+#template-btn:hover,
+.featured-card:hover,
+.header-btn:hover {
+  transform: translateY(-1.5px) scale(1.02);
+}
+.rsb-panel > summary:active,
+.sb-section > summary:active,
+.conv-item:active,
+.project-item:active,
+.quick-chip:active,
+.server-btn:active,
+.copy-btn:active,
+.msg-action-btn:active,
+.code-copy-btn:active,
+#new-conv-btn:active,
+#new-project-btn:active,
+#composer-attach:active,
+#composer-row button:not(#composer-attach):active,
+#template-btn:active,
+.featured-card:active,
+.header-btn:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* ---- 3. Usability-first horizontal meters: label + real reference on
+   the left, the bar in the middle, the exact percentage on the right.
+   No circular gauge — the number and its context stay legible. ---- */
+.meter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.meter-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  flex-shrink: 0;
+  width: 104px;
+}
+.meter-ref {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-shell);
+  white-space: nowrap;
+}
+.meter-bar {
+  flex: 1;
+  min-width: 36px;
+  height: 6px;
+  background: rgba(var(--accent-rgb) / 0.12);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.meter-pct {
+  flex-shrink: 0;
+  min-width: 40px;
+  text-align: right;
+  font-size: 11px;
+  font-family: var(--font-shell);
+  color: var(--accent-hi);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 4. Code block chrome: the tab bar (language pill + status dot +
+   filename + copy button) sits above the code, a slim status line sits
+   below it, and the pre stays the scrollable code body. ---- */
+.code-frame {
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.8);
+  border-radius: 4px;
+  background: rgb(var(--ground-rgb));
+  box-shadow: 0 0 22px rgba(var(--accent-rgb) / 0.28), 0 0 2px rgba(var(--accent-hi-rgb) / 1);
+  overflow: hidden;
+  margin: 8px 0;
+}
+.msg-bubble .code-frame pre {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+  overflow-x: auto;
+}
+.code-tabbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(var(--surface-rgb) / 0.9);
+  border-bottom: 1px solid rgba(var(--accent-rgb) / 0.55);
+  font-size: 11px;
+}
+.code-lang-pill {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent-hi);
+  background: rgba(var(--accent-rgb) / 0.15);
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.55);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-family: var(--font-shell);
+}
+.code-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(var(--cta-rgb));
+  box-shadow: 0 0 6px rgba(var(--cta-rgb) / 0.8);
+  flex-shrink: 0;
+}
+.code-filename {
+  color: var(--text);
+  font-family: var(--font-shell);
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.code-tabbar .code-copy-btn {
+  position: relative;
+  top: auto;
+  right: auto;
+  margin-left: auto;
+}
+.code-statusline {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(var(--surface-rgb) / 0.9);
+  border-top: 1px solid rgba(var(--accent-rgb) / 0.55);
+  font-size: 11px;
+  font-family: var(--font-shell);
+  color: var(--text-secondary);
+}
+.code-status-verify {
+  color: var(--amber);
+  font-weight: 700;
+}
+
+/* ---- 5. Composer as a floating dock: fixed, blurred and glowing, centered
+   relative to the FULL VIEWPORT (mockup: fixed left-0 right-0 flex
+   justify-center px-4 -> max-w-4xl = 896px, screen.html:744-745), not only
+   the chat column. rounded-lg = 8px. At viewports narrower than 928px the
+   dock shrinks with the 32px page gutter (px-4 on both sides). ---- */
+#composer {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(896px, calc(100vw - 32px));
+  margin: 0;
+  z-index: 30;
+  border-radius: 8px;
+}
+#chat-scroll {
+  padding-bottom: 148px;
+}
+
+/* ============================================================
+   P2-W — VISUAL FIDELITY REWORK (honeycomb / glow / color roles)
+   ============================================================ */
+
+/* ---- 1. Per-surface glow, scaled to the mockup's own per-surface shadows
+   instead of one shared oversized bloom. .glow is applied by the panel and
+   message builders (chat_pane.js:143, right_sidebar.js .rsb-panel), so each
+   rule below is exercised by the real framed surfaces.
+   Mockup values (tokens resolve to the same numbers under cyberpunk):
+     user card        screen.html:388  rgba(20,184,166,0.22) 0 0 16px + rgb(20,184,166) 0 0 3px
+     assistant card   screen.html:427  rgba(20,184,166,0.18) 0 0 24px + rgba(0,0,0,0.8) 0 4px 30px
+     telemetry panel  screen.html:571  rgba(20,184,166,0.2)  0 0 16px
+     code frame       screen.html:450  rgba(20,184,166,0.28) 0 0 22px + rgb(45,212,191) 0 0 2px
+                                        (already on .code-frame / .msg-bubble pre)
+   The 36px/80px outer bloom layers are gone. system/error messages have no
+   mockup counterpart, so they keep the P2-V .msg base glow below. ---- */
+[data-theme="cyberpunk-console"] .msg-user.glow {
+  box-shadow:
+    rgba(var(--accent-rgb) / 0.22) 0 0 16px,
+    rgb(var(--accent-rgb)) 0 0 3px;
+}
+[data-theme="cyberpunk-console"] .msg-assistant.glow {
+  box-shadow:
+    rgba(var(--accent-rgb) / 0.18) 0 0 24px,
+    rgba(var(--shadow-rgb) / 0.8) 0 4px 30px;
+}
+[data-theme="cyberpunk-console"] .rsb-panel.glow {
+  box-shadow: rgba(var(--accent-rgb) / 0.2) 0 0 16px;
+}
+/* The messages wrapper (chat_pane.js:14) carries .glow-shell, so the wrapper
+   itself never clips the bloom; the scroll container above it still scrolls. */
+.glow-shell { overflow: visible; }
+
+/* ---- 2. Color roles: each message role / status level / panel header now
+   reads its own semantic variable instead of the shared teal accent. ---- */
+[data-theme="cyberpunk-console"] .msg-user    { border-color: rgba(var(--amber-rgb) / 0.55); }
+[data-theme="cyberpunk-console"] .msg-user .msg-meta {
+  color: var(--role-user);
+  border-bottom-color: rgba(var(--amber-rgb) / 0.35);
+}
+[data-theme="cyberpunk-console"] .msg-assistant { border-color: rgba(var(--sky-rgb) / 0.55); }
+[data-theme="cyberpunk-console"] .msg-assistant .msg-meta {
+  color: var(--role-assistant);
+  border-bottom-color: rgba(var(--sky-rgb) / 0.35);
+}
+[data-theme="cyberpunk-console"] .msg-system { border-color: var(--violet); }
+[data-theme="cyberpunk-console"] .msg-system .msg-meta {
+  color: var(--role-system);
+  border-bottom-color: var(--violet);
+}
+[data-theme="cyberpunk-console"] .msg-error { border-color: rgba(var(--rose-rgb) / 0.55); }
+[data-theme="cyberpunk-console"] .msg-error .msg-meta {
+  color: var(--role-error);
+  border-bottom-color: rgba(var(--rose-rgb) / 0.35);
+}
+
+/* Status pills: the app's real status surfaces are .status-badge (message
+   meta) and .console-line (log levels) — there is no .status-pill element in
+   this codebase, so the semantic vars are applied to the real equivalents. */
+[data-theme="cyberpunk-console"] .status-badge.status-processing,
+[data-theme="cyberpunk-console"] .status-badge.status-stopped,
+[data-theme="cyberpunk-console"] .status-badge.status-timeout,
+[data-theme="cyberpunk-console"] .console-line.lvl-warn {
+  color: var(--status-warn);
+}
+[data-theme="cyberpunk-console"] .status-badge.status-error { color: var(--role-error); }
+[data-theme="cyberpunk-console"] .console-line.lvl-info { color: var(--status-info); }
+/* The 56px panel glow now blooms behind the LOG console (translucent at
+   0.7 alpha), which tinted the log's background teal and pulled the sky
+   lvl-info down to 2.97:1. An opaque ground keeps the log legible without
+   weakening the glow anywhere else. */
+[data-theme="cyberpunk-console"] .console-log { background: rgb(var(--ground-rgb)); }
+
+/* Panel headers keep the teal identity through a semantic variable. */
+[data-theme="cyberpunk-console"] .rsb-panel-title { color: var(--panel-header); }
+
 /* prefers-reduced-motion: neutralize every transition/animation app-wide.
    0.01ms instead of `none` — code that awaits a `transitionend`/`animationend`
    event would hang forever under `none` (the event never fires), but a near-
@@ -2490,5 +3204,66 @@ textarea::placeholder {
     animation-duration: 0.01ms !important;
     animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
+  }
+}
+
+/* P2-V reduced-motion: the hover lift and the shimmer sweep are MOTION,
+   so under prefers-reduced-motion they are disabled entirely and the
+   static (resting) frame remains. Deliberately scoped to the P2-V hover
+   selectors — the composer's translateX(-50%) centering must survive. */
+@media (prefers-reduced-motion: reduce) {
+  .rsb-panel > summary:hover,
+  .sb-section > summary:hover,
+  .conv-item:hover,
+  .project-item:hover,
+  .quick-chip:hover,
+  .server-btn:hover,
+  .copy-btn:hover,
+  .msg-action-btn:hover,
+  .code-copy-btn:hover,
+  #new-conv-btn:hover,
+  #new-project-btn:hover,
+  #composer-attach:hover,
+  #composer-row button:not(#composer-attach):hover,
+  #template-btn:hover,
+  .featured-card:hover,
+  .header-btn:hover {
+    transform: none !important;
+  }
+  .rsb-panel > summary::before,
+  .sb-section > summary::before,
+  .conv-item::before,
+  .project-item::before,
+  .quick-chip::before,
+  .server-btn::before,
+  .copy-btn::before,
+  .msg-action-btn::before,
+  .code-copy-btn::before,
+  #new-conv-btn::before,
+  #new-project-btn::before,
+  #composer-attach::before,
+  #composer-row button:not(#composer-attach)::before,
+  #template-btn::before,
+  .featured-card::before,
+  .header-btn::before {
+    animation: none !important;
+  }
+  .rsb-panel > summary:hover::before,
+  .sb-section > summary:hover::before,
+  .conv-item:hover::before,
+  .project-item:hover::before,
+  .quick-chip:hover::before,
+  .server-btn:hover::before,
+  .copy-btn:hover::before,
+  .msg-action-btn:hover::before,
+  .code-copy-btn:hover::before,
+  #new-conv-btn:hover::before,
+  #new-project-btn:hover::before,
+  #composer-attach:hover::before,
+  #composer-row button:not(#composer-attach):hover::before,
+  #template-btn:hover::before,
+  .featured-card:hover::before,
+  .header-btn:hover::before {
+    opacity: 0 !important;
   }
 }

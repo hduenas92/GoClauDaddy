@@ -270,16 +270,15 @@ try {
     } finally { await ctx.close(); }
   }
 
-  // --- 4. idle canvas CPU, measured AFTER the settle --------------------------
+  // --- 4. idle canvas CPU while the ambient loop runs --------------------------
   {
-    const label = `4. the idle canvas costs < ${T_CANVAS_PCT}% CPU after settling`;
-    // reducedMotion MUST be forced to no-preference here, and this is not a
-    // workaround — it is the difference between measuring the feature and
-    // measuring nothing. honeycomb.js settles to a still frame after 5 s of no
-    // activity (and, under prefers-reduced-motion, never starts at all), so a
-    // still canvas alone proves nothing about the animation; the LIVE-animation
-    // proof now lives in case 5. What case 4 owns is the settled, idle cost:
-    // first PROVE the canvas is settled (pixels static, rAF flat), then measure.
+    const label = `4. the continuously-animating idle canvas costs < ${T_CANVAS_PCT}% CPU`;
+    // reducedMotion is forced to no-preference because the number this case owns
+    // is the cost of the LIVE ambient animation. P2-Y removed the settle-and-
+    // freeze (honeycomb.js keeps a continuous low-FPS rAF loop), so the anti-
+    // vacuity proof moves INSIDE this case: before any CPU figure is trusted,
+    // prove the canvas is actually animating — a frozen canvas would be the one
+    // state this case can no longer tell apart from a cheap one without it.
     const { ctx, page } = await pageWith(async () => false,
                                          { reducedMotion: 'no-preference' });
     try {
@@ -292,20 +291,19 @@ try {
         };
       });
       await page.goto(APP, { waitUntil: 'domcontentloaded' });
-      // The loop now pauses on `document.hidden || !document.hasFocus()`, so
-      // an unfocused page measures a deliberately paused canvas and would
-      // report "settled" for a reason that has nothing to do with the settle.
-      // Focus it, then PROVE it took — an assumed focus would turn this case
-      // back into the vacuous one it started as.
+      // The loop pauses on `document.hidden || !document.hasFocus()`, so an
+      // unfocused page measures a deliberately paused canvas and would report
+      // a cheap idle figure for a reason that has nothing to do with the
+      // animation. Focus it, then PROVE it took.
       await page.bringToFront();
       await page.click('body', { position: { x: 5, y: 5 } }).catch(() => {});
-      await page.waitForTimeout(6000);   // boot activity + the 5 s settle
+      await page.waitForTimeout(1500);   // boot activity only
       const focused = await page.evaluate(() => document.hasFocus() && !document.hidden);
       if (!focused) {
         add(label, 'INCONCLUSIVE',
             'the page could not be given focus, and the animation pauses when ' +
             'unfocused by design — so this would measure the paused state, not ' +
-            'the settled one');
+            'the live one');
         throw new Error('__handled__');
       }
 
@@ -321,7 +319,7 @@ try {
         let diff = 0;
         for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diff++;
         // A canvas that never drew at all is a different bug from one that
-        // drew once and settled; the still frame should still be painted.
+        // drew once and stopped; the live frame must still be painted.
         const painted = a.some((v, i) => i % 4 === 3 && v !== 0);
         return { present: true, diff, painted };
       });
@@ -333,11 +331,11 @@ try {
       if (!probe.present || !probe.painted) {
         add(label, 'INCONCLUSIVE',
             `no painted canvas to measure (present=${probe.present} painted=${probe.painted})`);
-      } else if (probe.diff !== 0 || r2 !== r1) {
+      } else if (probe.diff === 0 || r2 <= r1) {
         add(label, 'INCONCLUSIVE',
-            `the canvas has not settled (pixels changed: ${probe.diff}, rAF ` +
-            `${r1}->${r2}) — a CPU figure here would measure the animation, ` +
-            `not the settled idle state`);
+            `the canvas is not animating (pixels changed: ${probe.diff}, rAF ` +
+            `${r1}->${r2}) — a CPU figure here would measure a frozen canvas, ` +
+            `not the live one`);
       } else {
         const cdp = await page.context().newCDPSession(page);
         await cdp.send('Performance.enable');
@@ -364,8 +362,8 @@ try {
         const median = sorted.length === 3 ? sorted[1] : NaN;
 
         add(label, Number.isFinite(median) && median < T_CANVAS_PCT ? 'PASS' : 'FAIL',
-            `settled verified: ${probe.diff} pixels changed in 900ms, rAF ` +
-            `${r1}->${r2} (flat) · windows: ${windows.map((w) => (Number.isFinite(w) ? w.toFixed(2) : 'NaN')).join(', ')}% ` +
+            `live verified: ${probe.diff} pixels changed in 900ms, rAF ` +
+            `${r1}->${r2} (ticking) · windows: ${windows.map((w) => (Number.isFinite(w) ? w.toFixed(2) : 'NaN')).join(', ')}% ` +
             `→ median ${Number.isFinite(median) ? median.toFixed(2) : 'NaN'}% ` +
             `(target < ${T_CANVAS_PCT}%)`);
       }
@@ -373,9 +371,9 @@ try {
       if (err.message !== '__handled__') add(label, 'FAIL', `threw: ${err.message}`);
     } finally { await ctx.close(); }
   }
-  // --- 5. activity animates; 5 s idle settles it ------------------------------
+  // --- 5. continuous motion: idle does NOT settle ------------------------------
   {
-    const label = '5. activity animates the canvas; 5 s idle settles it to a still frame';
+    const label = '5. activity animates the canvas; 5 s idle does NOT settle it to a still frame';
     const { ctx, page } = await pageWith(async () => false,
                                          { reducedMotion: 'no-preference' });
     try {
@@ -406,15 +404,16 @@ try {
         return { present: true, diff };
       });
 
-      // Activity = pointermove (one of the activity events wired in honeycomb.js).
+      // Activity = pointermove (one of the hover sources wired in honeycomb.js).
       await page.evaluate(() => {
         window.dispatchEvent(new PointerEvent('pointermove', { clientX: 12, clientY: 12, bubbles: true }));
       });
       await page.waitForTimeout(300);
       const during = await samplePixels();
 
-      // Now go idle: the settle timer is 5 s from the last activity, so wait it
-      // out plus a margin, then prove pixels freeze AND the rAF count is flat.
+      // Now go idle past the old 5 s settle point and prove the P2-Y behaviour:
+      // the canvas must still be animating (pixels still changing, rAF still
+      // ticking) — the settle-and-freeze was the defect this build removes.
       await page.waitForTimeout(5600);
       const after = await samplePixels();
       const r1 = await page.evaluate(() => window.__rafCount);
@@ -424,11 +423,11 @@ try {
       if (!during.present || !after.present) {
         add(label, 'INCONCLUSIVE', 'no #honeycombCanvas element to observe');
       } else {
-        const ok = during.diff > 0 && after.diff === 0 && r2 === r1;
+        const ok = during.diff > 0 && after.diff > 0 && r2 > r1;
         add(label, ok ? 'PASS' : 'FAIL',
             `pixels changed during activity: ${during.diff} (must be > 0) · ` +
-            `pixels changed after 5 s idle: ${after.diff} (must be 0) · ` +
-            `rAF count after settle: ${r1}->${r2} (must be flat)`);
+            `pixels changed after 5 s idle: ${after.diff} (must be > 0 — continuous motion) · ` +
+            `rAF count after idle: ${r1}->${r2} (must keep ticking)`);
       }
     } finally { await ctx.close(); }
   }

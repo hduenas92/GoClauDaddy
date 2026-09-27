@@ -13,8 +13,15 @@
      went unnoticed at 15 CSS sites plus every markdown <strong>. Fira Code was
      requested and never rendered — it sits behind JetBrains Mono in the stack,
      so it was 7 weights of dead CSS and one face stuck permanently `loading`.
-     Verify with tools/font-check.mjs after any change here. -->
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+     Verify with tools/font-check.mjs after any change here.
+     P2-U: Silkscreen (pixel panel headers) joins the request for the
+     Cyberpunk Console theme. Inter is still requested to mirror the mockup's
+     own font <link> (screen.html:8), but P2-Y removed it from every font
+     stack: the mockup has no font-sans section (grep verified, zero matches),
+     so no rule applies Inter. Fira Code is deliberately NOT requested — it
+     would sit behind JetBrains Mono and never render, which is exactly the
+     state font-check fails. -->
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;1,400&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/base.css">
 <link rel="stylesheet" href="/static/css/hljs-tokens.css">
 <script>
@@ -24,6 +31,10 @@
 // window.GCA_THEMES). Adding theme #2: add an entry here + a matching
 // [data-theme="..."] block in base.css. Nothing else.
 window.GCA_THEMES = [
+  // P2-U: first entry = default for new users (the bootstrap below falls back
+  // to GCA_THEMES[0].id). Existing users who saved a theme keep it: a saved
+  // gca_theme value wins over the default. Lit Workbench stays selectable.
+  { id: "cyberpunk-console", label: "Cyberpunk Console" },
   { id: "lit-workbench", label: "Lit Workbench" },
 ];
 (function () {
@@ -45,7 +56,7 @@ window.GCA_THEMES = [
 (function () {
   try {
     var saved = window.localStorage.getItem("gca_chat_font_size");
-    if (saved === "12px" || saved === "13px" || saved === "16px") {
+    if (saved === "12px" || saved === "13px" || saved === "14px" || saved === "16px") {
       document.documentElement.style.setProperty("--chat-font-size", saved);
     }
   } catch (e) { /* localStorage unavailable (private mode) — use default */ }
@@ -54,9 +65,11 @@ window.GCA_THEMES = [
 </head>
 <body>
 <a class="skip-link" href="#chat-area">Skip to chat</a>
-<canvas id="honeycombCanvas"></canvas>
+<canvas id="honeycombCanvas" class="honeycomb-canvas"></canvas>
 <div class="ambient-bg"></div>
 <div class="scanline-overlay"></div>
+<div class="ambient-blob-teal"></div>
+<div class="ambient-blob-violet"></div>
 <div id="app"></div>
 <script>
 // Surface JS failures that would otherwise produce a blank page

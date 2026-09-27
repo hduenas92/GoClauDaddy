@@ -32,6 +32,10 @@ const require = createRequire(path.join(REPO, 'package.json'));
 const { chromium } = require('playwright');
 
 const URL = process.env.GCA_URL ?? 'http://127.0.0.1:8765';
+// P2-U: contrast must be proven for BOTH themes. GCA_THEME seeds the app's own
+// gca_theme localStorage key before first paint, so the bootstrap in
+// frontend/index.html applies the requested [data-theme] block.
+const THEME = process.env.GCA_THEME ?? null;
 const HOVER_CAP = Number(process.env.CC_HOVER_CAP ?? 120);
 const results = [];          // { state, verdict, ratio, min, need, fg, bg, text, sel }
 const stateLog = [];         // { state, targets, verdict, note }
@@ -40,9 +44,12 @@ const browser = await chromium.launch();
 
 async function newPage({ onboarded = true } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
-  await ctx.addInitScript((seen) => {
-    try { if (seen) localStorage.setItem('gca_onboarded', '1'); else localStorage.removeItem('gca_onboarded'); } catch {}
-  }, onboarded);
+  await ctx.addInitScript(({ seen, theme }) => {
+    try {
+      if (seen) localStorage.setItem('gca_onboarded', '1'); else localStorage.removeItem('gca_onboarded');
+      if (theme) localStorage.setItem('gca_theme', theme);
+    } catch {}
+  }, { seen: onboarded, theme: THEME });
   const page = await ctx.newPage();
   await page.goto(URL, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
@@ -258,6 +265,7 @@ for (const st of STATES) {
 await browser.close();
 
 // ---- report -------------------------------------------------------------------
+console.log(`\n=== contrast-check ${URL}${THEME ? ` theme=${THEME}` : ' (default theme)'} ===`);
 const fails = results.filter((r) => r.verdict === 'FAIL');
 const pairs = new Map();
 for (const r of results.filter((r) => r.fg)) {

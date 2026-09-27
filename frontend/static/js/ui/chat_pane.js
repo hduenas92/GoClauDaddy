@@ -11,7 +11,7 @@ const STATUS_LABEL = { done: "Done", error: "Error", stopped: "Stopped", timeout
 
 export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
   root.innerHTML = `
-    <div id="chat-messages"></div>
+    <div id="chat-messages" class="glow-shell"></div>
     <div id="chat-status" class="chat-status" role="status" aria-live="polite"></div>
     <div id="reply-announce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
   `;
@@ -140,7 +140,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
 
   function buildMessageEl(role) {
     const div = document.createElement("div");
-    div.className = `msg msg-${role}`;
+    div.className = `msg msg-${role} glow`;
     const bubble = document.createElement("div");
     bubble.className = "msg-bubble";
     const meta = document.createElement("div");
@@ -153,13 +153,37 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     return { div, bubble, meta, actions };
   }
 
+  /** Copy text to the clipboard, with a legacy fallback for contexts where
+   *  navigator.clipboard is unavailable or permission is denied (private
+   *  mode, older WebViews). Returns true when a copy actually happened. */
+  async function _copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        ta.remove();
+        return ok;
+      } catch {
+        return false;
+      }
+    }
+  }
+
   function _addCopyButton(containerEl, getText) {
     const btn = document.createElement("button");
     btn.className = "copy-btn";
     btn.title = "Copy";
     btn.textContent = "⎘";
     btn.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(getText());
+      if (!(await _copyToClipboard(getText()))) return;
       btn.textContent = "✓";
       btn.classList.add("copied");
       setTimeout(() => { btn.textContent = "⎘"; btn.classList.remove("copied"); }, 1500);
@@ -167,21 +191,75 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     return btn;
   }
 
+  function _makeCodeCopyButton(pre, label) {
+    const btn = document.createElement("button");
+    btn.className = "code-copy-btn";
+    btn.textContent = label;
+    btn.title = "Copy code";
+    btn.addEventListener("click", async () => {
+      const code = pre.querySelector("code");
+      if (!(await _copyToClipboard(code ? code.innerText : pre.innerText))) return;
+      // P2-V: real DOM state change — "COPIED!" for ~2 s, then back.
+      btn.textContent = "COPIED!";
+      setTimeout(() => { btn.textContent = label; }, 2000);
+    });
+    return btn;
+  }
+
   function _addCodeCopyButtons(bubbleEl) {
     bubbleEl.querySelectorAll("pre").forEach((pre) => {
       if (pre.querySelector(".code-copy-btn")) return;
-      const btn = document.createElement("button");
-      btn.className = "code-copy-btn";
-      btn.textContent = "Copy";
-      btn.title = "Copy code";
-      btn.addEventListener("click", async () => {
-        const code = pre.querySelector("code");
-        await navigator.clipboard.writeText(code ? code.innerText : pre.innerText);
-        btn.textContent = "Copied!";
-        setTimeout(() => { btn.textContent = "Copy"; }, 1500);
-      });
-      pre.style.position = "relative";
-      pre.appendChild(btn);
+      const codeEl = pre.querySelector("code");
+      const langMatch = codeEl?.className?.match(/language-([\w-]+)/);
+      const lang = langMatch ? langMatch[1].toUpperCase() : null;
+
+      if (!lang) {
+        // Non-highlighted pre (tool-call JSON): keep the simple absolute
+        // copy button with no code-frame chrome.
+        const btn = _makeCodeCopyButton(pre, "Copy");
+        pre.style.position = "relative";
+        pre.appendChild(btn);
+        return;
+      }
+
+      // P2-V code block chrome: wrap the pre in a frame, put a tab bar
+      // (language pill + status dot + filename + copy) above it and a
+      // slim status line (language, line count, verification state)
+      // below it. The pre stays the scrollable code body.
+      pre.dataset.lang = lang;
+      const frame = document.createElement("div");
+      frame.className = "code-frame";
+      pre.parentNode.insertBefore(frame, pre);
+      frame.appendChild(pre);
+
+      const tabbar = document.createElement("div");
+      tabbar.className = "code-tabbar";
+      const pill = document.createElement("span");
+      pill.className = "code-lang-pill";
+      pill.textContent = lang;
+      const dot = document.createElement("span");
+      dot.className = "code-status-dot";
+      dot.setAttribute("aria-hidden", "true");
+      const file = document.createElement("span");
+      file.className = "code-filename";
+      // No endpoint exposes a filename for a code fence; show the honest
+      // empty state rather than inventing one.
+      file.textContent = "—";
+      tabbar.append(pill, dot, file);
+      tabbar.appendChild(_makeCodeCopyButton(pre, "COPY"));
+      frame.insertBefore(tabbar, pre);
+
+      const lineCount = codeEl ? codeEl.innerText.split("\n").length : 0;
+      const status = document.createElement("div");
+      status.className = "code-statusline";
+      const left = document.createElement("span");
+      left.textContent = `${lang} · ${lineCount} ${lineCount === 1 ? "LINE" : "LINES"}`;
+      const verify = document.createElement("span");
+      verify.className = "code-status-verify";
+      // No endpoint verifies code blocks; never claim VERIFIED.
+      verify.textContent = "UNVERIFIED";
+      status.append(left, verify);
+      frame.appendChild(status);
     });
   }
 
