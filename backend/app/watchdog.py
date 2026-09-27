@@ -23,22 +23,22 @@ def main() -> int:
     restart_times: list[float] = []
 
     while True:
-        log.info("Starting ClaudioUI server process")
+        log.info("Starting GoClaudaddy server process")
         proc = subprocess.run([sys.executable, str(run_py)])
         rc = proc.returncode
         if rc == 0:
-            log.info("ClaudioUI server exited cleanly (rc=0) — not restarting")
+            log.info("GoClaudaddy server exited cleanly (rc=0) — not restarting")
             return 0
 
         now = time.time()
         restart_times.append(now)
         restart_times[:] = [t for t in restart_times if now - t < RESTART_WINDOW_SECONDS]
 
-        log.warning("ClaudioUI server exited unexpectedly (rc=%s)", rc)
+        log.warning("GoClaudaddy server exited unexpectedly (rc=%s)", rc)
         if len(restart_times) > MAX_RESTARTS:
             log.error(
                 "Exited %d times within %ds — not restarting again. "
-                "Check the log at ~/.claudioui/logs/app.log before trying again.",
+                "Check the log at ~/.goclaudaddy/logs/app.log before trying again.",
                 len(restart_times),
                 RESTART_WINDOW_SECONDS,
             )

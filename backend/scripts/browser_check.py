@@ -38,6 +38,7 @@ with sync_playwright() as p:
     bold_present = page.evaluate("() => !!document.querySelector('.msg-assistant strong')")
     code_present = page.evaluate("() => !!document.querySelector('.msg-assistant pre code')")
     hljs_applied = page.evaluate("() => !!document.querySelector('.msg-assistant pre code.hljs')")
+    text_block_present = page.evaluate("() => !!document.querySelector('.msg-assistant .text-block')")
     print(
         "bold rendered:",
         bold_present,
@@ -45,6 +46,8 @@ with sync_playwright() as p:
         code_present,
         "| hljs class applied:",
         hljs_applied,
+        "| text-block wrapper present:",
+        text_block_present,
     )
 
     # XSS check: literal script tag in a user message must render as visible text, not execute

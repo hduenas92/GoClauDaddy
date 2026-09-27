@@ -20,6 +20,34 @@ log = get_logger("claude_cli")
 
 CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 
+# Substrings that identify CLI chatter which is not an application error and must
+# not reach the console panel. Keep this list short and specific — a broad filter
+# here would hide real failures.
+_BENIGN_STDERR = (
+    "no stdin data received",  # Claude CLI stdin probe in piped (--print) mode
+)
+
+
+def is_benign_stderr(line: str) -> bool:
+    """True if this stderr line is known CLI noise rather than a real failure."""
+    return any(needle in line for needle in _BENIGN_STDERR)
+
+
+async def drain_stderr(stream, sink: list[str]) -> None:
+    """Read the subprocess's stderr, drop benign noise, log and collect the rest.
+
+    Module-level rather than a closure inside `run()` specifically so it is
+    directly testable: a closure forced an earlier test to re-implement this
+    logic inline, which meant the test passed even with the filter removed.
+    """
+    if not stream:
+        return
+    async for line_bytes in stream:
+        line = line_bytes.decode("utf-8", errors="replace").rstrip()
+        if line and not is_benign_stderr(line):
+            log.warning("claude stderr: %s", line)
+            sink.append(line)
+
 
 def build_command(
     *,
@@ -28,6 +56,8 @@ def build_command(
     permission_mode: str | None = None,
     system_prompt: str | None = None,
     session_id: str | None = None,
+    thinking_budget: int | None = None,
+    max_tokens: int | None = None,
 ) -> list[str]:
     # --verbose is required by the CLI when combining --print with
     # --output-format stream-json (it refuses to start otherwise).
@@ -38,6 +68,12 @@ def build_command(
 
     if system_prompt:
         cmd += ["--system-prompt", system_prompt]
+
+    if thinking_budget and thinking_budget > 0:
+        cmd += ["--thinking", "enabled"]
+
+    if max_tokens and max_tokens > 0:
+        cmd += ["--max-tokens", str(max_tokens)]
 
     if session_id:
         cmd += ["--resume", session_id]  # never --continue — bleeds into unrelated sessions
@@ -91,6 +127,8 @@ async def run(
     permission_mode: str | None = None,
     system_prompt: str | None = None,
     session_id: str | None = None,
+    thinking_budget: int | None = None,
+    max_tokens: int | None = None,
     on_process_started: Any = None,
 ) -> AsyncIterator[dict]:
     """Runs the CLI and yields normalized events as they arrive.
@@ -105,6 +143,8 @@ async def run(
         permission_mode=permission_mode,
         system_prompt=system_prompt,
         session_id=session_id,
+        thinking_budget=thinking_budget,
+        max_tokens=max_tokens,
     )
 
     # Resolve to a full path rather than spawning the bare "claude" name.
@@ -131,24 +171,29 @@ async def run(
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
+            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
+            stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
             creationflags=CREATE_NO_WINDOW,
         )
     except FileNotFoundError:
-        log.error("`claude` CLI not found on PATH")
-        yield {"type": "error", "error": "The claude CLI was not found on PATH."}
+        log.exception("`claude` CLI not found on PATH")
+        yield {"type": "error", "code": "claude_not_found", "error": "The claude CLI was not found on PATH."}
         yield {"type": "done"}
         return
     except OSError as exc:
-        log.error("Failed to start claude: %s", exc)
+        log.exception("Failed to start claude: %s", exc)
         yield {"type": "error", "error": str(exc)}
         yield {"type": "done"}
         return
 
     if on_process_started:
         on_process_started(proc)
+
+    stderr_lines: list[str] = []
+
+    stderr_task = asyncio.create_task(drain_stderr(proc.stderr, stderr_lines))
 
     try:
         async with asyncio.timeout(RESPONSE_TIMEOUT_SECONDS):
@@ -160,18 +205,54 @@ async def run(
         log.warning("claude subprocess exceeded %ds timeout — killing", RESPONSE_TIMEOUT_SECONDS)
         proc.kill()
         await proc.wait()
+        stderr_task.cancel()
         yield {"type": "timeout"}
     except asyncio.CancelledError:
         # Caller (e.g. a /stop request) cancelled us — kill the subprocess and re-raise.
         proc.kill()
+        stderr_task.cancel()
         raise
     except Exception as exc:  # noqa: BLE001 — genuinely must not crash the socket loop
         log.exception("Error while streaming claude output")
+        stderr_task.cancel()
         yield {"type": "error", "error": str(exc)}
     else:
+        await stderr_task
         rc = proc.returncode
         log.info("claude exited rc=%s", rc)
         if rc not in (0, None):
-            yield {"type": "error", "error": f"claude exited with code {rc}"}
+            stderr_text = " ".join(stderr_lines).lower()
+            # BUDGET IS CHECKED BEFORE AUTH, and the order is load-bearing.
+            # The auth list contains the bare substring "auth", which appears
+            # inside "unauthorized" — and a 402-style spend refusal can carry
+            # that word too. Checking auth first would file every exhausted
+            # key under "run `claude auth`", sending the user to re-run a
+            # command that is working fine.
+            #
+            # Matched broadly on purpose. A CaaS key with no assigned budget is
+            # a likely first-run failure — the default allowance is $200 and
+            # some keys have none assigned — and the exact wording the platform
+            # returns is not documented anywhere we can read. A false positive
+            # costs a slightly wrong (but still useful) message; a false
+            # negative costs "claude exited with code 1", which tells the user
+            # nothing at all. The raw stderr is already logged at WARNING by
+            # drain_stderr(), so the real text is always recoverable.
+            if any(kw in stderr_text for kw in (
+                "budget", "quota", "credit", "insufficient", "exceeded",
+                "spend limit", "spending limit", "balance", "billing",
+                "payment required", "402",
+            )):
+                yield {
+                    "type": "error",
+                    "code": "budget_exceeded",
+                    "error": (
+                        "Your CaaS key has no remaining budget. Check your balance "
+                        "and request an increase, then try again."
+                    ),
+                }
+            elif any(kw in stderr_text for kw in ("not logged in", "unauthorized", "authentication", "api key", "invalid key", "auth")):
+                yield {"type": "error", "code": "auth_failed", "error": "Claude authentication failed. Run `claude auth` in a terminal, then refresh."}
+            else:
+                yield {"type": "error", "error": f"claude exited with code {rc}"}
 
     yield {"type": "done"}

@@ -5,7 +5,9 @@ conversation-scoped directory (not a swept OS temp dir) means attachments
 survive restarts and can be re-referenced across turns of the same conversation.
 """
 
+import contextlib
 import datetime
+import errno
 import re
 import uuid
 from pathlib import Path
@@ -21,6 +23,17 @@ _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 class AttachmentRejected(ValueError):
+    pass
+
+
+class DiskFull(OSError):
+    """Distinct out-of-space error — maps to HTTP 507, never a generic 500."""
+
+    def __init__(self) -> None:
+        super().__init__("The disk is full — free up some space, then try again.")
+
+
+class ConversationNotFound(LookupError):
     pass
 
 
@@ -49,13 +62,28 @@ def save_attachment(
     if ext not in ALLOWED_ATTACHMENT_EXTENSIONS:
         raise AttachmentRejected(f"File type '{ext}' is not allowed")
 
+    with get_connection() as conn:
+        exists = conn.execute("SELECT 1 FROM conversations WHERE id = ?", (conversation_id,)).fetchone()
+    if not exists:
+        raise ConversationNotFound(conversation_id)
+
     conv_dir = ATTACHMENTS_DIR / conversation_id
     conv_dir.mkdir(parents=True, exist_ok=True)
 
     attachment_id = str(uuid.uuid4())
     stored_name = f"{attachment_id}_{safe_name}"
     stored_path = conv_dir / stored_name
-    stored_path.write_bytes(data)
+    try:
+        stored_path.write_bytes(data)
+    except OSError as exc:
+        # ENOSPC (POSIX) or ERROR_DISK_FULL (winerror 112) — a distinct,
+        # specific failure the frontend can word differently from "too large".
+        if exc.errno == errno.ENOSPC or getattr(exc, "winerror", None) == 112:
+            log.exception("Failed to write attachment %s (disk full): %s", stored_name, exc)
+            with contextlib.suppress(OSError):
+                stored_path.unlink(missing_ok=True)  # don't leave a partial file
+            raise DiskFull() from exc
+        raise
 
     now = _now()
     with get_connection() as conn:
@@ -103,6 +131,19 @@ def attach_to_message(attachment_ids: list[str], message_id: str) -> None:
             "UPDATE attachments SET message_id = ? WHERE id = ?",
             [(message_id, aid) for aid in attachment_ids],
         )
+
+
+def attachments_for_message(message_id: str) -> list[Attachment]:
+    """Files attached to one message.
+
+    Needed by regenerate: the question is re-asked from the stored row, so its
+    file references have to be rebuilt from the DB rather than from the payload.
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM attachments WHERE message_id = ? ORDER BY created_at ASC", (message_id,)
+        ).fetchall()
+    return [Attachment.from_row(r) for r in rows]
 
 
 def delete_attachment(attachment_id: str) -> None:

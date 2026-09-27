@@ -1,10 +1,10 @@
 @echo off
 setlocal enabledelayedexpansion
-title ClaudioUI
+title GoClaudaddy
 cd /d "%~dp0"
 
-echo ClaudioUI launcher
-echo ===================
+echo GoClaudaddy launcher
+echo ====================
 echo.
 
 rem Every check below captures %errorlevel% into a variable immediately after
@@ -87,47 +87,96 @@ if not defined PYEXE (
     if not defined PYEXE (
         echo.
         echo Python 3.13 was installed but isn't visible in this window yet.
-        echo Please close this window and double-click Launch ClaudioUi.bat again.
+        echo Please close this window and double-click Launch GoClaudaddy.bat again.
         pause
         exit /b 1
     )
 )
 
 rem --- 2. claude CLI ------------------------------------------------------------
+rem The native Claude Code installer (https://claude.ai/install.cmd) drops
+rem claude.exe in %%USERPROFILE%%\.local\bin but - as of Claude Code 2.1.283 -
+rem prints "Native installation exists but ... is not in your PATH" and does
+rem NOT add that folder to PATH. `where claude` therefore keeps failing even
+rem though the exe is present, which turned the launcher into an endless
+rem install -> "close and relaunch" -> install loop. Fix: whenever `where
+rem claude` fails, first check the exe at the known path. If it exists, put
+rem the folder on this session's PATH, persist it to the USER PATH (per-user,
+rem no admin) through tools\add-user-path.ps1, and carry straight on - the
+rem "close and relaunch" message now only fires when the exe is truly absent
+rem after an install.
+set "CLAUDEDIR=%USERPROFILE%\.local\bin"
+set "CLAUDEBIN=%CLAUDEDIR%\claude.exe"
+set "GCA_CLAUDE_RESOLVED="
+set "GCA_PERSIST_DRYRUN="
+
 where claude >nul 2>&1
 set "RC=!errorlevel!"
 if not "!RC!"=="0" (
-    echo claude CLI not found - installing, this happens once...
-    call :CheckNetwork "claude.ai"
-    if not defined NETOK (
-        echo.
-        echo ERROR: Can't reach claude.ai to download the installer.
-        echo Check your internet connection ^(or VPN, if this network requires one^) and try again.
-        pause
-        exit /b 1
-    )
-    curl -fsSL https://claude.ai/install.cmd -o "%TEMP%\claude_install.cmd" && call "%TEMP%\claude_install.cmd" && del "%TEMP%\claude_install.cmd"
-    call :RefreshPath
-    where claude >nul 2>&1
-    set "RC=!errorlevel!"
-    if not "!RC!"=="0" (
-        echo.
-        echo claude CLI was installed but isn't visible in this window yet.
-        echo Please close this window and double-click Launch ClaudioUi.bat again.
-        pause
-        exit /b 1
+    if exist "!CLAUDEBIN!" (
+        call :UseLocalClaude
+    ) else (
+        if not defined GCA_LAUNCHER_DRYRUN (
+            echo claude CLI not found - installing, this happens once...
+            call :CheckNetwork "claude.ai"
+            if not defined NETOK (
+                echo.
+                echo ERROR: Can't reach claude.ai to download the installer.
+                echo Check your internet connection ^(or VPN, if this network requires one^) and try again.
+                pause
+                exit /b 1
+            )
+            curl -fsSL https://claude.ai/install.cmd -o "%TEMP%\claude_install.cmd" && call "%TEMP%\claude_install.cmd" && del "%TEMP%\claude_install.cmd"
+        )
+        if not defined GCA_LAUNCHER_DRYRUN call :RefreshPath
+        where claude >nul 2>&1
+        set "RC=!errorlevel!"
+        if not "!RC!"=="0" (
+            if exist "!CLAUDEBIN!" (
+                call :UseLocalClaude
+            ) else (
+                if not defined GCA_LAUNCHER_DRYRUN (
+                    echo.
+                    echo claude CLI was installed but isn't visible in this window yet.
+                    echo Please close this window and double-click Launch GoClaudaddy.bat again.
+                    pause
+                    exit /b 1
+                )
+            )
+        )
     )
 ) else (
-    rem Already installed - self-update in place rather than leaving whatever
-    rem version happens to be on this machine. The CLI owns its own update
-    rem mechanism (checks its release channel, replaces its own binary) - that's
-    rem more robust than this script trying to parse/compare version strings
-    rem itself, and matches how the org's CaaS onboarding already expects
-    rem people to keep the CLI current. Non-fatal: an offline network or a
-    rem transient failure here shouldn't block using the version already
-    rem installed.
-    echo Checking for claude CLI updates...
-    claude update >nul 2>&1
+    if not defined GCA_LAUNCHER_DRYRUN (
+        rem Already installed - self-update in place rather than leaving whatever
+        rem version happens to be on this machine. The CLI owns its own update
+        rem mechanism (checks its release channel, replaces its own binary) - that's
+        rem more robust than this script trying to parse/compare version strings
+        rem itself, and matches how the org's CaaS onboarding already expects
+        rem people to keep the CLI current. Non-fatal: an offline network or a
+        rem transient failure here shouldn't block using the version already
+        rem installed.
+        echo Checking for claude CLI updates...
+        claude update >nul 2>&1
+    )
+)
+
+rem --- dry-run stop point --------------------------------------------------------
+rem GCA_LAUNCHER_DRYRUN=1 (tests/CI): stop after the claude section, report the
+rem resolved claude and what would be persisted, then exit without touching the
+rem real USER PATH or starting the app. The installer download is skipped above
+rem and :RefreshPath is skipped as well, so the dry-run result depends only on
+rem the PATH the caller supplied - never on the real registry PATH.
+if defined GCA_LAUNCHER_DRYRUN (
+    if not defined GCA_CLAUDE_RESOLVED (
+        where claude >nul 2>&1
+        if "!errorlevel!"=="0" (
+            for /f "delims=" %%I in ('where claude 2^>nul') do if not defined GCA_CLAUDE_RESOLVED set "GCA_CLAUDE_RESOLVED=%%I"
+        )
+    )
+    if not defined GCA_CLAUDE_RESOLVED set "GCA_CLAUDE_RESOLVED=NONE"
+    echo DRYRUN claude=!GCA_CLAUDE_RESOLVED!
+    echo DRYRUN persist=!GCA_PERSIST_DRYRUN!
+    exit /b 0
 )
 
 rem --- 3. venv + pinned dependencies (first run only) --------------------------
@@ -141,7 +190,7 @@ rem trading one clear error for a more confusing one. If the marker is
 rem missing, wipe and recreate the venv from scratch rather than trying to
 rem patch a possibly half-built one.
 if not exist ".venv\.deps_ok" (
-    echo Setting up ClaudioUI for the first time - this happens once...
+    echo Setting up GoClaudaddy for the first time - this happens once...
     if exist ".venv" rmdir /s /q ".venv"
     !PYEXE! -m venv .venv
     set "RC=!errorlevel!"
@@ -169,7 +218,7 @@ if not exist ".venv\.deps_ok" (
 
 rem --- 4. stop any stale instance already bound to the port --------------------
 for /f "tokens=5" %%p in ('netstat -aon 2^>nul ^| findstr ":8765 " ^| findstr LISTENING') do (
-    echo Stopping an existing ClaudioUI instance ^(PID %%p^)...
+    echo Stopping an existing GoClaudaddy instance ^(PID %%p^)...
     taskkill /PID %%p /F >nul 2>&1
 )
 
@@ -179,7 +228,7 @@ rem visible here instead of hidden in a background process. The auth check
 rem (ANTHROPIC_AUTH_TOKEN / ANTHROPIC_BASE_URL) happens inside Python at startup;
 rem this script never touches that credential itself.
 echo.
-echo Starting ClaudioUI...
+echo Starting GoClaudaddy...
 cd backend
 "..\.venv\Scripts\python.exe" -m app.watchdog
 set "EXITCODE=%errorlevel%"
@@ -187,7 +236,7 @@ cd ..
 
 if not "%EXITCODE%"=="0" (
     echo.
-    echo ClaudioUI stopped with an error. Check %USERPROFILE%\.claudioui\logs\app.log for details.
+    echo GoClaudaddy stopped with an error. Check %USERPROFILE%\.goclaudaddy\logs\app.log for details.
     pause
 )
 exit /b %EXITCODE%
@@ -240,4 +289,34 @@ rem in this session that isn't in the registry.
 for /f "skip=2 tokens=3*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SysPath=%%A %%B"
 for /f "skip=2 tokens=3*" %%A in ('reg query "HKCU\Environment" /v Path 2^>nul') do set "UserPath=%%A %%B"
 set "PATH=%PATH%;%SysPath%;%UserPath%"
+goto :eof
+
+:UseLocalClaude
+rem `where claude` failed but the exe exists at the installer's well-known
+rem location. Fix the current session's PATH and persist the folder to the
+rem USER PATH (per-user registry, no admin) so future terminals work too.
+rem In dry-run this only records the resolved path - no session or registry
+rem write happens.
+if not defined GCA_CLAUDE_RESOLVED set "GCA_CLAUDE_RESOLVED=!CLAUDEBIN!"
+if defined GCA_LAUNCHER_DRYRUN (
+    call :GetDryRunPersist
+    goto :eof
+)
+set "PATH=!CLAUDEDIR!;!PATH!"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\add-user-path.ps1" -Dir "!CLAUDEDIR!"
+set "RC=!errorlevel!"
+if not "!RC!"=="0" (
+    echo WARNING: could not save !CLAUDEDIR! to your user PATH - claude works in this window but new terminals won't see it.
+)
+echo claude CLI found at !CLAUDEBIN! - added to your PATH
+goto :eof
+
+:GetDryRunPersist
+rem What add-user-path.ps1 WOULD persist, without writing anything. The
+rem DisableDelayedExpansion scope keeps any "!" byte in the captured string
+rem literal - a "!" in a directory name must survive the capture.
+setlocal DisableDelayedExpansion
+set "PERSISTOUT="
+for /f "delims=" %%I in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\add-user-path.ps1" -Dir "%CLAUDEDIR%" -DryRun') do set "PERSISTOUT=%%I"
+endlocal & set "GCA_PERSIST_DRYRUN=%PERSISTOUT%"
 goto :eof

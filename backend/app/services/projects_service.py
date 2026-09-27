@@ -28,15 +28,16 @@ def _validate_working_dir(path_str: str) -> None:
         raise InvalidWorkingDirError(f"working_dir is not a directory: {path_str}")
 
 
-def create_project(name: str, working_dir: str, system_prompt: str | None = None) -> Project:
-    _validate_working_dir(working_dir)
+def create_project(name: str, working_dir: str | None = None, system_prompt: str | None = None) -> Project:
+    if working_dir:
+        _validate_working_dir(working_dir)
     project_id = str(uuid.uuid4())
     now = _now()
     with get_connection() as conn:
         conn.execute(
             """INSERT INTO projects (id, name, working_dir, system_prompt, created_at, updated_at)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (project_id, name, working_dir, system_prompt, now, now),
+            (project_id, name, working_dir or "", system_prompt, now, now),
         )
     return get_project(project_id)  # type: ignore[return-value]
 
@@ -60,7 +61,7 @@ def update_project(
     working_dir: str | None = None,
     system_prompt: str | None = None,
 ) -> None:
-    if working_dir is not None:
+    if working_dir:  # non-empty string only — empty string means "clear", no validation needed
         _validate_working_dir(working_dir)
     fields, params = [], []
     if name is not None:

@@ -13,7 +13,7 @@ def setup_logging(debug: bool = False) -> None:
     if _configured:
         return
     level = logging.DEBUG if debug else logging.INFO
-    root = logging.getLogger("claudioui")
+    root = logging.getLogger("goclaudaddy")
     root.setLevel(level)
 
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s", "%Y-%m-%d %H:%M:%S")
@@ -31,4 +31,4 @@ def setup_logging(debug: bool = False) -> None:
 
 
 def get_logger(name: str) -> logging.Logger:
-    return logging.getLogger(f"claudioui.{name}")
+    return logging.getLogger(f"goclaudaddy.{name}")

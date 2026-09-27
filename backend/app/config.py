@@ -5,8 +5,8 @@ from pathlib import Path
 HOST = "127.0.0.1"
 PORT = 8765
 
-DATA_DIR = Path.home() / ".claudioui"
-DB_PATH = DATA_DIR / "claudioui.db"
+DATA_DIR = Path.home() / ".goclaudaddy"
+DB_PATH = DATA_DIR / "goclaudaddy.db"
 LOG_DIR = DATA_DIR / "logs"
 LOG_FILE = LOG_DIR / "app.log"
 ATTACHMENTS_DIR = DATA_DIR / "attachments"
@@ -45,10 +45,11 @@ PERMISSION_MODES = ("acceptEdits", "auto", "bypassPermissions", "manual", "dontA
 DEFAULT_WORKING_DIR = str(Path.home())
 
 DEFAULT_MODEL = "claude-sonnet-4-6"
+# Rates are $/million tokens (Anthropic retail pricing). context_window in tokens.
 MODELS = [
-    ("claude-sonnet-4-6", "Sonnet 4.6"),
-    ("claude-opus-4-5", "Opus 4.5"),
-    ("claude-haiku-4-5-20251001", "Haiku 4.5"),
+    {"id": "claude-sonnet-4-6",         "label": "Sonnet 4.6", "context_window": 1_000_000, "input_rate":  3.00, "output_rate": 15.00},
+    {"id": "claude-opus-4-5",           "label": "Opus 4.5",   "context_window": 1_000_000, "input_rate":  5.00, "output_rate": 25.00},
+    {"id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5",  "context_window":   200_000, "input_rate":  1.00, "output_rate":  5.00},
 ]
 
 

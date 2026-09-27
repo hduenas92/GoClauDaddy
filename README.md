@@ -17,7 +17,10 @@ If you skip this, ClaudioUI will tell you exactly which variable is missing when
 
 ## Starting it up
 
-Double-click **`Launch ClaudioUi.bat`**. A window will open and, after a few seconds, your browser will open to the chat screen automatically.
+Double-click **`Launch GoClaudaddy.bat`**. A window will open and, after a few seconds, your browser will open to the chat screen automatically.
+
+There is also a `legacy\Launch ClaudioUi.bat`. **Do not use it** — it starts an older
+PowerShell server, not this app.
 
 The very first time you run it, it may take a minute or two longer while it sets a few things up — that only happens once. Every time after that, it starts in a few seconds.
 
@@ -69,7 +72,7 @@ Files you attach (images, text files, PDFs, etc.) are given to Claude for that m
 - **The chat seems stuck** — click **Stop**, then try sending again.
 - **The launcher window shows an error** — read the message; it's written in plain language and tells you what to do next (e.g. "close this window and run it again").
 - **Something looks broken and you want to report it** — the app keeps a log file at:
-  `C:\Users\<you>\.claudioui\logs\app.log`
+  `C:\Users\<you>\.goclaudaddy\logs\app.log`
   Grab the last part of that file and send it along when you report the issue — it has the details needed to figure out what happened.
 - **The app crashes** — it will usually restart itself automatically. If it fails to start three times in a row, the window will say so and stop trying, rather than looping forever.
 
