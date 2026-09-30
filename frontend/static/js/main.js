@@ -193,7 +193,7 @@ async function boot() {
   `;
 
   const rightSidebarEl = document.getElementById("right-sidebar");
-  if (localStorage.getItem("gca_sb_open") !== "1") rightSidebarEl.classList.add("sb-collapsed");
+  if (window.innerWidth < 1280 || localStorage.getItem("gca_sb_open") !== "1") rightSidebarEl.classList.add("sb-collapsed");
   rightSidebarRef = mountRightSidebar(rightSidebarEl);
 
   const chatScrollEl = document.getElementById("chat-scroll");
