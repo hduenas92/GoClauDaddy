@@ -66,7 +66,7 @@ def delete(path):
         return False
 
 
-working_dir = r"C:\Users\hduenas\LLMs\Claude\Projects\ClaudioUI\legacy"
+working_dir = r"C:\Users\hduenas\LLMs\Claude\Projects\GoClaudaddy\app\legacy"
 project = None
 conv = None
 
