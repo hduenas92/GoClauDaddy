@@ -123,10 +123,6 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
           <p class="drawer-hint">Experimental features. Changes take effect on the next conversation.</p>
           <button class="drawer-link-btn" id="replay-onboarding-btn">Replay onboarding tour</button>
           <label class="drawer-toggle-row">
-            <input type="checkbox" id="feat-teams" class="drawer-toggle-check" aria-label="Enable team sessions">
-            <span class="drawer-toggle-label">Enable team sessions</span>
-          </label>
-          <label class="drawer-toggle-row">
             <input type="checkbox" id="feat-assess" class="drawer-toggle-check" aria-label="Evaluate tasks before sending">
             <span class="drawer-toggle-label">Evaluate tasks before sending</span>
           </label>
@@ -343,15 +339,6 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
     terminalCheck.checked = localStorage.getItem("gca_feat_terminal") === "1";
     terminalCheck.addEventListener("change", () => {
       localStorage.setItem("gca_feat_terminal", terminalCheck.checked ? "1" : "0");
-    });
-  }
-
-  const teamsCheck = drawerEl.querySelector("#feat-teams");
-  if (teamsCheck) {
-    teamsCheck.checked = localStorage.getItem("gca_feat_teams") === "1";
-    teamsCheck.addEventListener("change", () => {
-      localStorage.setItem("gca_feat_teams", teamsCheck.checked ? "1" : "0");
-      window.dispatchEvent(new CustomEvent("gca:feature", { detail: { name: "teams", enabled: teamsCheck.checked } }));
     });
   }
 
