@@ -1251,6 +1251,79 @@ await replyCase('A-reply-short: reply announced once on done, silent while strea
 }
 
 // ===========================================================================
+// P2-S session details panel — landmark, aria-expanded toggle, keyboard
+// collapse/expand. Red-proved by mutating #sd-toggle's aria-expanded away:
+// the toggle case goes FAIL, the landmark case still passes.
+// ===========================================================================
+{
+  const { ctx, page } = await newPage();
+  try {
+    await bootPage(page);
+    const r = await page.evaluate(() => {
+      const aside = document.getElementById('session-details');
+      const toggle = document.getElementById('sd-toggle');
+      const body = document.getElementById('sd-body');
+      return {
+        asidePresent: !!aside,
+        tag: aside ? aside.tagName.toLowerCase() : null,
+        role: aside ? aside.getAttribute('role') : null,
+        label: aside ? aside.getAttribute('aria-label') : null,
+        togglePresent: !!toggle,
+        expanded: toggle ? toggle.getAttribute('aria-expanded') : null,
+        controls: toggle ? toggle.getAttribute('aria-controls') : null,
+        bodyId: body ? body.id : null,
+        bodyHidden: body ? body.hidden : null,
+      };
+    });
+    const named = await page.getByRole('complementary', { name: 'Session details' }).count().catch(() => 0);
+    const landmarkOk = r.asidePresent && r.tag === 'aside' && r.label === 'Session details' && named > 0;
+    add('P2-S panel: complementary landmark named "Session details"',
+      landmarkOk ? 'PASS' : 'FAIL',
+      '<aside aria-label="Session details"> exposes a named complementary landmark',
+      `aside=${r.asidePresent} tag=${r.tag} role=${r.role ?? '(implicit)'} label=${JSON.stringify(r.label)} getByRoleCount=${named}`);
+
+    const toggleOk = r.togglePresent
+      && (r.expanded === 'true' || r.expanded === 'false')
+      && r.controls === 'sd-body'
+      && r.bodyId === 'sd-body'
+      && r.bodyHidden === (r.expanded === 'false');
+    add('P2-S panel: toggle button exposes aria-expanded and controls the body',
+      toggleOk ? 'PASS' : 'FAIL',
+      '#sd-toggle carries aria-expanded and aria-controls="sd-body"; #sd-body hidden matches the state',
+      `toggle=${r.togglePresent} expanded=${r.expanded} controls=${r.controls} bodyId=${r.bodyId} bodyHidden=${r.bodyHidden}`);
+
+    if (!r.togglePresent) {
+      add('P2-S panel: collapse/expand by keyboard', 'INCONCLUSIVE',
+        'pressing Space on #sd-toggle flips aria-expanded and body visibility, and a second press restores them',
+        'no #sd-toggle rendered');
+    } else {
+      const before = r.expanded === 'true';
+      await page.focus('#sd-toggle');
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(250);
+      const mid = await page.evaluate(() => ({
+        expanded: document.getElementById('sd-toggle').getAttribute('aria-expanded'),
+        hidden: document.getElementById('sd-body').hidden,
+      }));
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(250);
+      const after = await page.evaluate(() => ({
+        expanded: document.getElementById('sd-toggle').getAttribute('aria-expanded'),
+        hidden: document.getElementById('sd-body').hidden,
+      }));
+      const flipped = (mid.expanded === 'true') === !before && mid.hidden === before;
+      const restored = (after.expanded === 'true') === before && after.hidden === !before;
+      add('P2-S panel: collapse/expand by keyboard',
+        flipped && restored ? 'PASS' : 'FAIL',
+        'Space on the toggle flips aria-expanded and body visibility; a second press restores both',
+        `beforeExpanded=${before} afterFirst(expanded=${mid.expanded},hidden=${mid.hidden}) afterSecond(expanded=${after.expanded},hidden=${after.hidden})`);
+    }
+  } finally {
+    await ctx.close();
+  }
+}
+
+// ===========================================================================
 await browser.close();
 
 console.log('\n=== a11y-check ===\n');

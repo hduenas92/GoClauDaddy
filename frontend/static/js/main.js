@@ -50,6 +50,7 @@ import { mountSidebarConversations } from "./ui/sidebar_conversations.js";
 import { mountSidebarProjects } from "./ui/sidebar_projects.js";
 import { mountSettingsPanel, openDrawer, closeDrawer } from "./ui/settings_panel.js";
 import { mountRightSidebar } from "./ui/right_sidebar.js";
+import { mountSessionDetails } from "./ui/session_details.js";
 import { maybeShowOnboarding } from "./ui/onboarding_tour.js";
 import { openTemplatePicker } from "./ui/template_picker.js";
 import { trapFocus } from "./ui/modal.js";
@@ -62,6 +63,7 @@ let settingsDrawerEl = null;
 let chatPaneRef = null;
 let composerRoot = null;
 let rightSidebarRef = null;
+let sessionDetailsRef = null;
 
 function showChatConnectionError(compRoot, chatPane, conversationId) {
   // P2-B E2: the WebSocket could not be opened. Give the user a visible message
@@ -88,6 +90,7 @@ async function switchToConversation(id, chatPane, compRoot) {
   currentConversation = conversation;
   rightSidebarRef?.setModel(conversation.model);
   rightSidebarRef?.setConversation(id);
+  sessionDetailsRef?.setConversation(conversation);
   chatPane.setConversationId(id);
   const msgs = getState().messages;
   if (msgs.length === 0) {
@@ -102,6 +105,10 @@ async function switchToConversation(id, chatPane, compRoot) {
       if (currentConversation) {
         currentConversation = { ...currentConversation, ...updates };
         updateTelemetry(currentConversation);
+        if (updates.model) {
+          rightSidebarRef?.setModel(updates.model);
+          sessionDetailsRef?.setModel(updates.model);
+        }
       }
     },
   });
@@ -163,6 +170,9 @@ async function boot() {
       </div>
       <div id="settings-drawer" class="settings-drawer" aria-hidden="true" inert></div>
       <div id="chat-scroll"></div>
+      <!-- P2-S: session details panel. DOM order puts its toggle after the
+           transcript and before the composer, matching the spec's tab order. -->
+      <aside id="session-details" aria-label="Session details"></aside>
       <div id="composer"></div>
     </main>
 
@@ -206,6 +216,10 @@ async function boot() {
     },
   });
   chatPaneRef = chatPane;
+  // Mounted after chatPane so #chat-status exists for the panel's connection
+  // mirror (session_details.js observes that live region).
+  const sessionDetailsEl = document.getElementById("session-details");
+  sessionDetailsRef = mountSessionDetails(sessionDetailsEl);
   composerRoot = document.getElementById("composer");
   settingsDrawerEl = document.getElementById("settings-drawer");
   sidebarConvsRoot = document.getElementById("sidebar-conversations");
@@ -290,6 +304,7 @@ async function boot() {
     chatPane.showEmptyState();
     if (currentSocket) { currentSocket.close(); currentSocket = null; }
     currentConversation = null;
+    sessionDetailsRef?.setConversation({ id: null, model: null, project_id: null });
     const titleEl = document.getElementById("conv-title-text");
     if (titleEl) titleEl.textContent = "GoClaudaddy";
   });

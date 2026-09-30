@@ -105,6 +105,68 @@
   --shadow-rgb:        0 0 0;
 }
 
+/* P2-S "Cyberpunk Console with Subdued Honeycomb" — colours and fonts read
+   from Stitch screen.html (project 6250354989880053538, screen
+   8a63df6fad7a40e0a4122e7c24147b7c):
+     obsidian #09090D / panel #0F0F17 / surface #141320 / elevated #1A192A ·
+     cyber-teal #14B8A6 · cyber-teal-bright #2DD4BF · cyber-amber #FBBF24 ·
+     cyber-rose #F43F5E · emerald-glow #34D399 · electric-cyan #38BDF8 ·
+     violet primary #A78BFA · text #F8FAFC / muted #94A3B8 ·
+     JetBrains Mono as the UI face (the mockup's body is font-mono).
+   Channel triplets only + --font-ui/--violet: every component rule already
+   composes from these tokens, so the whole shell, honeycomb canvas (which
+   re-reads --accent-rgb/--accent-hi-rgb on [data-theme] changes,
+   honeycomb.js:22-35) and hljs palette re-tint from this one block.
+   Contrast on the darkest surface (#141320): text 17.55:1 · secondary/muted
+   7.16:1 · accent 7.38:1 · accent-hi 9.86:1 · amber 11.00:1 · emerald
+   9.55:1 · rose 5.00:1 — all >= 4.5:1. The amber primary button pairs
+   #FBBF24 with ground text (12.05:1). */
+[data-theme="cyberpunk-console"] {
+  --ground-rgb:        7 7 11;
+  --panel-rgb:         15 15 23;
+  --surface-rgb:       20 19 32;
+  --hover-rgb:         26 25 42;
+  --border-quiet-rgb:  20 184 166;
+  --border-strong-rgb: 45 212 191;
+  --text-primary-rgb:   248 250 252;
+  --text-secondary-rgb: 148 163 184;
+  --text-muted-rgb:     148 163 184;
+  --accent-rgb:        20 184 166;
+  --accent-hi-rgb:     45 212 191;
+  --cta-rgb:           56 189 248;
+  --working-rgb:       251 191 36;
+  --success-rgb:       52 211 153;
+  --warning-rgb:       229 161 63;
+  --error-rgb:         244 63 94;
+  --shadow-rgb:        0 0 0;
+  --violet: #a78bfa;
+}
+
+/* Cyber theme keeps DM Sans as the UI face (it must keep rendering — the
+   Google Fonts request serves BOTH themes and font-check fails a requested
+   family that never renders on the measured theme), but the console chrome
+   goes monospace: panel headers, metric labels and the HUD-ish controls
+   below, matching the mockup's mono panel headers. Chat bubbles, code,
+   composer and metric values were already var(--font-shell). */
+[data-theme="cyberpunk-console"] .sb-section > summary,
+[data-theme="cyberpunk-console"] .metric-label,
+[data-theme="cyberpunk-console"] .sd-toggle,
+[data-theme="cyberpunk-console"] #chat-header,
+[data-theme="cyberpunk-console"] .header-btn {
+  font-family: var(--font-shell);
+}
+
+/* P2-S idle-CPU: the empty-state glyph's infinite text-shadow pulse is the
+   one continuous CSS animation left after the honeycomb settles (measured
+   ~10% renderer task time while idle on an empty conversation, ~0.07% with
+   the glyph static). The cyber theme uses a static glow instead — calmer,
+   matches the mockup's static HUD accents, and keeps perf-check's 6% idle
+   gate (tools/perf-check.mjs:53) with its threshold untouched. */
+[data-theme="cyberpunk-console"] .empty-state-glyph {
+  animation: none;
+  text-shadow: 0 0 24px rgba(var(--accent-rgb) / 0.45);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
@@ -2454,6 +2516,74 @@ textarea::placeholder {
   background: var(--rose);
   box-shadow: 0 0 5px rgba(var(--error-rgb) / 0.6);
 }
+
+/* ============================================================
+   SESSION DETAILS PANEL (P2-S)
+   <aside role="complementary" aria-label="Session details">,
+   DOM-sited between #chat-scroll and #composer so its toggle is in
+   the tab order after the transcript and before the composer.
+   ============================================================ */
+#session-details {
+  flex-shrink: 0;
+  align-self: flex-end;
+  width: min(340px, calc(100% - 24px));
+  margin: 0 12px 6px;
+  background: rgba(var(--panel-rgb) / 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.55);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 18px rgba(var(--accent-rgb) / 0.18);
+  overflow: hidden;
+}
+#session-details.sd-collapsed { width: auto; }
+.sd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(var(--accent-rgb) / 0.3);
+  background: rgba(var(--surface-rgb) / 0.6);
+}
+.sd-title {
+  font-family: var(--font-shell);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-hi);
+  text-shadow: 0 0 8px rgba(var(--accent-hi-rgb) / 0.35);
+}
+.sd-toggle {
+  background: rgba(var(--accent-rgb) / 0.1);
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.5);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-family: var(--font-shell);
+  font-size: 11px;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.sd-toggle:hover {
+  background: rgba(var(--accent-rgb) / 0.2);
+  border-color: var(--accent-hi);
+  color: var(--accent-hi);
+}
+.sd-body { padding: 6px 10px 8px; }
+.sd-body .metric-row { padding: 3px 0; }
+.sd-body .metric-label { color: var(--text-muted); }
+.sd-connection-off .metric-value { color: var(--amber); }
+.sd-project-dir {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-family: var(--font-shell);
+  word-break: break-all;
+  text-align: right;
+}
+
 
 /* ---- 1.4.4 / 1.4.10: reflow without clipping or page-level horizontal scroll.
    Header content wraps instead of clipping; the composer row wraps so the input

@@ -24,6 +24,10 @@
 // window.GCA_THEMES). Adding theme #2: add an entry here + a matching
 // [data-theme="..."] block in base.css. Nothing else.
 window.GCA_THEMES = [
+  // P2-S: first entry = default for new users (bootstrap below falls back to
+  // GCA_THEMES[0].id). Existing users who saved a theme keep it: the saved
+  // value wins over the default. Lit Workbench stays selectable.
+  { id: "cyberpunk-console", label: "Cyberpunk Console" },
   { id: "lit-workbench", label: "Lit Workbench" },
 ];
 (function () {
