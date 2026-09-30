@@ -47,7 +47,7 @@ SW_HIDE = 0
 MODEL = "claude-sonnet-4-6"  # backend/app/config.py:47 DEFAULT_MODEL
 PROMPT = "Reply with the single word ok."
 
-REPO_CWD = r"C:\Users\hduenas\LLMs\Claude\Projects\GoClaudaddy\app-wt-C"
+REPO_CWD = r"C:\Users\hduenas\LLMs\Claude\Projects\GoClaudaddy\app"
 
 kernel32 = ctypes.windll.kernel32
 user32 = ctypes.windll.user32
