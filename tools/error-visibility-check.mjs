@@ -159,7 +159,10 @@ async function stubBoot(page, { messages = [] } = {}) {
         };
       });
       const rejects = await unhandled(page);
-      const ok = s.notice.includes('BANNER-GARBAGE-42')
+      // R10b row A9 (Houston, 2026-10-01): the notice shows fixed copy, never the
+      // raw CLI line (that goes to the server log, chat_socket.py "Non-JSON CLI stdout").
+      const ok = s.notice.includes('GoClaudaddy ignored an unexpected line from the Claude CLI.')
+        && !s.notice.includes('BANNER-GARBAGE-42')
         && s.bubble.includes('real reply')
         && !s.bubble.includes('BANNER-GARBAGE-42')
         && s.sendHidden === false
