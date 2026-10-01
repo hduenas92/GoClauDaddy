@@ -2,6 +2,7 @@
 
 import { api } from "./http.js";
 import { showErrorToast } from "../ui/modal.js";
+import * as storage from "../state/storage.js";
 
 // Terminal event types for a turn — once one of these is observed live, the
 // turn is no longer "pending" from this client's point of view.
@@ -95,7 +96,7 @@ export class ChatSocket {
   }
 
   _clearPending() {
-    try { localStorage.removeItem(this._pendingKey()); } catch { /* ignore */ }
+    try { storage.removeItem(this._pendingKey()); } catch { /* ignore */ }
   }
 
   // Distinguishes "a turn completed while this client was away" from "this
@@ -115,7 +116,7 @@ export class ChatSocket {
   async checkResync() {
     const key = this._pendingKey();
     let hadPending;
-    try { hadPending = !!localStorage.getItem(key); } catch { hadPending = false; }
+    try { hadPending = !!storage.getItem(key); } catch { hadPending = false; }
     try {
       const { conversation } = await api.getConversation(this.conversationId);
       if (conversation.status === "busy") {
@@ -154,7 +155,7 @@ export class ChatSocket {
       throw new Error("Not connected — message was not sent.");
     }
     this.ws.send(JSON.stringify({ type: "send", message, ...opts }));
-    try { localStorage.setItem(this._pendingKey(), "1"); } catch { /* ignore */ }
+    try { storage.setItem(this._pendingKey(), "1"); } catch { /* ignore */ }
   }
 
   /**

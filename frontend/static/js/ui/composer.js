@@ -6,6 +6,7 @@ import { interpolateTemplate, openTemplatePicker } from "./template_picker.js";
 import { showErrorToast } from "./modal.js";
 import { clearDraft, loadDraft, saveDraft } from "./composer_draft.js";
 import { attachmentDownloadUrl, isImageName } from "./attachment_view.js";
+import * as storage from "../state/storage.js";
 
 const _RISKY = /\b(delete|drop|remove|wipe|destroy|format|truncate|uninstall|overwrite|migrate|deploy|execute|rm\s+-rf)\b/i;
 
@@ -374,7 +375,7 @@ export function mountComposer(root, socket, chatPane) {
     }
 
     // Assessment gate (feature flag + heuristic)
-    if (text && localStorage.getItem("gca_feat_assess") === "1" && _shouldAssess(text)) {
+    if (text && storage.getItem("gca_feat_assess") === "1" && _shouldAssess(text)) {
       const convId = getState().activeConversationId;
       let assessment;
       try {

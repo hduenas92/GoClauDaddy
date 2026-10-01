@@ -11,6 +11,8 @@
  * "nothing to restore".
  */
 
+import * as storage from "../state/storage.js";
+
 const PREFIX = "gca_draft_";
 
 export function draftKey(conversationId) {
@@ -20,7 +22,7 @@ export function draftKey(conversationId) {
 export function loadDraft(conversationId) {
   if (!conversationId) return "";
   try {
-    return localStorage.getItem(draftKey(conversationId)) ?? "";
+    return storage.getItem(draftKey(conversationId)) ?? "";
   } catch {
     return "";
   }
@@ -30,9 +32,9 @@ export function saveDraft(conversationId, text) {
   if (!conversationId) return;
   try {
     if (text && text.trim()) {
-      localStorage.setItem(draftKey(conversationId), text);
+      storage.setItem(draftKey(conversationId), text);
     } else {
-      localStorage.removeItem(draftKey(conversationId));
+      storage.removeItem(draftKey(conversationId));
     }
   } catch {
     /* localStorage unavailable — the draft simply will not survive a reload */
@@ -42,7 +44,7 @@ export function saveDraft(conversationId, text) {
 export function clearDraft(conversationId) {
   if (!conversationId) return;
   try {
-    localStorage.removeItem(draftKey(conversationId));
+    storage.removeItem(draftKey(conversationId));
   } catch {
     /* ignore */
   }

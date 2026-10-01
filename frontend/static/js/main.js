@@ -7,6 +7,7 @@ import {
   createConversation,
 } from "./state/actions.js";
 import { getState, subscribe } from "./state/store.js";
+import * as storage from "./state/storage.js";
 
 const MODEL_LABELS = {
   "claude-sonnet-4-6": "Sonnet 4.6",
@@ -198,9 +199,9 @@ async function boot() {
     rightSidebarEl.classList.toggle("sb-collapsed", collapsed);
     rightSidebarEl.toggleAttribute("inert", collapsed);
     sbToggleBtn.setAttribute("aria-expanded", String(!collapsed));
-    if (persist) localStorage.setItem("gca_sb_open", collapsed ? "0" : "1");
+    if (persist) storage.setItem("gca_sb_open", collapsed ? "0" : "1");
   }
-  setSidebarCollapsed(window.innerWidth < 1280 || localStorage.getItem("gca_sb_open") !== "1");
+  setSidebarCollapsed(window.innerWidth < 1280 || storage.getItem("gca_sb_open") !== "1");
   rightSidebarRef = mountRightSidebar(rightSidebarEl);
 
   const chatScrollEl = document.getElementById("chat-scroll");
@@ -364,7 +365,7 @@ async function boot() {
     if (mod && e.key === "`") {
       if (overlayOpen) return;
       e.preventDefault();
-      if (localStorage.getItem("gca_feat_terminal") === "1") {
+      if (storage.getItem("gca_feat_terminal") === "1") {
         import("./ui/terminal.js").then(m => m.openTerminal()).catch(() => {});
       }
       return;
