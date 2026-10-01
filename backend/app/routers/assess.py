@@ -27,6 +27,7 @@ _SYSTEM = (
     "Concerns list should be empty for low. No markdown, no text outside the JSON object."
 )
 
+_LEVELS = ("low", "medium", "high")
 _FALLBACK = {"level": "low", "summary": "Assessment unavailable.", "concerns": [], "timed_out": True}
 
 
@@ -74,7 +75,16 @@ async def assess(body: AssessBody):
         outer = json.loads(stdout)
         text = outer.get("result", stdout.decode("utf-8", errors="replace"))
         text = text.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
-        return json.loads(text)
+        data = json.loads(text)
+        # The client renders these fields, so return only a known level and plain strings.
+        if not isinstance(data, dict) or data.get("level") not in _LEVELS:
+            raise ValueError("unexpected assessment shape")
+        concerns = data.get("concerns")
+        return {
+            "level": data["level"],
+            "summary": str(data.get("summary") or ""),
+            "concerns": [str(c) for c in concerns] if isinstance(concerns, list) else [],
+        }
     except Exception as exc:
         log.warning("assess: could not parse LLM response: %s | raw=%r", exc, stdout[:200])
         return _FALLBACK

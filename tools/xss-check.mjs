@@ -382,8 +382,15 @@ const absenceDiagnostics = (page, selector) => page.evaluate(({ selector, mark }
     const r = await probe(page);
     const present = await markerPresent(page, MARK);
 
-    if (!present) {
-      const d = await absenceDiagnostics(page, '.assess-level');
+    // 2026-10-01: the composer now allow-lists level (low/medium/high), so the
+    // payload is replaced by "unknown" and the marker never renders. A rendered
+    // "Unknown risk" label with nothing executed or created is the blocked case;
+    // any other absence is still INCONCLUSIVE.
+    const d = present ? null : await absenceDiagnostics(page, '.assess-level');
+    if (!present && d.containerCount === 1 && d.htmlSlice.includes('>Unknown risk<')
+        && r.executed === 0 && r.created === 0) {
+      add(label, 'PASS', `route hits=${hits} · payload replaced by the level allow-list ("Unknown risk") · __xss=0 · img[src=x]=0`);
+    } else if (!present) {
       add(label, 'INCONCLUSIVE',
           `route hits=${hits} · marker absent · container ${d.containerSelector} count=${d.containerCount} · ` +
           `html[0:400]=${JSON.stringify(d.htmlSlice)}`);

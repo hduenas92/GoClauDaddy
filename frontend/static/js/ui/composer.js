@@ -31,7 +31,7 @@ function _escHtml(s) {
 }
 
 function _showAssessment({ level, summary, concerns = [] }) {
-  const lvl = typeof level === "string" && level ? level : "unknown";
+  const lvl = typeof level === "string" && ["low", "medium", "high"].includes(level) ? level : "unknown";
   return new Promise((resolve) => {
     const isDanger = level === "high";
     const levelColor = level === "high" ? "var(--rose)" : level === "medium" ? "var(--amber)" : "var(--emerald)";
@@ -45,7 +45,7 @@ function _showAssessment({ level, summary, concerns = [] }) {
     dialog = showDialog({
       title: "Task Assessment",
       body: `
-        <div class="assess-level" style="color:${levelColor}">${lvl[0].toUpperCase() + lvl.slice(1)} risk</div>
+        <div class="assess-level" style="color:${levelColor}">${_escHtml(lvl[0].toUpperCase() + lvl.slice(1))} risk</div>
         <p class="assess-summary">${_escHtml(summary)}</p>
         ${concerns.length ? `<ul class="assess-concerns">${concerns.map(c => `<li>${_escHtml(c)}</li>`).join("")}</ul>` : ""}
       `,
