@@ -9,6 +9,11 @@ import json
 import re
 from typing import Any
 
+from app.logging_setup import get_logger
+from app.services.redact import redact_secrets
+
+log = get_logger("stream_parser")
+
 _ANSI = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
@@ -59,6 +64,8 @@ def parse_line(raw_line: str) -> list[dict[str, Any]]:
 
     if ev_type == "result":
         if ev.get("is_error"):
+            cleaned = redact_secrets(str(ev.get("result") or ""))
+            log.warning("claude reported an error: %s", cleaned)
             return [{"type": "error", "error": "Claude reported an error. Try again; if it keeps failing, open the LOG panel."}]
         usage = ev.get("usage", {})
         return [{"type": "result", "usage": _usage(usage) if usage else None}]

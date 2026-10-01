@@ -120,7 +120,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
         <div class="drawer-advanced-body">
           <p class="drawer-hint">Feature toggles apply immediately.</p>
           <label class="drawer-toggle-row">
-            <input type="checkbox" id="feat-assess" class="drawer-toggle-check" aria-label="Evaluate tasks before sending">
+            <input type="checkbox" id="feat-assess" class="drawer-toggle-check">
             <span class="drawer-toggle-label">Ask a fast model to rate long or risky messages before sending, and warn you if they look dangerous.</span>
           </label>
           <label class="drawer-toggle-row">

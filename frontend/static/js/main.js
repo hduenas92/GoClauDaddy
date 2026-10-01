@@ -55,6 +55,7 @@ function updateTelemetry(conv) {
 import { mountChatPane } from "./ui/chat_pane.js";
 import { mountComposer } from "./ui/composer.js";
 import { mountSidebarConversations } from "./ui/sidebar_conversations.js";
+import { endSentence } from "./ui/sentence.js";
 import { mountSidebarProjects } from "./ui/sidebar_projects.js";
 import { mountSettingsPanel, openDrawer, closeDrawer } from "./ui/settings_panel.js";
 import { mountRightSidebar } from "./ui/right_sidebar.js";
@@ -417,6 +418,6 @@ boot().then(() => maybeShowOnboarding()).catch((err) => {
   // switchToConversation shows its own retry UI), say so visibly.
   const app = document.getElementById("app");
   if (app && !app.querySelector("#composer") && !app.querySelector("#chat-retry-btn")) {
-    app.innerHTML = `<div id="boot-msg">Couldn't start GoClaudaddy: ${_esc(String(err?.message || err))}. Restart the app; if it keeps failing, open the LOG panel for details.</div>`;
+    app.innerHTML = `<div id="boot-msg">Couldn't start GoClaudaddy: ${_esc(endSentence(String(err?.message || err)))} Restart the app; if it keeps failing, open the LOG panel for details.</div>`;
   }
 });

@@ -109,7 +109,7 @@ def create_conversation(body: CreateConversationRequest):
 def get_conversation(conversation_id: str):
     conv, invalid_model = svc.get_conversation_healed(conversation_id)
     if not conv:
-        raise HTTPException(404, "Conversation not found")
+        raise HTTPException(404, "This conversation no longer exists. Start a new chat.")
     messages = svc.list_messages_with_attachments(conversation_id)
     result = {"conversation": conv, "messages": messages, "model_correction": None}
     if invalid_model is not None:
@@ -120,7 +120,7 @@ def get_conversation(conversation_id: str):
 @router.patch("/{conversation_id}/rename")
 def rename_conversation(conversation_id: str, body: RenameConversationRequest):
     if not svc.get_conversation(conversation_id):
-        raise HTTPException(404, "Conversation not found")
+        raise HTTPException(404, "This conversation no longer exists. Start a new chat.")
     svc.rename_conversation(conversation_id, body.name)
     return svc.get_conversation(conversation_id)
 
@@ -128,7 +128,7 @@ def rename_conversation(conversation_id: str, body: RenameConversationRequest):
 @router.patch("/{conversation_id}/settings")
 def update_settings(conversation_id: str, body: UpdateConversationSettingsRequest):
     if not svc.get_conversation(conversation_id):
-        raise HTTPException(404, "Conversation not found")
+        raise HTTPException(404, "This conversation no longer exists. Start a new chat.")
     svc.update_conversation_settings(
         conversation_id,
         model=body.model,
@@ -147,7 +147,7 @@ def update_settings(conversation_id: str, body: UpdateConversationSettingsReques
 @router.post("/{conversation_id}/auto-title")
 def auto_title(conversation_id: str):
     if not svc.get_conversation(conversation_id):
-        raise HTTPException(404, "Conversation not found")
+        raise HTTPException(404, "This conversation no longer exists. Start a new chat.")
     svc.auto_title_conversation(conversation_id)
     return svc.get_conversation(conversation_id)
 
@@ -155,13 +155,13 @@ def auto_title(conversation_id: str):
 @router.get("/{conversation_id}/export")
 def export_conversation(conversation_id: str):
     if not svc.get_conversation(conversation_id):
-        raise HTTPException(404, "Conversation not found")
+        raise HTTPException(404, "This conversation no longer exists. Start a new chat.")
     return {"markdown": svc.export_as_markdown(conversation_id)}
 
 
 @router.delete("/{conversation_id}")
 def delete_conversation(conversation_id: str):
     if not svc.get_conversation(conversation_id):
-        raise HTTPException(404, "Conversation not found")
+        raise HTTPException(404, "This conversation no longer exists. Start a new chat.")
     svc.delete_conversation(conversation_id)
     return {"ok": True}

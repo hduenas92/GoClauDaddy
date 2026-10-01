@@ -6,6 +6,7 @@ import { interpolateTemplate, openTemplatePicker } from "./template_picker.js";
 import { showErrorToast, showDialog } from "./modal.js";
 import { clearDraft, loadDraft, saveDraft } from "./composer_draft.js";
 import { attachmentDownloadUrl, isImageName } from "./attachment_view.js";
+import { endSentence } from "./sentence.js";
 import * as storage from "../state/storage.js";
 
 const _RISKY = /\b(delete|drop|remove|wipe|destroy|format|truncate|uninstall|overwrite|migrate|deploy|execute|rm\s+-rf)\b/i;
@@ -30,6 +31,7 @@ function _escHtml(s) {
 }
 
 function _showAssessment({ level, summary, concerns = [] }) {
+  const lvl = typeof level === "string" && level ? level : "unknown";
   return new Promise((resolve) => {
     const isDanger = level === "high";
     const levelColor = level === "high" ? "var(--rose)" : level === "medium" ? "var(--amber)" : "var(--emerald)";
@@ -43,7 +45,7 @@ function _showAssessment({ level, summary, concerns = [] }) {
     dialog = showDialog({
       title: "Task Assessment",
       body: `
-        <div class="assess-level" style="color:${levelColor}">${level[0].toUpperCase() + level.slice(1)} risk</div>
+        <div class="assess-level" style="color:${levelColor}">${lvl[0].toUpperCase() + lvl.slice(1)} risk</div>
         <p class="assess-summary">${_escHtml(summary)}</p>
         ${concerns.length ? `<ul class="assess-concerns">${concerns.map(c => `<li>${_escHtml(c)}</li>`).join("")}</ul>` : ""}
       `,
@@ -259,8 +261,7 @@ export function mountComposer(root, socket, chatPane) {
       const sizeHint = /\b(size|larger?|limit|exceed|MB|GB)\b/i.test(msg)
         ? " Try again, or use a smaller file."
         : "";
-      const dot = /[.!?]$/.test(msg) ? "" : ".";
-      showErrorToast(`Couldn't attach "${file.name}": ${msg}${dot} Allowed types: images, PDF, TXT, MD, CSV, JSON, LOG.`);
+      showErrorToast(`Couldn't attach "${file.name}": ${endSentence(msg)}${sizeHint}`);
     }
   }
 

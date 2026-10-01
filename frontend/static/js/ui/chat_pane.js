@@ -898,7 +898,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
           // so at the moment it matters.
           msg = "Your CaaS key has no remaining budget. Open Check Balance in the right sidebar to see your allowance and request an increase.";
         } else {
-          msg = "Claude reported an error. Try again; if it keeps failing, open the LOG panel for details.";
+          msg = ev.error || "Claude reported an error. Try again; if it keeps failing, open the LOG panel for details.";
         }
         statusEl.textContent = msg;
         showErrorToast(msg);

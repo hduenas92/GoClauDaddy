@@ -16,7 +16,7 @@ def get_conversation_stats(conversation_id: str):
             (conversation_id,),
         ).fetchone()
         if not conv:
-            raise HTTPException(404, "Conversation not found")
+            raise HTTPException(404, "This conversation no longer exists. Start a new chat.")
 
         row = conn.execute(
             """SELECT

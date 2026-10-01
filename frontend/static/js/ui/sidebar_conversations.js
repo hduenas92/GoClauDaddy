@@ -2,6 +2,7 @@ import { getState, subscribe } from "../state/store.js";
 import { createConversation, deleteConversation, renameConversation, loadConversations } from "../state/actions.js";
 import { showModal, showConfirm, showErrorToast } from "./modal.js";
 import { api } from "../api/http.js";
+import { endSentence } from "./sentence.js";
 
 // Long enough that typing a word does not fire a request per keystroke, short
 // enough that the Messages group feels like part of the same box. The local
@@ -77,7 +78,7 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
       // (e.g. "!!!"), which is a normal thing for a user to type.
       hits = null;
       hitsTruncated = false;
-      showErrorToast(`Search didn't run: ${err?.message || "Search failed."}. Try different words.`);
+      showErrorToast(`Search didn't run: ${endSentence(err?.message || "Search failed")} Try different words.`);
     }
     render();
   }
