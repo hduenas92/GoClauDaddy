@@ -63,7 +63,19 @@ function simulateFix(mode) {
 }
 
 async function readState(page, cdp) {
-  let w = -1; // let the width transition finish
+  // Wait for every running animation/transition on #right-sidebar to finish.
+  // Force a style flush first so a transition that has not started yet is
+  // instantiated, and bound the wait so a stuck page cannot hang the harness.
+  await page.evaluate(() => {
+    const el = document.getElementById('right-sidebar');
+    if (!el) return;
+    void getComputedStyle(el).width; // force style flush
+    const finished = Promise.all(el.getAnimations().map(a => a.finished.catch(() => {})));
+    const timeout = new Promise(resolve => setTimeout(resolve, 3000));
+    return Promise.race([finished, timeout]);
+  });
+  // Second guard: after transitions settle, confirm two equal width readings.
+  let w = -1;
   for (let i = 0; i < 20; i += 1) {
     const now = await page.evaluate(() => document.getElementById('right-sidebar').getBoundingClientRect().width);
     if (now === w) break;
