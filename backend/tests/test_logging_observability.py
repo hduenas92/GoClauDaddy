@@ -62,6 +62,15 @@ def _free_port() -> int:
 # ---------------------------------------------------------------------------
 
 
+def _line_of(rel_path, needle):
+    """1-based line of the one source line containing `needle`: pins the log call itself, not a line number
+    that every unrelated edit above it shifts (a fixed `== 203` broke on two blank lines, 2026-10-01)."""
+    lines = (Path(__file__).resolve().parents[1] / rel_path).read_text(encoding="utf-8").splitlines()
+    hits = [n for n, line in enumerate(lines, 1) if needle in line]
+    assert len(hits) == 1, f"{rel_path}: {needle!r} found {len(hits)}x"
+    return hits[0]
+
+
 def _assert_logged_stack(records, label):
     """Assert a list of LogRecords contains one with exc_info + pathname/lineno."""
     assert records, f"{label}: no matching log record was produced"
@@ -206,7 +215,7 @@ def test_l1_non_json_notice_logs_stack(temp_db, monkeypatch, caplog):
     rec = records[-1]
     assert rec.levelno == logging.WARNING, f"expected WARNING, got {rec.levelno}"
     assert rec.pathname.endswith(os.path.join("app", "ws", "chat_socket.py")), rec.pathname
-    assert rec.lineno == 430, rec.lineno
+    assert rec.lineno == _line_of("app/ws/chat_socket.py", 'log.warning("Non-JSON CLI stdout line ignored'), rec.lineno
 
 
 def test_l1_ws_chat_cli_oserror_logs_stack(temp_db, monkeypatch, caplog):
@@ -232,7 +241,7 @@ def test_l1_ws_chat_cli_oserror_logs_stack(temp_db, monkeypatch, caplog):
     records = [r for r in caplog.records if "Failed to start claude" in r.getMessage()]
     rec = _assert_logged_stack(records, "WS chat CLI OSError spawn failure")
     assert rec.pathname.endswith(os.path.join("app", "services", "claude_cli.py")), rec.pathname
-    assert rec.lineno == 203, rec.lineno
+    assert rec.lineno == _line_of("app/services/claude_cli.py", 'log.exception("Failed to start claude'), rec.lineno
 
 
 def test_l1_dir_picker_tkinter_import_error_logs_stack(monkeypatch, caplog):
