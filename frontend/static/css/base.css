@@ -35,6 +35,14 @@
   --violet: #a78bfa;
   --cyan:   #38bdf8;
 
+  /* ---- raw rgba values promoted to tokens ---- */
+  --ambient-glow-teal:   rgba(20, 184, 166, 0.08);
+  --ambient-glow-violet: rgba(139, 92, 246, 0.06);
+  --ambient-glow-cyan:   rgba(56, 189, 248, 0.04);
+  --ambient-blob-teal:   rgba(20, 184, 166, 0.03);
+  --ambient-blob-violet: rgba(139, 92, 246, 0.03);
+  --button-sheen:        rgba(255, 255, 255, 0.16);
+
   /* ---- solid convenience colors (use these for `color:`) ---- */
   --ground:        rgb(var(--ground-rgb));
   --panel:         rgb(var(--panel-rgb));
@@ -215,9 +223,9 @@ html, body {
   z-index: 0;
   opacity: 0.25;
   background-image:
-    radial-gradient(circle at 15% 20%, rgba(20, 184, 166, 0.08) 0%, transparent 45%),
-    radial-gradient(circle at 85% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.04) 0%, transparent 55%);
+    radial-gradient(circle at 15% 20%, var(--ambient-glow-teal) 0%, transparent 45%),
+    radial-gradient(circle at 85% 80%, var(--ambient-glow-violet) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, var(--ambient-glow-cyan) 0%, transparent 55%);
 }
 /* P2-Y: the mockup's two large blurred accent blobs (screen.html:176-177).
    bg-cyber-teal/3 = rgba(20,184,166,0.03) at 700x320 blur(160px);
@@ -228,7 +236,7 @@ html, body {
   left: 25%;
   width: 700px;
   height: 320px;
-  background: rgba(20, 184, 166, 0.03);
+  background: var(--ambient-blob-teal);
   filter: blur(160px);
   pointer-events: none;
 }
@@ -238,7 +246,7 @@ html, body {
   right: 40px;
   width: 600px;
   height: 380px;
-  background: rgba(139, 92, 246, 0.03);
+  background: var(--ambient-blob-violet);
   filter: blur(170px);
   pointer-events: none;
 }
@@ -2829,7 +2837,7 @@ textarea::placeholder {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.16) 50%, transparent 70%);
+  background: linear-gradient(115deg, transparent 30%, var(--button-sheen) 50%, transparent 70%);
   background-size: 250% 100%;
   background-position: 130% 0;
   background-repeat: no-repeat;
