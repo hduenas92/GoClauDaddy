@@ -5,7 +5,8 @@
  * Below 1280 px the sidebar must start collapsed even if the user last left it
  * open; at >= 1280 px the saved choice (gca_sb_open) is honoured; the saved
  * value itself must never be rewritten just by loading the page narrow.
- * In both themes and every state: collapsed renders <= 1 px wide and is out of the
+ * In both themes and every state: collapsed renders <= 1 px wide, paints no border or
+ * shadow, and is out of the
  * keyboard order and out of Chrome's accessibility tree (what a screen reader reads);
  * open renders at the theme's design width and is reachable; #sb-toggle-btn reports the state
  * (aria-expanded) and names what it controls (aria-controls="right-sidebar").
@@ -13,7 +14,8 @@
  * Exit 0 = every case passes, 1 = any case fails.
  * Control: GCA_SIM_FIX=visibility|inert simulates a correct fix inside the page and must
  * PASS; GCA_SIM_FIX=flatten (correct collapse, but the theme's open width lost) must FAIL
- * only on the cyberpunk open cases; unset, against 52a2da6 (theme width overrides the
+ * only on the cyberpunk open cases; GCA_SIM_FIX=ghost (inert, but border/shadow still
+ * painted) must FAIL only on collapsed cases; unset, against 52a2da6 (theme width overrides the
  * collapse, no ARIA state) it FAILs.
  */
 import { chromium } from 'playwright';
@@ -43,7 +45,7 @@ function simulateFix(mode) {
       const c = sb.classList.contains('sb-collapsed');
       btn.setAttribute('aria-expanded', String(!c));
       btn.setAttribute('aria-controls', 'right-sidebar');
-      if (mode === 'inert') sb.inert = c;
+      if (mode === 'inert' || mode === 'ghost') sb.inert = c;
     };
     new MutationObserver(sync).observe(sb, { attributes: true, attributeFilter: ['class'] });
     sync();
@@ -51,7 +53,9 @@ function simulateFix(mode) {
   };
   document.addEventListener('DOMContentLoaded', () => {
     const st = document.createElement('style');
-    st.textContent = `#right-sidebar.sb-collapsed { width: 0 !important; ${mode === 'inert' ? '' : 'visibility: hidden;'} }`
+    const hide = mode === 'inert' ? 'border-left-color: transparent !important; box-shadow: none !important;'
+      : mode === 'ghost' ? '' : 'visibility: hidden;';
+    st.textContent = `#right-sidebar.sb-collapsed { width: 0 !important; ${hide} }`
       + (mode === 'flatten' ? ' #right-sidebar:not(.sb-collapsed) { width: 220px !important; }' : '');
     document.head.append(st);
     if (!wire()) new MutationObserver((_, o) => { if (wire()) o.disconnect(); }).observe(document.body, { childList: true, subtree: true });
@@ -73,7 +77,11 @@ async function readState(page, cdp) {
     sum.focus();
     const focusable = document.activeElement === sum;
     document.activeElement?.blur();
+    const cs = getComputedStyle(sb);
+    const n = cs.borderLeftColor.match(/[\d.]+/g) ?? [];
+    const borderAlpha = n.length === 4 ? Number(n[3]) : 1;
     return {
+      ghost: cs.visibility !== 'hidden' && (borderAlpha > 0 || cs.boxShadow !== 'none'),
       theme: document.documentElement.dataset.theme,
       collapsed: sb.classList.contains('sb-collapsed'),
       width: Math.round(sb.getBoundingClientRect().width),
@@ -99,6 +107,7 @@ function problems(s, theme, wantCollapsed, wantSaved) {
   if (s.theme !== theme) bad.push(`theme=${s.theme}`);
   if (s.collapsed !== wantCollapsed) bad.push(`collapsed=${s.collapsed}`);
   if (wantCollapsed ? s.width > 1 : s.width !== OPEN_WIDTH[theme]) bad.push(`width=${s.width}`);
+  if (wantCollapsed && s.ghost) bad.push('border/shadow still painted');
   if (s.expanded !== String(!wantCollapsed)) bad.push(`aria-expanded=${s.expanded}`);
   if (s.controls !== 'right-sidebar') bad.push(`aria-controls=${s.controls}`);
   if (s.focusable === wantCollapsed) bad.push(`focusable=${s.focusable}`);
