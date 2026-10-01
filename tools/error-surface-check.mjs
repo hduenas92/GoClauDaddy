@@ -165,38 +165,6 @@ async function expectToast(page, name, mustContain) {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Terminal open failure — xterm.js cannot load
-// ---------------------------------------------------------------------------
-{
-  const name = '4. terminal open failure (xterm unreachable) shows a toast';
-  const { ctx, page } = await freshPage({ terminal: true });
-  await page.route(XTERM_JS, (r) => r.abort());
-  await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1200);
-  await page.keyboard.press('Control+`');
-  await expectToast(page, name, 'terminal');
-  await ctx.close();
-}
-
-// ---------------------------------------------------------------------------
-// 5. Terminal start failure — session endpoint refuses
-// ---------------------------------------------------------------------------
-{
-  const name = '5. terminal session failure shows a toast';
-  const { ctx, page } = await freshPage({ terminal: true });
-  // Let xterm "load" so we reach the session call, then fail the session.
-  await page.route(XTERM_JS, (r) =>
-    r.fulfill({ status: 200, contentType: 'application/javascript', body: 'window.Terminal=function(){this.open=function(){};this.write=function(){};this.onData=function(){};};' }));
-  await page.route('**/api/terminal', (r) =>
-    r.fulfill({ status: 500, contentType: 'text/plain', body: 'no pty available' }));
-  await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1200);
-  await page.keyboard.press('Control+`');
-  await expectToast(page, name, 'terminal');
-  await ctx.close();
-}
-
-// ---------------------------------------------------------------------------
 // 6. Settings write failure — was a wordless 2s CSS flash
 // ---------------------------------------------------------------------------
 {

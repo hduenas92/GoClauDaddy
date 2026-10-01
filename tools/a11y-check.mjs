@@ -596,37 +596,7 @@ await trapCase('template picker', {}, async (page) => { await page.keyboard.pres
 await trapCase('shortcuts overlay', {}, async (page) => { await page.click('#shortcuts-btn'); }, '#shortcuts-overlay:not([hidden])');
 await trapCase('onboarding tour', { onboarded: false }, async () => {}, '.ob-overlay');
 
-// Terminal (xterm). Documented escape path: Esc (native <dialog> cancel ->
-// closeTerminal) or the ✕ .term-close button. Tab is captured by xterm itself
-// but the dialog still closes via Esc, so there is no trap.
-{
-  const { ctx, page } = await newPage({ terminal: true });
-  try {
-    await bootPage(page);
-    await page.keyboard.press('Control+`');
-    const dlg = await page.waitForSelector('dialog.term-dialog[open]', { timeout: 8000 }).catch(() => null);
-    if (!dlg) {
-      add('2.1.2 no trap: terminal (xterm)', 'INCONCLUSIVE',
-        'Esc closes the terminal dialog and leaves no focus trap',
-        'terminal did not open (xterm CDN load may be blocked in this environment)');
-    } else {
-      const shape = await page.evaluate(() => ({
-        closeBtn: !!document.querySelector('.term-close'),
-        hint: document.querySelector('.term-hint')?.textContent?.trim() ?? '',
-        focusedInside: !!document.activeElement?.closest?.('dialog'),
-      }));
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(400);
-      const gone = await page.evaluate(() => !document.querySelector('dialog.term-dialog'));
-      const focusBack = await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName || '(none)');
-      add('2.1.2 no trap: terminal (xterm)', gone ? 'PASS' : 'FAIL',
-        'Esc closes the terminal dialog; keyboard user leaves via Esc or the ✕ button',
-        `closeBtn=${shape.closeBtn} hint="${shape.hint}" focusInDialog=${shape.focusedInside} closedByEsc=${gone} focusNow=${focusBack}`);
-    }
-  } finally {
-    await ctx.close();
-  }
-}
+// (Terminal trap case removed 2026-10-01 with the terminal feature, A5.)
 
 // ===========================================================================
 // 2.1.4 — single-character shortcuts

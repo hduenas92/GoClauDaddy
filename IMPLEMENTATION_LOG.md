@@ -43,6 +43,7 @@ v1 was then handed to real coworkers on machines the developer didn't control â€
 ## Current status (as of 2026-09-11)
 
 v1 is deployed and field-verified across multiple real coworker machines. The hardening round above is closed. A rebrand (new name chosen, visual theme still being designed) is in progress separately, with a Project rename/edit UI deliberately deferred until that design settles â€” its backend already exists in full (`PATCH /api/projects/{id}`), only the frontend UI is missing.
+> CORRECTION 2026-10-01: The project rename/edit UI now exists in `frontend/static/js/ui/sidebar_projects.js`.
 
 ## Process notes worth repeating on future work
 

@@ -194,6 +194,7 @@ async function boot() {
           <kbd>Esc</kbd><span>Close panels / modals</span>
           <kbd>Enter</kbd><span>Send message</span>
           <kbd>Shift+Enter</kbd><span>New line</span>
+          <kbd>↑</kbd><span>Recall previous sent message</span>
         </div>
       </div>
     </div>

@@ -79,12 +79,7 @@ await step('Ctrl+B toggles', async () => {
   await page.keyboard.press('Control+b');
   return { ok: (await collapsed()) !== before };
 });
-await step('Ctrl+` (terminal shortcut) runs', async () => {
-  await page.keyboard.press('Control+Backquote');
-  await page.waitForTimeout(300);
-  return { ok: true };
-});
-for (const id of ['feat-assess', 'feat-terminal', 'feat-approval']) {
+for (const id of ['feat-assess', 'feat-approval']) {
   await step(`feature checkbox #${id} toggles`, async () => {
     const r = await page.evaluate((sel) => {
       const el = document.getElementById(sel);
