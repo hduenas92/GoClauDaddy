@@ -26,3 +26,15 @@ def test_guard_trips_when_db_path_points_at_profile_gca(monkeypatch):
 def test_guard_stays_quiet_for_tmp_db_path(monkeypatch):
     monkeypatch.setattr(_app_config, "DB_PATH", Path(tempfile.gettempdir()) / "goclaudaddy.db")
     _fail_if_real_profile()  # must not raise
+
+
+def test_guard_trips_when_log_file_points_at_profile_gca(monkeypatch):
+    profile = Path(os.environ.get("USERPROFILE") or os.environ.get("HOME") or str(Path.home()))
+    monkeypatch.setattr(_app_config, "LOG_FILE", profile / ".goclaudaddy" / "logs" / "app.log")
+    with pytest.raises(RuntimeError, match="Refusing to run tests"):
+        _fail_if_real_profile()
+
+
+def test_guard_stays_quiet_for_tmp_log_file_path(monkeypatch):
+    monkeypatch.setattr(_app_config, "LOG_FILE", Path(tempfile.gettempdir()) / "goclaudaddy" / "logs" / "app.log")
+    _fail_if_real_profile()  # must not raise
