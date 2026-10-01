@@ -1,5 +1,6 @@
 import { getState, subscribe } from "../state/store.js";
 import * as storage from "../state/storage.js";
+import { contextTokens } from "../state/ctx_tokens.js";
 
 function escHtml(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -230,8 +231,8 @@ export function mountRightSidebar(root) {
 
   function _refreshCtx() {
     const msgs = getState().messages || [];
-    const latestWithCtx = [...msgs].reverse().find(m => m.input_tokens > 0);
-    if (latestWithCtx) updateCtx(latestWithCtx.input_tokens);
+    const latestWithCtx = [...msgs].reverse().find(m => contextTokens(m) > 0);
+    if (latestWithCtx) updateCtx(contextTokens(latestWithCtx));
   }
 
   function _renderMessages() {
@@ -406,8 +407,8 @@ export function mountRightSidebar(root) {
     _fetchStats();
     _fetchConvStats();
     if (!usage) return;
-    const { input_tokens: inp = 0 } = usage;
-    if (inp) updateCtx(inp);
+    const used = contextTokens(usage);
+    if (used) updateCtx(used);
   }
 
   // --- Existing stats-refresh behaviour, wired onto the store's streaming
