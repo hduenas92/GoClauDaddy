@@ -20,7 +20,7 @@ def test_unhandled_exception_returns_safe_500(monkeypatch):
 
     assert res.status_code == 500
     body = res.json()
-    assert body == {"error": "Something went wrong. Check the logs folder for details."}
+    assert body == {"error": "Something went wrong on the server. Try again; if it keeps failing, open the LOG panel for details."}
     # The real exception message must never reach the client.
     assert "simulated real failure" not in res.text
 

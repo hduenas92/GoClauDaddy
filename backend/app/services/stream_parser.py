@@ -59,7 +59,7 @@ def parse_line(raw_line: str) -> list[dict[str, Any]]:
 
     if ev_type == "result":
         if ev.get("is_error"):
-            return [{"type": "error", "error": ev.get("result") or "CLI returned an error"}]
+            return [{"type": "error", "error": "Claude reported an error. Try again; if it keeps failing, open the LOG panel."}]
         usage = ev.get("usage", {})
         return [{"type": "result", "usage": _usage(usage) if usage else None}]
 

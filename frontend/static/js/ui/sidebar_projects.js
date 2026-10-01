@@ -96,7 +96,7 @@ export function mountSidebarProjects(root, onSwitchProject) {
         <div class="pef-dir-row">
           <input class="pef-dir" value="${escapeHtml(p.working_dir)}" placeholder="Working dir (optional, absolute path)">
           <button class="pef-browse-dir" title="Browse for a folder">Browse…</button>
-          <button class="pef-clear-dir" title="Clear directory">✕</button>
+          <button class="pef-clear-dir" title="Clear the directory field (save to apply)">✕</button>
         </div>
         <textarea class="pef-prompt" rows="3" placeholder="System prompt (optional)">${escapeHtml(p.system_prompt || "")}</textarea>
         <div class="pef-actions">

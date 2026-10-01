@@ -60,7 +60,7 @@ def save_attachment(
     safe_name = _sanitize_filename(original_name)
     ext = Path(safe_name).suffix.lower()
     if ext not in ALLOWED_ATTACHMENT_EXTENSIONS:
-        raise AttachmentRejected(f"File type '{ext}' is not allowed")
+        raise AttachmentRejected("That file type isn't allowed. Use an image, PDF, TXT, MD, CSV, JSON, or LOG file.")
 
     with get_connection() as conn:
         exists = conn.execute("SELECT 1 FROM conversations WHERE id = ?", (conversation_id,)).fetchone()

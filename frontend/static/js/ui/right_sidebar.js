@@ -142,11 +142,11 @@ export function mountRightSidebar(root) {
     <details class="rsb-panel glow" id="rsb-panel-log">
       <summary>
         <span class="rsb-panel-title">LOG</span>
-        <span class="rsb-panel-badge">SSE</span>
+        <span class="rsb-panel-badge">LIVE</span>
         <span class="rsb-panel-arrow">▶</span>
       </summary>
       <div class="rsb-panel-body">
-        <div class="console-log" id="rsb-console"></div>
+        <div class="console-log" id="rsb-console">No log lines yet. Server activity will appear here.</div>
       </div>
     </details>
   `;
@@ -283,7 +283,7 @@ export function mountRightSidebar(root) {
         // (CTX showing "—") recovers on the next successful poll.
         if (_currentModel != null) {
           ctxMax = _ctxByModel[_currentModel] ?? null;
-          if (modelEl) modelEl.textContent = _labelsByModel[_currentModel] ?? _currentModel ?? "—";
+          if (modelEl) modelEl.textContent = _labelsByModel[_currentModel] ?? "Model unknown";
           _refreshCtx();
         }
       })
@@ -313,7 +313,7 @@ export function mountRightSidebar(root) {
         const body = root.querySelector("#rsb-server-body");
         if (!body) return;
         body.innerHTML = `
-          <div class="server-status" role="status"><span class="server-dot offline"></span><span>Offline — server unreachable</span></div>
+          <div class="server-status" role="status"><span class="server-dot offline"></span><span>Offline — server unreachable. Restart GoClaudaddy, then refresh.</span></div>
         `;
       });
   }
@@ -381,7 +381,7 @@ export function mountRightSidebar(root) {
   function setModel(model) {
     _currentModel = model;
     ctxMax = _ctxByModel[model] ?? null;
-    if (modelEl) modelEl.textContent = _labelsByModel[model] ?? model ?? "—";
+    if (modelEl) modelEl.textContent = _labelsByModel[model] ?? "Model unknown";
     _refreshCtx();
   }
 
@@ -394,7 +394,7 @@ export function mountRightSidebar(root) {
     if (!conversationId) return;
     const conv = getState().conversations.find(c => c.id === conversationId);
     if (conv) {
-      if (modelEl) modelEl.textContent = _labelsByModel[conv.model] ?? conv.model ?? "—";
+      if (modelEl) modelEl.textContent = _labelsByModel[conv.model] ?? "Model unknown";
       _renderProject(conv.project_id);
     }
     _renderMessages();
@@ -500,9 +500,13 @@ export function mountRightSidebar(root) {
       autoScroll = consoleEl.scrollTop + consoleEl.clientHeight >= consoleEl.scrollHeight - 24;
     });
 
+    const clearLogPlaceholder = () => {
+      if (consoleEl.textContent === "No log lines yet. Server activity will appear here.") consoleEl.textContent = "";
+    };
     const es = new EventSource("/api/server/logs");
     es.onmessage = (ev) => {
       if (!ev.data.trim()) return; // keepalive
+      clearLogPlaceholder();
       const line = document.createElement("div");
       line.className = `console-line ${_logLevel(ev.data)}`;
       line.textContent = ev.data;
@@ -516,9 +520,10 @@ export function mountRightSidebar(root) {
     es.onerror = () => {
       if (esErrorShown) return;
       esErrorShown = true;
+      clearLogPlaceholder();
       const line = document.createElement("div");
       line.className = "console-line lvl-warn";
-      line.textContent = "-- log stream disconnected --";
+      line.textContent = "Log stream disconnected — reconnecting…";
       consoleEl.appendChild(line);
     };
   }

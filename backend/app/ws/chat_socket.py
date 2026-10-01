@@ -94,12 +94,12 @@ async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None
                 continue
 
             if msg_type != "send":
-                await websocket.send_json({"type": "error", "error": "Invalid JSON frame." if msg_type == "__invalid_json__" else f"Unknown message type: {msg_type}"})
+                await websocket.send_json({"type": "error", "error": "The app sent something the server didn't understand. Refresh the page and try again."})
                 continue
 
             if registry.is_busy(conversation_id):
                 await websocket.send_json(
-                    {"type": "error", "error": "This conversation is already processing a message."}
+                    {"type": "error", "error": "This conversation is already answering a message. Wait for it to finish or press Stop."}
                 )
                 continue
 
@@ -159,7 +159,7 @@ async def _handle_send(
         # (see :59-65 and :231-232): error first, then done.
         try:
             await websocket.send_json(
-                {"type": "error", "error": "Something went wrong starting that turn. Check the logs folder for details."}
+                {"type": "error", "error": "Something went wrong starting that turn. Try again; if it keeps failing, open the LOG panel."}
             )
         except (RuntimeError, WebSocketDisconnect):
             pass
@@ -202,14 +202,14 @@ async def _handle_send_inner(
     regenerate = bool(payload.get("regenerate"))
     prompt = (payload.get("message") or "").strip()
     if not regenerate and not prompt:
-        await websocket.send_json({"type": "error", "error": "Empty message."})
+        await websocket.send_json({"type": "error", "error": "Your message has an attachment but no text. Add a sentence and send again."})
         await websocket.send_json({"type": "done"})
         return
 
     conv = convs.get_conversation(conversation_id)
     if not conv:
         await websocket.send_json(
-            {"type": "error", "error": "Conversation not found. Create it first via POST /api/conversations."}
+            {"type": "error", "error": "This conversation no longer exists. Start a new chat."}
         )
         await websocket.send_json({"type": "done"})
         return
@@ -239,7 +239,7 @@ async def _handle_send_inner(
         prior_user_message = convs.last_live_user_message(conversation_id)
         if prior_user_message is None or not (prior_user_message.content or "").strip():
             await websocket.send_json(
-                {"type": "error", "error": "There is no previous question in this conversation to regenerate."}
+                {"type": "error", "error": "There's no previous question here to regenerate. Send a message first."}
             )
             await websocket.send_json({"type": "done"})
             return
@@ -468,7 +468,7 @@ async def _handle_send_inner(
         log.exception("Unexpected error handling send for conversation %s", conversation_id)
         with contextlib.suppress(RuntimeError):
             await websocket.send_json(
-                {"type": "error", "error": "Something went wrong. Check the logs folder for details."}
+                {"type": "error", "error": "Something went wrong during the reply. Try again; if it keeps failing, open the LOG panel."}
             )
     finally:
         _approval_pending.discard(conversation_id); registry.clear(conversation_id)

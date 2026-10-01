@@ -73,7 +73,7 @@ def create_app() -> FastAPI:
         log.error("Unhandled error on %s %s: %s", request.method, request.url.path, exc, exc_info=exc)
         return JSONResponse(
             status_code=500,
-            content={"error": "Something went wrong. Check the logs folder for details."},
+            content={"error": "Something went wrong on the server. Try again; if it keeps failing, open the LOG panel for details."},
         )
 
     @app.get("/api/health")

@@ -71,7 +71,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
         <p id="model-desc" class="drawer-hint"></p>
       </div>
       <div class="drawer-section">
-        <label class="drawer-label">Permission mode
+        <label class="drawer-label">Permission mode — how much Claude may do without asking. "Bypass all prompts" allows everything; "Manual approval" asks first.
           <select id="permission-select" class="drawer-select">
             <option value="">(default)</option>
           </select>
@@ -121,7 +121,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
           <p class="drawer-hint">Feature toggles apply immediately.</p>
           <label class="drawer-toggle-row">
             <input type="checkbox" id="feat-assess" class="drawer-toggle-check" aria-label="Evaluate tasks before sending">
-            <span class="drawer-toggle-label">Evaluate tasks before sending</span>
+            <span class="drawer-toggle-label">Ask a fast model to rate long or risky messages before sending, and warn you if they look dangerous.</span>
           </label>
           <label class="drawer-toggle-row">
             <input type="checkbox" id="feat-approval" class="drawer-toggle-check" aria-label="Prompt for tool approval">
@@ -200,7 +200,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
   config.permission_modes.forEach((mode) => {
     const opt = document.createElement("option");
     opt.value = mode;
-    opt.textContent = PERM_LABELS[mode] ?? mode;
+    opt.textContent = PERM_LABELS[mode] ?? "Custom mode";
     permissionSelect.appendChild(opt);
   });
   permissionSelect.value = conversation.permission_mode || "";
@@ -313,7 +313,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
           storage.setItem(BUDGET_KEY, String(n));
         }
       } catch {
-        _flashError(budgetInput, "Couldn't save that — your browser is blocking local storage.");
+        _flashError(budgetInput, "Couldn't save that — your browser is blocking local storage. Allow site data, or use a normal window.");
         return;
       }
       // The sidebar reads this on its next stats refresh; nudge it so the bar

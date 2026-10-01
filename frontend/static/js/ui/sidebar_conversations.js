@@ -7,6 +7,7 @@ import { api } from "../api/http.js";
 // enough that the Messages group feels like part of the same box. The local
 // name filter is NOT debounced — see onSearchInput.
 const SEARCH_DEBOUNCE_MS = 250;
+const SOURCE_LABELS = { cli: "CLI", api: "API", imported: "Imported" };
 
 export function mountSidebarConversations(root, onSelect, onEmpty) {
   root.innerHTML = `
@@ -76,7 +77,7 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
       // (e.g. "!!!"), which is a normal thing for a user to type.
       hits = null;
       hitsTruncated = false;
-      showErrorToast(err?.message || "Search failed.");
+      showErrorToast(`Search didn't run: ${err?.message || "Search failed."}. Try different words.`);
     }
     render();
   }
@@ -95,8 +96,9 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
       const li = document.createElement("li");
       li.className = "conv-item" + (c.id === activeConversationId ? " active" : "");
       const ago = _relTime(c.updated_at);
-      const srcBadge = c.source && c.source !== "web"
-        ? `<span class="conv-source-badge conv-source-${escapeHtml(c.source)}">${escapeHtml(c.source)}</span>`
+      const sourceLabel = SOURCE_LABELS[String(c.source || "").toLowerCase()];
+      const srcBadge = sourceLabel
+        ? `<span class="conv-source-badge conv-source-${escapeHtml(c.source)}">${escapeHtml(sourceLabel)}</span>`
         : "";
       const costBadge = c.cost_usd > 0 ? ` · ~$${c.cost_usd.toFixed(2)}` : "";
       const statusLabel = c.status === "busy" ? "Busy" : c.status === "error" ? "Error" : "";
@@ -143,7 +145,7 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
   function renderMessageHits(rows, truncated) {
     const header = document.createElement("li");
     header.className = "conv-group-header";
-    header.textContent = rows.length ? "Messages" : "No messages match";
+    header.textContent = rows.length ? "Messages" : "No messages match. Try different words.";
     listEl.appendChild(header);
 
     rows.forEach((r) => {

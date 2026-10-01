@@ -203,7 +203,7 @@ async def run(
         return
     except OSError as exc:
         log.exception("Failed to start claude: %s", exc)
-        yield {"type": "error", "error": str(exc)}
+        yield {"type": "error", "error": "Couldn't start Claude. Check that the Claude CLI is installed and on PATH, then try again."}
         yield {"type": "done"}
         return
 
@@ -234,7 +234,7 @@ async def run(
     except Exception as exc:  # noqa: BLE001 — genuinely must not crash the socket loop
         log.exception("Error while streaming claude output")
         stderr_task.cancel()
-        yield {"type": "error", "error": str(exc)}
+        yield {"type": "error", "error": "Claude stopped unexpectedly. Try again; if it keeps failing, open the LOG panel."}
     else:
         await stderr_task
         rc = proc.returncode
@@ -272,7 +272,7 @@ async def run(
             elif any(kw in stderr_text for kw in ("not logged in", "unauthorized", "authentication", "api key", "invalid key", "auth")):
                 yield {"type": "error", "code": "auth_failed", "error": "Claude authentication failed. Run `claude auth` in a terminal, then refresh."}
             else:
-                yield {"type": "error", "error": f"claude exited with code {rc}"}
+                yield {"type": "error", "error": f"Claude exited with an error (code {rc}). Open the LOG panel for details, then try again."}
 
     yield {"type": "done"}
 

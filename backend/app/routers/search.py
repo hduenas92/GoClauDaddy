@@ -54,7 +54,7 @@ def search_messages(
     try:
         fts_query = _build_fts_query(q)
     except ValueError:
-        raise HTTPException(400, "q has no searchable terms")
+        raise HTTPException(400, "Search needs at least one word or number. Try different search terms.")
 
     params: list = [fts_query]
     scope_sql = ""

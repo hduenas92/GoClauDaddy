@@ -3,12 +3,26 @@ import { highlightCodeBlocks } from "../render/markdown.js";
 import { setStreaming } from "../state/actions.js";
 import { api } from "../api/http.js";
 import { getTemplates } from "../api/template_cache.js";
-import { interpolateTemplate } from "./template_picker.js";
+import { interpolateTemplate, CAT_LABELS } from "./template_picker.js";
 import { showErrorToast, showDialog } from "./modal.js";
 import { attachmentDownloadUrl, isImageName } from "./attachment_view.js";
 import * as storage from "../state/storage.js";
 
 const STATUS_LABEL = { done: "Done", error: "Error", stopped: "Stopped", timeout: "Timed out" };
+const TOOL_LABELS = {
+  Read: "Read file",
+  Write: "Write file",
+  Edit: "Edit file",
+  MultiEdit: "Edit files",
+  Bash: "Run command",
+  Grep: "Search files",
+  Glob: "Find files",
+  LS: "List files",
+  WebFetch: "Fetch web page",
+  WebSearch: "Search the web",
+  TodoWrite: "Update todo list",
+  Task: "Run sub-agent",
+};
 
 export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
   root.innerHTML = `
@@ -101,7 +115,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         return `
         <button class="featured-card" data-id="${_escHtml(t.id)}" title="${_escHtml(t.title)}">
           <span class="featured-card-title">${_escHtml(t.title)}</span>
-          <span class="featured-card-cat tp-cat-${cat}">${_escHtml(t.category)}</span>
+          <span class="featured-card-cat tp-cat-${cat}">${_escHtml(CAT_LABELS[t.category] ?? t.category)}</span>
         </button>
       `;
       }).join("");
@@ -507,7 +521,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     icon.textContent = "⚙";
     const nameSpan = document.createElement("span");
     nameSpan.className = "tool-call-name";
-    nameSpan.textContent = name;
+    nameSpan.textContent = TOOL_LABELS[name] ?? "Tool";
     const statusSpan = document.createElement("span");
     statusSpan.className = "tool-call-status";
     if (output !== undefined) {
@@ -553,7 +567,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     iconSpan.textContent = "⟳";
     const nameSpan = document.createElement("span");
     nameSpan.className = "pill-name";
-    nameSpan.textContent = name;
+    nameSpan.textContent = TOOL_LABELS[name] ?? "Tool";
     const elapsedSpan = document.createElement("span");
     elapsedSpan.className = "pill-elapsed";
     pill.append(iconSpan, nameSpan, elapsedSpan);
@@ -612,7 +626,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     highlightCodeBlocks(currentBubbleEl.querySelector(".text-block") || currentBubbleEl);
     _addCodeCopyButtons(currentBubbleEl);
     currentMetaEl.className = `msg-meta status-badge status-${status}`;
-    currentMetaEl.innerHTML = `${fmtTime()} · ${STATUS_LABEL[status] || status}${tokMeta(usage?.input_tokens, usage?.output_tokens)}`;
+    currentMetaEl.innerHTML = `${fmtTime()} · ${STATUS_LABEL[status] || "Unknown"}${tokMeta(usage?.input_tokens, usage?.output_tokens)}`;
 
     const captured = currentText;
     if (currentAssistantEl._actionsEl) {
@@ -651,7 +665,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
           // Nothing has moved yet, so the old answer is still on screen and the
           // question is sitting in the composer for a manual send. Task 2.5 owns
           // routing this through the shared non-boot failure surface.
-          showErrorToast(`Couldn't regenerate: ${err?.message || err}`);
+          showErrorToast("Couldn't regenerate that reply. Try again, or reload the page.");
           return;
         }
         // Only drop the old answer once the new turn is actually under way.
@@ -851,7 +865,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       socket.on("usage", (ev) => { lastUsage = ev.usage; }),
       socket.on("result", (ev) => { if (ev.usage) lastUsage = ev.usage; }),
       socket.on("timeout", () => {
-        statusEl.textContent = "Response timed out.";
+        statusEl.textContent = "Response timed out. Send the message again to retry.";
         finishAssistantMessage("timeout", lastUsage);
       }),
       // P2-B E1: a non-fatal notice (non-JSON CLI stdout). It must be visible
@@ -865,7 +879,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         notice.className = "chat-notice";
         // 4.1.3: the notice is a status message (polite), styled as an error.
         notice.setAttribute("role", "status");
-        notice.textContent = `Non-JSON CLI output ignored: ${line}`;
+        notice.textContent = "GoClaudaddy ignored an unexpected line from the Claude CLI. The reply is unaffected; restart the app if this repeats.";
         messagesEl.appendChild(notice);
         scrollDown();
       }),
@@ -884,7 +898,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
           // so at the moment it matters.
           msg = "Your CaaS key has no remaining budget. Open Check Balance in the right sidebar to see your allowance and request an increase.";
         } else {
-          msg = `Error: ${ev.error || "unknown error"}`;
+          msg = "Claude reported an error. Try again; if it keeps failing, open the LOG panel for details.";
         }
         statusEl.textContent = msg;
         showErrorToast(msg);

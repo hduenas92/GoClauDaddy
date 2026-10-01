@@ -43,7 +43,7 @@ function _showAssessment({ level, summary, concerns = [] }) {
     dialog = showDialog({
       title: "Task Assessment",
       body: `
-        <div class="assess-level" style="color:${levelColor}">${level.toUpperCase()} RISK</div>
+        <div class="assess-level" style="color:${levelColor}">${level[0].toUpperCase() + level.slice(1)} risk</div>
         <p class="assess-summary">${_escHtml(summary)}</p>
         ${concerns.length ? `<ul class="assess-concerns">${concerns.map(c => `<li>${_escHtml(c)}</li>`).join("")}</ul>` : ""}
       `,
@@ -152,7 +152,7 @@ export function mountComposer(root, socket, chatPane) {
                   <span class="suggest-title">${_escSuggest(t.title)}</span>
                   <span class="suggest-cat">${_escSuggest(t.category)}</span>
                 </div>`).join("")
-          : `<div class="suggest-empty">No templates match</div>`}
+          : `<div class="suggest-empty">No templates match — clear the filter or press Esc.</div>`}
         </div>
       `;
 
@@ -260,7 +260,7 @@ export function mountComposer(root, socket, chatPane) {
         ? " Try again, or use a smaller file."
         : "";
       const dot = /[.!?]$/.test(msg) ? "" : ".";
-      showErrorToast(`Couldn't attach "${file.name}": ${msg}${dot}${sizeHint}`);
+      showErrorToast(`Couldn't attach "${file.name}": ${msg}${dot} Allowed types: images, PDF, TXT, MD, CSV, JSON, LOG.`);
     }
   }
 
@@ -499,7 +499,7 @@ export function mountComposer(root, socket, chatPane) {
   // would still swallow anything unexpected, which is the same silence 2.4
   // removed from the rest of the app. Report instead.
   const _sendUnexpected = (err) =>
-    showErrorToast(`Something went wrong sending that: ${err?.message || err}`);
+    showErrorToast("Something went wrong sending that. Your message is back in the box — try again.");
 
   sendBtn.addEventListener("click", () => send().catch(_sendUnexpected));
   stopBtn.addEventListener("click", stop);

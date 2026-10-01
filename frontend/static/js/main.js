@@ -44,7 +44,7 @@ function updateTelemetry(conv) {
   const subtitle = document.getElementById("conv-subtitle");
   if (!subtitle) return;
   const { projects } = getState();
-  const model = MODEL_LABELS[conv.model] ?? conv.model ?? "—";
+  const model = MODEL_LABELS[conv.model] ?? "Model unknown";
   const permLabel = PERM_LABELS[conv.permission_mode];
   const project = projects.find(p => p.id === conv.project_id);
   const parts = [`<span class="sub-model">${_esc(model)}</span>`];
@@ -417,6 +417,6 @@ boot().then(() => maybeShowOnboarding()).catch((err) => {
   // switchToConversation shows its own retry UI), say so visibly.
   const app = document.getElementById("app");
   if (app && !app.querySelector("#composer") && !app.querySelector("#chat-retry-btn")) {
-    app.innerHTML = `<div id="boot-msg">Couldn't start GoClaudaddy: ${_esc(String(err?.message || err))}</div>`;
+    app.innerHTML = `<div id="boot-msg">Couldn't start GoClaudaddy: ${_esc(String(err?.message || err))}. Restart the app; if it keeps failing, open the LOG panel for details.</div>`;
   }
 });

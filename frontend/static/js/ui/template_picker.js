@@ -12,7 +12,7 @@ import { getTemplates, invalidateTemplates } from "../api/template_cache.js";
 import { showModal, showConfirm } from "./modal.js";
 
 const CATEGORIES = ["report", "email", "document", "analysis", "code", "custom"];
-const CAT_LABELS = { report: "Reports", email: "Email", document: "Docs", analysis: "Analysis", code: "Code", custom: "Custom" };
+export const CAT_LABELS = { report: "Reports", email: "Email", document: "Docs", analysis: "Analysis", code: "Code", custom: "Custom" };
 
 /** Extract {{Variable Name}} placeholders from a template body. Returns unique list. */
 function extractVars(body) {
@@ -149,7 +149,7 @@ export function openTemplatePicker({ onSelect }) {
     if (activeCategory === "custom") {
       return `<div class="tp-empty">No custom templates yet.<br><button class="tp-btn-link" id="tp-empty-new">Create your first one</button></div>`;
     }
-    return `<div class="tp-empty">No templates found.</div>`;
+    return `<div class="tp-empty">No templates match. Clear the search box or pick a different category.</div>`;
   }
 
   function renderCard(t) {
@@ -159,10 +159,10 @@ export function openTemplatePicker({ onSelect }) {
     // text is its accessible name. Name the card explicitly so the title and
     // category are separated; the visible DOM is unchanged.
     return `
-      <div class="tp-card" data-id="${escHtml(t.id)}" tabindex="0" role="button" aria-label="${escHtml(t.title)}, ${escHtml(t.category)} category">
+      <div class="tp-card" data-id="${escHtml(t.id)}" tabindex="0" role="button" aria-label="${escHtml(t.title)}, ${escHtml(CAT_LABELS[t.category] ?? t.category)} category">
         <div class="tp-card-top">
           <span class="tp-card-title">${escHtml(t.title)}</span>
-          <span class="tp-card-badge tp-cat-${escHtml(t.category)}">${escHtml(t.category)}</span>
+          <span class="tp-card-badge tp-cat-${escHtml(t.category)}">${escHtml(CAT_LABELS[t.category] ?? t.category)}</span>
           ${t.is_builtin ? `<span class="tp-lock" title="Built-in">🔒</span>` : ""}
         </div>
         ${t.description ? `<p class="tp-card-desc">${escHtml(t.description)}</p>` : ""}
@@ -251,7 +251,7 @@ export function openTemplatePicker({ onSelect }) {
   getTemplates()
     .then(ts => { templates = ts; render(); })
     .catch(() => {
-      overlay.querySelector(".tp-grid").innerHTML = `<div class="tp-empty">Could not load templates.</div>`;
+      overlay.querySelector(".tp-grid").innerHTML = `<div class="tp-empty">Could not load templates. Check your connection, then reopen the template picker.</div>`;
     });
 }
 

@@ -44,7 +44,7 @@ def test_busy_guard_blocks_second_send(temp_db, monkeypatch):
         ws.send_json({"type": "send", "message": "Second"})
         resp = ws.receive_json()
         assert resp["type"] == "error"
-        assert "already processing" in resp["error"].lower()
+        assert "already answering" in resp["error"].lower()
         can_finish.set()
 
 
@@ -141,7 +141,7 @@ def test_conversation_not_found_error(temp_db, monkeypatch):
         ws.send_json({"type": "send", "message": "Hello"})
         resp = ws.receive_json()
     assert resp["type"] == "error"
-    assert "conversation not found" in resp["error"].lower()
+    assert "conversation no longer exists" in resp["error"].lower()
 
 
 def test_empty_message_error(temp_db, monkeypatch):
@@ -155,7 +155,7 @@ def test_empty_message_error(temp_db, monkeypatch):
         ws.send_json({"type": "send", "message": "   "})
         resp = ws.receive_json()
     assert resp["type"] == "error"
-    assert "empty message" in resp["error"].lower()
+    assert "no text" in resp["error"].lower()
 
 
 # ===========================================================================

@@ -254,7 +254,7 @@ def test_user_tool_result_preserves_is_error():
 
 def test_result_with_is_error_becomes_error_event():
     line = json.dumps({"type": "result", "is_error": True, "result": "the CLI blew up"})
-    assert parse_line(line) == [{"type": "error", "error": "the CLI blew up"}]
+    assert parse_line(line) == [{"type": "error", "error": "Claude reported an error. Try again; if it keeps failing, open the LOG panel."}]
 
 
 def test_result_with_is_error_and_no_message_still_errors():

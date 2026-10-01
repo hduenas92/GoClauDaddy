@@ -358,7 +358,7 @@ def test_second_send_while_busy_rejected_and_no_second_process(temp_db, monkeypa
             ws.send_json({"type": "send", "message": "second"})
             busy, _ = _read_n(ws, 1, timeout=3.0)
             assert busy and busy[0].get("type") == "error", f"expected a busy error, got {busy!r}"
-            assert "already processing" in busy[0]["error"].lower(), busy[0]
+            assert "already answering" in busy[0]["error"].lower(), busy[0]
 
             release.set()
             rest, _ = _read_n(ws, 2, timeout=5.0)
@@ -500,7 +500,7 @@ def test_malformed_unknown_type_gets_defined_error_and_connection_survives(temp_
         ws.send_json({"type": "totally-made-up"})
         first, _ = _read_n(ws, 1, timeout=3.0)
         assert first and first[0].get("type") == "error", first
-        assert "unknown message type" in first[0]["error"].lower(), first[0]
+        assert "didn't understand" in first[0]["error"].lower(), first[0]
 
         ws.send_json({"type": "send", "message": "still alive?"})
         rest, _ = _collect_until(
@@ -526,12 +526,12 @@ def test_malformed_missing_required_fields_get_defined_error_and_connection_surv
         ws.send_json({"type": "send"})  # required field "message" absent
         no_message, _ = _read_n(ws, 2, timeout=3.0)
         assert [f.get("type") for f in no_message] == ["error", "done"], no_message
-        assert "empty message" in no_message[0]["error"].lower(), no_message[0]
+        assert "no text" in no_message[0]["error"].lower(), no_message[0]
 
         ws.send_json({"not_a_type": True})  # required field "type" absent
         no_type, _ = _read_n(ws, 1, timeout=3.0)
         assert no_type and no_type[0].get("type") == "error", no_type
-        assert "unknown message type: none" in no_type[0]["error"].lower(), no_type[0]
+        assert "didn't understand" in no_type[0]["error"].lower(), no_type[0]
 
         ws.send_json({"type": "send", "message": "still alive?"})
         rest, _ = _collect_until(
@@ -589,8 +589,8 @@ def test_nonexistent_conversation_gets_clean_rejection(temp_db, monkeypatch):
 
     assert not alive, f"expected exactly two frames, got {frames!r}"
     assert [f.get("type") for f in frames] == ["error", "done"], frames
-    assert "conversation not found" in frames[0]["error"].lower(), frames[0]
-    assert "create it first" in frames[0]["error"].lower(), frames[0]
+    assert "conversation no longer exists" in frames[0]["error"].lower(), frames[0]
+    assert "start a new chat" in frames[0]["error"].lower(), frames[0]
 
 
 # --------------------------------------------------------------------------
@@ -630,7 +630,7 @@ def test_two_sockets_same_conversation_share_busy_state(temp_db, monkeypatch):
             wb.send_json({"type": "send", "message": "from-b"})
             b_frames, _ = _read_n(wb, 1, timeout=3.0)
             assert b_frames and b_frames[0].get("type") == "error", b_frames
-            assert "already processing" in b_frames[0]["error"].lower(), b_frames[0]
+            assert "already answering" in b_frames[0]["error"].lower(), b_frames[0]
 
             release.set()
             a_last, _ = _read_n(wa, 1, timeout=5.0)

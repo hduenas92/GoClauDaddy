@@ -14,7 +14,7 @@ async function req(method, path, body) {
     // got "POST /api/... failed (503)" instead of the sentence explaining why.
     // Strictly widening: anything that reached the generic string before still
     // reaches it, because it had neither key.
-    throw new Error(data.error || data.detail || `${method} ${path} failed (${res.status})`);
+    throw new Error(data.error || data.detail || `The request failed (${res.status}). Try again; if it keeps failing, open the LOG panel.`);
   }
   return res.status === 204 ? null : res.json();
 }
@@ -55,7 +55,7 @@ export const api = {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || data.detail || `upload failed (${res.status})`);
+      throw new Error(data.error || data.detail || `Upload failed (${res.status}). Try again, or use a smaller file.`);
     }
     return res.json();
   },
