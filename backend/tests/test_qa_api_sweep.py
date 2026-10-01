@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -140,12 +141,15 @@ def _walk_strings(value: Any):
 
 
 def _body_has_profile_path(resp: Response) -> bool:
-    variants = {PROFILE, PROFILE.replace("\\", "/")}
+    # The temp dir counts too: test data lives there, and only under the REAL profile is it also under
+    # PROFILE, so checking PROFILE alone passed in a fake-HOME clone and failed on the dev machine (2026-10-01).
+    roots = {PROFILE, tempfile.gettempdir()}
+    variants = {v for r in roots for v in (r, r.replace("\\", "/"))}
     try:
         raw = resp.content.decode("utf-8", errors="replace")
     except Exception:
         raw = resp.text
-    if json.dumps(PROFILE)[1:-1] in raw:  # JSON-escaped C:\\Users\\...
+    if any(json.dumps(r)[1:-1] in raw for r in roots):  # JSON-escaped C:\\Users\\...
         return True
     try:
         data = resp.json()
@@ -376,7 +380,7 @@ _CASES: list[Any] = [
 
     # ------------------------------------------------------- attachments
     _p("POST /api/attachments", "valid", lambda ctx: ctx.upload(ctx.create_conversation()), kind="valid",
-       check=_check_attachment_content(b"qa")),
+       check=_check_attachment_content(b"qa"), xfail_reason="BUG: attachment upload returns the absolute stored_path (a local file path) to the client"),
     _p("POST /api/attachments", "missing_file", lambda ctx: ctx.client.post("/api/attachments", params={"conversation_id": ctx.create_conversation()}), kind="invalid"),
     _p("POST /api/attachments", "missing_conversation_id", lambda ctx: ctx.client.post("/api/attachments", files={"file": ("qa.txt", b"qa", "text/plain")}), kind="invalid"),
     _p("POST /api/attachments", "empty_conversation_id", lambda ctx: ctx.client.post("/api/attachments", params={"conversation_id": ""}, files={"file": ("qa.txt", b"qa", "text/plain")}), kind="not_found"),
@@ -384,9 +388,9 @@ _CASES: list[Any] = [
     _p("POST /api/attachments", "malformed_uuid", lambda ctx: ctx.client.post("/api/attachments", params={"conversation_id": MALFORMED_UUID}, files={"file": ("qa.txt", b"qa", "text/plain")}), kind="not_found"),
     _p("POST /api/attachments", "sql_conversation_id", lambda ctx: ctx.client.post("/api/attachments", params={"conversation_id": SQL}, files={"file": ("qa.txt", b"qa", "text/plain")}), kind="sql"),
     _p("POST /api/attachments", "absurd_file", lambda ctx: ctx.upload(ctx.create_conversation(), content=ABSURD.encode()), kind="absurd",
-       check=_check_attachment_content(ABSURD.encode())),
+       check=_check_attachment_content(ABSURD.encode()), xfail_reason="BUG: attachment upload returns the absolute stored_path (a local file path) to the client"),
     _p("POST /api/attachments", "duplicate", _run_attachment_duplicate, kind="duplicate",
-       check=_check_distinct_ids),
+       check=_check_distinct_ids, xfail_reason="BUG: attachment upload returns the absolute stored_path (a local file path) to the client"),
 
     _p("GET /api/attachments/{id}/download", "valid", _run_download_valid),
     _p("GET /api/attachments/{id}/download", "nonexistent_id", lambda ctx: ctx.client.get(f"/api/attachments/{FAKE_UUID}/download"), kind="not_found"),
