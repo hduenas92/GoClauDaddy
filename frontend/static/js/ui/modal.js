@@ -9,19 +9,128 @@
 
 import { api } from "../api/http.js";
 
-function _buildOverlay() {
+let _dialogIdSeq = 0;
+
+function _nextDialogTitleId() {
+  _dialogIdSeq += 1;
+  return `modal-title-${_dialogIdSeq}`;
+}
+
+function _makeDialogButton(spec) {
+  if (spec instanceof HTMLElement) return spec;
+  const button = document.createElement("button");
+  if (spec.className) button.className = spec.className;
+  if (spec.id) button.id = spec.id;
+  if (spec.title != null) button.title = spec.title;
+  if (spec.type) button.type = spec.type;
+  if (spec.hidden) button.hidden = true;
+  if (spec.disabled) button.disabled = true;
+  if (spec.attrs) {
+    Object.entries(spec.attrs).forEach(([name, value]) => {
+      if (value !== false && value != null) {
+        button.setAttribute(name, value === true ? "" : String(value));
+      }
+    });
+  }
+  if (spec.html != null) button.innerHTML = spec.html;
+  else button.textContent = String(spec.label ?? "");
+  if (spec.onClick) button.addEventListener("click", spec.onClick);
+  return button;
+}
+
+function _appendDialogActions(box, actions) {
+  if (!Array.isArray(actions) || actions.length === 0) return;
+  const groups = actions.every((entry) => Array.isArray(entry)) ? actions : [actions];
+  groups.forEach((group) => {
+    if (!Array.isArray(group) || group.length === 0) return;
+    const row = document.createElement("div");
+    row.className = "modal-actions";
+    group.forEach((spec) => row.appendChild(_makeDialogButton(spec)));
+    box.appendChild(row);
+  });
+}
+
+/**
+ * Shared dialog shell for every modal in the app.
+ *
+ * The shell owns the overlay, the dialog box, role/aria-modal wiring, and the
+ * per-dialog unique id that aria-labelledby points at. Callers supply a title
+ * or message, optional body content, and button groups so approval/assessment
+ * prompts cannot drift into separate copies of the modal markup.
+ */
+export function showDialog({
+  title = null,
+  message = null,
+  body = null,
+  actions = [],
+  ariaLabel = null,
+  trap = true,
+  closeOnBackdrop = false,
+  returnFocus = true,
+  onClose = null,
+} = {}) {
+  const returnFocusEl = returnFocus && document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : null;
+
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   document.body.appendChild(overlay);
 
-  // Close on backdrop click
-  overlay.addEventListener("mousedown", (e) => {
-    if (e.target === overlay) overlay._reject();
-  });
-  return overlay;
+  const box = document.createElement("div");
+  box.className = "modal-box";
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-modal", "true");
+
+  const labelId = _nextDialogTitleId();
+  if (title != null) {
+    const heading = document.createElement("h3");
+    heading.className = "modal-title";
+    heading.id = labelId;
+    heading.textContent = String(title);
+    box.appendChild(heading);
+    box.setAttribute("aria-labelledby", labelId);
+  } else if (message != null) {
+    const msg = document.createElement("p");
+    msg.className = "modal-confirm-msg";
+    msg.id = labelId;
+    msg.textContent = String(message);
+    box.appendChild(msg);
+    box.setAttribute("aria-labelledby", labelId);
+  }
+  if (ariaLabel != null) box.setAttribute("aria-label", String(ariaLabel));
+
+  if (body != null) {
+    if (typeof body === "string") box.insertAdjacentHTML("beforeend", body);
+    else if (Array.isArray(body)) body.forEach((node) => box.appendChild(node));
+    else box.appendChild(body);
+  }
+
+  _appendDialogActions(box, actions);
+  overlay.appendChild(box);
+
+  let releaseTrap = null;
+  if (trap) releaseTrap = trapFocus(overlay);
+
+  let closed = false;
+  const close = ({ reason = "close", restore = true } = {}) => {
+    if (closed) return false;
+    closed = true;
+    releaseTrap?.();
+    overlay.remove();
+    if (restore && returnFocusEl?.isConnected) returnFocusEl.focus();
+    onClose?.(reason);
+    return true;
+  };
+
+  if (closeOnBackdrop) {
+    overlay.addEventListener("mousedown", (e) => {
+      if (e.target === overlay) close({ reason: "backdrop" });
+    });
+  }
+
+  return { overlay, box, labelId, close };
 }
-
-
 // Anything a keyboard user can land on. `[tabindex="-1"]` is excluded on purpose:
 // script can focus it, Tab cannot reach it, so it is not part of the sequence a
 // trap has to contain. Kept identical to the selector tools/focus-check.mjs
@@ -118,20 +227,8 @@ export function attachDirectoryBrowse(button, input) {
 
 export function showModal({ title, fields = [], confirmText = "Save", danger = false, initial = {} }) {
   return new Promise((resolve) => {
-    const overlay = _buildOverlay();
-    // 2.4.3: hand focus back to the trigger that opened this modal.
-    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const restore = () => { if (returnFocus?.isConnected) returnFocus.focus(); };
-    overlay._reject = () => { overlay.remove(); restore(); resolve(null); };
-
-    const box = document.createElement("div");
-    box.className = "modal-box";
-    // 4.1.2: every modal must expose role, modality, and an accessible name.
-    box.setAttribute("role", "dialog");
-    box.setAttribute("aria-modal", "true");
-    box.setAttribute("aria-labelledby", "modal-title");
-    box.innerHTML = `
-      <h3 class="modal-title" id="modal-title">${escHtml(title)}</h3>
+    let dialog;
+    const body = `
       <div class="modal-fields">
         ${fields.map((f) => {
           const val = escHtml(initial[f.name] !== undefined ? initial[f.name] : (f.value || ""));
@@ -167,33 +264,42 @@ export function showModal({ title, fields = [], confirmText = "Save", danger = f
           </label>`;
         }).join("")}
       </div>
-      <div class="modal-actions">
-        <button class="modal-btn modal-cancel">Cancel</button>
-        <button class="modal-btn modal-confirm${danger ? " danger" : ""}">${escHtml(confirmText)}</button>
-      </div>
     `;
-    overlay.appendChild(box);
 
-    const releaseTrap = trapFocus(overlay);
-    const _reject = overlay._reject;
-    overlay._reject = () => { releaseTrap(); _reject(); };
-
-    const inputs = box.querySelectorAll(".modal-input");
-    if (inputs.length) inputs[0].focus();
-
-    box.querySelectorAll(".modal-browse").forEach((btn) => {
-      const target = box.querySelector(`.modal-input[name="${CSS.escape(btn.dataset.for)}"]`);
-      if (target) attachDirectoryBrowse(btn, target);
+    dialog = showDialog({
+      title,
+      body,
+      actions: [[
+        {
+          className: "modal-btn modal-cancel",
+          label: "Cancel",
+          onClick: () => dialog.close({ reason: "cancel" }),
+        },
+        {
+          className: `modal-btn modal-confirm${danger ? " danger" : ""}`,
+          label: confirmText,
+          onClick: () => {
+            const values = {};
+            dialog.box.querySelectorAll(".modal-input").forEach((el) => { values[el.name] = el.value; });
+            resolve(values);
+            dialog.close({ reason: "confirm" });
+          },
+        },
+      ]],
+      trap: true,
+      closeOnBackdrop: true,
+      returnFocus: true,
+      onClose: (reason) => {
+        if (reason === "cancel" || reason === "backdrop" || reason === "escape") resolve(null);
+      },
     });
 
-    box.querySelector(".modal-cancel").addEventListener("click", () => overlay._reject());
+    const inputs = dialog.box.querySelectorAll(".modal-input");
+    if (inputs.length) inputs[0].focus();
 
-    box.querySelector(".modal-confirm").addEventListener("click", () => {
-      const values = {};
-      inputs.forEach((el) => { values[el.name] = el.value; });
-      overlay.remove();
-      restore();
-      resolve(values);
+    dialog.box.querySelectorAll(".modal-browse").forEach((btn) => {
+      const target = dialog.box.querySelector(`.modal-input[name="${CSS.escape(btn.dataset.for)}"]`);
+      if (target) attachDirectoryBrowse(btn, target);
     });
 
     // Enter submits (when not in textarea, and not on the Browse button).
@@ -203,54 +309,56 @@ export function showModal({ title, fields = [], confirmText = "Save", danger = f
     // preventDefault() cancels exactly that. Without the exclusion, a keyboard
     // user who tabs to Browse and presses Enter submits the form instead —
     // the control is reachable, looks focused, and does the wrong thing.
-    box.addEventListener("keydown", (e) => {
+    dialog.box.addEventListener("keydown", (e) => {
       if (e.key === "Enter"
           && e.target.tagName !== "TEXTAREA"
           && !e.target.classList?.contains("modal-browse")) {
         e.preventDefault();
-        box.querySelector(".modal-confirm").click();
+        dialog.box.querySelector(".modal-confirm").click();
       }
-      if (e.key === "Escape") overlay._reject();
+      if (e.key === "Escape") dialog.close({ reason: "escape" });
     });
   });
 }
 
 export function showConfirm({ message, confirmText = "Delete", danger = true }) {
   return new Promise((resolve) => {
-    const overlay = _buildOverlay();
-    const releaseTrap = trapFocus(overlay);
-    // 2.4.3: hand focus back to the trigger that opened this confirm.
-    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const restore = () => { if (returnFocus?.isConnected) returnFocus.focus(); };
-    overlay._reject = () => { releaseTrap(); overlay.remove(); restore(); resolve(false); };
-
-    const box = document.createElement("div");
-    box.className = "modal-box";
-    // 4.1.2: showConfirm has no title element; the message is its heading text.
-    box.setAttribute("role", "dialog");
-    box.setAttribute("aria-modal", "true");
-    box.setAttribute("aria-label", message);
-    box.innerHTML = `
-      <p class="modal-confirm-msg">${escHtml(message)}</p>
-      <div class="modal-actions">
-        <button class="modal-btn modal-cancel">Cancel</button>
-        <button class="modal-btn modal-confirm${danger ? " danger" : ""}">${escHtml(confirmText)}</button>
-      </div>
-    `;
-    overlay.appendChild(box);
-
-    box.querySelector(".modal-cancel").addEventListener("click", () => overlay._reject());
-    box.querySelector(".modal-confirm").addEventListener("click", () => {
-      overlay.remove();
-      restore();
-      resolve(true);
-    });
-    box.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { overlay.remove(); restore(); resolve(true); }
-      if (e.key === "Escape") overlay._reject();
+    let dialog;
+    dialog = showDialog({
+      message,
+      ariaLabel: message,
+      actions: [[
+        {
+          className: "modal-btn modal-cancel",
+          label: "Cancel",
+          onClick: () => dialog.close({ reason: "cancel" }),
+        },
+        {
+          className: `modal-btn modal-confirm${danger ? " danger" : ""}`,
+          label: confirmText,
+          onClick: () => {
+            resolve(true);
+            dialog.close({ reason: "confirm" });
+          },
+        },
+      ]],
+      trap: true,
+      closeOnBackdrop: true,
+      returnFocus: true,
+      onClose: (reason) => {
+        if (reason === "cancel" || reason === "backdrop" || reason === "escape") resolve(false);
+      },
     });
 
-    box.querySelector(".modal-confirm").focus();
+    dialog.box.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        resolve(true);
+        dialog.close({ reason: "confirm" });
+      }
+      if (e.key === "Escape") dialog.close({ reason: "escape" });
+    });
+
+    dialog.box.querySelector(".modal-confirm").focus();
   });
 }
 

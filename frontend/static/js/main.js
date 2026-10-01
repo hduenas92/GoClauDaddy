@@ -179,7 +179,6 @@ async function boot() {
           <kbd>Ctrl+Shift+N</kbd><span>New conversation</span>
           <kbd>Ctrl+Shift+T</kbd><span>Template picker</span>
           <kbd>Ctrl+K</kbd><span>Template autosuggest</span>
-          <kbd>Ctrl+&#96;</kbd><span>Terminal panel</span>
           <kbd>Ctrl+,</kbd><span>Toggle settings</span>
           <kbd>Ctrl+B</kbd><span>Toggle right sidebar</span>
           <kbd>Ctrl+E</kbd><span>Export conversation</span>
@@ -359,15 +358,6 @@ async function boot() {
       if (overlayOpen) return;
       e.preventDefault();
       createConversation().then((conv) => switchToConversation(conv.id, chatPane, composerRoot));
-      return;
-    }
-    // Ctrl+` — terminal panel
-    if (mod && e.key === "`") {
-      if (overlayOpen) return;
-      e.preventDefault();
-      if (storage.getItem("gca_feat_terminal") === "1") {
-        import("./ui/terminal.js").then(m => m.openTerminal()).catch(() => {});
-      }
       return;
     }
     // Ctrl+Shift+T — template picker

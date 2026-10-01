@@ -2,6 +2,8 @@
 a new entry appended to MIGRATIONS, not a rewrite of schema.sql.
 """
 
+import sqlite3
+from collections.abc import Callable
 from pathlib import Path
 
 from app.db.connection import get_connection
@@ -11,9 +13,34 @@ log = get_logger("migrations")
 
 _SCHEMA_SQL = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
 
-# (version, description, sql). Append new entries here for future schema changes —
+
+def _drop_team_tables_if_empty(conn: sqlite3.Connection) -> None:
+    """v20: remove the team tables only when neither holds any rows."""
+
+    def _table_exists(name: str) -> bool:
+        return conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+            (name,),
+        ).fetchone() is not None
+
+    members_empty = True
+    if _table_exists("team_members"):
+        members_empty = conn.execute("SELECT 1 FROM team_members LIMIT 1").fetchone() is None
+
+    sessions_empty = True
+    if _table_exists("team_sessions"):
+        sessions_empty = conn.execute("SELECT 1 FROM team_sessions LIMIT 1").fetchone() is None
+
+    if members_empty and sessions_empty:
+        conn.execute("DROP TABLE IF EXISTS team_members")
+        conn.execute("DROP TABLE IF EXISTS team_sessions")
+
+MigrationBody = str | list[str] | tuple[str, ...] | Callable[[sqlite3.Connection], None]
+
+
+# (version, description, body). Append new entries here for future schema changes —
 # never edit an already-shipped entry.
-MIGRATIONS: list[tuple[int, str, str]] = [
+MIGRATIONS: list[tuple[int, str, MigrationBody]] = [
     (1, "initial schema", _SCHEMA_SQL),
     (2, "conversation system_prompt", "ALTER TABLE conversations ADD COLUMN system_prompt TEXT"),
     (3, "conversation thinking_budget", "ALTER TABLE conversations ADD COLUMN thinking_budget INTEGER"),
@@ -145,6 +172,8 @@ END""",
         "DROP TABLE IF EXISTS project_files",
         "DROP TABLE IF EXISTS app_config",
     ]),
+
+    (20, "drop team tables if empty", _drop_team_tables_if_empty),
 ]
 
 
@@ -165,17 +194,24 @@ def apply_migrations() -> None:
     with get_connection() as conn:
         current = _current_version(conn)
         applied_any = False
-        for version, description, sql in MIGRATIONS:
+        for version, description, body in MIGRATIONS:
             if version <= current:
                 continue
             log.info("Applying migration %d: %s", version, description)
-            if version == 1:
+            if callable(body):
+                # A callable migration may issue DDL. Python's sqlite3 module
+                # does not open a transaction for DDL on its own, so BEGIN here
+                # puts the callable and the version write in one transaction.
+                if not conn.in_transaction:
+                    conn.execute("BEGIN")
+                body(conn)
+            elif version == 1:
                 # v1 baseline is multi-statement — executescript is the only way
                 # to run it. It issues an implicit COMMIT first, then runs schema.sql
                 # in autocommit. Safe because schema.sql is all CREATE TABLE IF NOT
                 # EXISTS (idempotent on retry if the version write crashes after).
-                conn.executescript(sql)
-            elif isinstance(sql, (list, tuple)):
+                conn.executescript(body)
+            elif isinstance(body, (list, tuple)):
                 # A migration may be a sequence of statements. Same atomicity
                 # guarantee as the single-statement path below: every statement
                 # plus the version write share one transaction, so a crash
@@ -183,7 +219,7 @@ def apply_migrations() -> None:
                 # half-applied. Needed because sqlite3 refuses multiple
                 # statements in one execute(), and executescript() would break
                 # atomicity (see the note below).
-                for stmt in sql:
+                for stmt in body:
                     conn.execute(stmt)
             else:
                 # ponytail: executescript issues implicit COMMIT before running, so
@@ -192,7 +228,7 @@ def apply_migrations() -> None:
                 # causing a duplicate-column crash loop on the next restart.
                 # conn.execute() keeps the DDL and version write in the same
                 # transaction (committed atomically by get_connection's conn.commit).
-                conn.execute(sql)
+                conn.execute(body)
             _set_version(conn, version)
             current = version
             applied_any = True

@@ -149,15 +149,37 @@ async def _handle_send(
         log.exception("Unhandled error in send setup for conversation %s", conversation_id)
         # Honour the done-always contract the composer relies on
         # (see :59-65 and :231-232): error first, then done.
-        with contextlib.suppress(Exception):
+        try:
             await websocket.send_json(
                 {"type": "error", "error": "Something went wrong starting that turn. Check the logs folder for details."}
             )
-        with contextlib.suppress(Exception):
+        except (RuntimeError, WebSocketDisconnect):
+            pass
+        except Exception:
+            log.warning(
+                "Failed to send error frame to websocket for conversation %s",
+                conversation_id,
+                exc_info=True,
+            )
+        try:
             await websocket.send_json({"type": "done"})
+        except (RuntimeError, WebSocketDisconnect):
+            pass
+        except Exception:
+            log.warning(
+                "Failed to send done frame to websocket for conversation %s",
+                conversation_id,
+                exc_info=True,
+            )
         # Never leave the conversation wedged as busy.
-        with contextlib.suppress(Exception):
+        try:
             registry.clear(conversation_id)
+        except Exception:
+            log.warning(
+                "Failed to clear process registry for conversation %s",
+                conversation_id,
+                exc_info=True,
+            )
         try: convs.set_status(conversation_id, "idle")  # P2-R R3: was suppress — log the secondary failure instead of hiding it
         except Exception: log.warning("Failed to set status idle for conversation %s", conversation_id, exc_info=True)
 
@@ -363,8 +385,16 @@ async def _handle_send_inner(
                 stdin = proc_stdin[0]
                 if stdin and not stdin.is_closing():
                     stdin.write(b"y\n" if approved else b"n\n")
-                    with contextlib.suppress(Exception):
+                    try:
                         await stdin.drain()
+                    except (ConnectionError, BrokenPipeError, OSError):
+                        pass
+                    except Exception:
+                        log.warning(
+                            "Failed to drain approval response to claude stdin for conversation %s",
+                            conversation_id,
+                            exc_info=True,
+                        )
                 continue  # not a content event; skip all downstream accumulation
             if ev_type == "session":
                 convs.set_session_id(conversation_id, event["session_id"])

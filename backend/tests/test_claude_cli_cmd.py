@@ -66,3 +66,15 @@ def test_prompt_is_always_last_argument():
         session_id="s1",
     )
     assert cmd[-1] == "the actual prompt"
+
+
+def test_max_tokens_no_longer_passed_as_flag():
+    cmd = build_command(prompt="hi", model="m", max_tokens=4096)
+    assert "--max-tokens" not in cmd
+    assert "4096" not in cmd
+
+
+def test_thinking_no_longer_passed_as_flag():
+    cmd = build_command(prompt="hi", model="m", thinking_budget=8000)
+    assert "--thinking" not in cmd
+    assert "enabled" not in cmd

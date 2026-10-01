@@ -137,14 +137,6 @@ def export_conversation(conversation_id: str):
     return {"markdown": svc.export_as_markdown(conversation_id)}
 
 
-@router.delete("/{conversation_id}/messages/last")
-def delete_last_message(conversation_id: str):
-    if not svc.get_conversation(conversation_id):
-        raise HTTPException(404, "Conversation not found")
-    deleted = svc.delete_last_message(conversation_id)
-    return {"ok": deleted}
-
-
 @router.delete("/{conversation_id}")
 def delete_conversation(conversation_id: str):
     if not svc.get_conversation(conversation_id):

@@ -84,8 +84,6 @@ async function stubBoot(page) {
         body: JSON.stringify({ chat_count: 1, message_count: 0, total_input: 0, total_output: 0, monthly_cost_usd: 0, monthly_input: 0, monthly_output: 0, budget_usd: 200 }),
       });
     }
-    if (p === '/api/agents/status') return r.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    if (p === '/api/teams') return r.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     return r.continue();
   });
 }

@@ -128,12 +128,6 @@ async function stubBoot(page, { projects = [PROJ], conversations = [CONV], messa
     if (p === '/api/server/stats') {
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ chat_count: 1, message_count: 2, total_input: 12, total_output: 24, monthly_cost_usd: 0, monthly_input: 0, monthly_output: 0, budget_usd: 200 }) });
     }
-    if (p === '/api/agents/status') {
-      return r.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    }
-    if (p === '/api/teams') {
-      return r.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    }
     return r.continue();
   });
 }
@@ -151,7 +145,6 @@ async function newPage(seed = {}) {
       if (!s.onboarded) localStorage.removeItem('gca_onboarded');
       localStorage.setItem('gca_sb_open', s.sbOpen ? '1' : '0');
       localStorage.setItem('gca_cost_notified', new Date().toISOString().slice(0, 10));
-      localStorage.setItem('gca_feat_teams', s.teams ? '1' : '0');
       localStorage.setItem('gca_feat_terminal', s.terminal ? '1' : '0');
       localStorage.setItem('gca_feat_assess', s.assess ? '1' : '0');
       localStorage.setItem('gca_feat_approval', s.approval ? '1' : '0');

@@ -34,14 +34,6 @@ def create_project(body: CreateProjectRequest):
         raise HTTPException(400, str(exc)) from exc
 
 
-@router.get("/{project_id}")
-def get_project(project_id: str):
-    project = svc.get_project(project_id)
-    if not project:
-        raise HTTPException(404, "Project not found")
-    return project
-
-
 @router.patch("/{project_id}")
 def update_project(project_id: str, body: UpdateProjectRequest):
     if not svc.get_project(project_id):

@@ -121,7 +121,7 @@ def test_injection_in_a_patched_value_is_stored_not_executed(temp_db):
     res = client.patch(f"/api/projects/{proj['id']}", json={"name": payload})
     assert res.status_code == 200, res.text
 
-    after = client.get(f"/api/projects/{proj['id']}").json()
+    after = res.json()
     assert after["name"] == payload, "the payload was not stored verbatim as data"
     assert after["working_dir"] == home, (
         "working_dir changed — the payload was interpreted as SQL, not bound as a value"

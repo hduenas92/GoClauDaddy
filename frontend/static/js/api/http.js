@@ -31,7 +31,6 @@ export const api = {
   deleteConversation: (id) => req("DELETE", `/api/conversations/${id}`),
   autoTitleConversation: (id) => req("POST", `/api/conversations/${id}/auto-title`),
   exportConversation: (id) => req("GET", `/api/conversations/${id}/export`),
-  deleteLastMessage: (id) => req("DELETE", `/api/conversations/${id}/messages/last`),
 
   // encodeURIComponent is not optional: `q` is arbitrary text a user typed and
   // will contain &, # and +, each of which silently changes the query string.

@@ -8,11 +8,13 @@ of backend/app:
     missing = [name for name in REQUIRED_AUTH_ENV_VARS if not os.environ.get(name)]
 
 That is a presence test whose result is a list of NAMES. `claude_cli` starts
-the CLI with `asyncio.create_subprocess_exec` and no explicit `env=`, so the
-child inherits the environment directly and the value never passes through a
-Python variable the server can log, store, or serialise. A scan of every file
-under the data directory found no credential value in the database, the logs,
-or any export.
+the CLI with `asyncio.create_subprocess_exec` and an env built as
+`{**os.environ, **build_env(...)}` — the documented token controls must be
+merged in because CLI 2.1.286 rejects --max-tokens/--thinking. The credential
+still reaches the child by inheriting the parent environment; it is never read
+into a named variable, logged, or serialised. A scan of every file under the
+data directory found no credential value in the database, the logs, or any
+export.
 
 ONE FALSE-POSITIVE CLASS, recorded so the next sweep does not re-raise it: a
 regex for /token/ matches 96 lines in backend/app, and almost every one is
@@ -33,6 +35,7 @@ import pytest
 
 from app import startup_check
 from app.config import REQUIRED_AUTH_ENV_VARS
+from app.services import claude_cli
 
 APP_DIR = pathlib.Path(startup_check.__file__).resolve().parent
 
@@ -147,45 +150,63 @@ def test_no_log_or_print_mentions_a_credential_identifier():
     )
 
 
-def test_subprocess_inherits_env_rather_than_being_handed_one():
-    """No `env=` is passed to the process spawn in claude_cli.
+@pytest.mark.asyncio
+async def test_subprocess_env_is_parent_environment_plus_only_token_overrides(monkeypatch):
+    """run() hands the child the parent env plus ONLY the token-control overrides.
 
-    Inheriting is why the token never enters Python-visible state: the child
-    gets the parent's environment from the OS, and the server never reads the
-    value to hand it over.
-
-    THE FIRST VERSION OF THIS TEST WAS WRONG IN TWO WAYS, and the mutation
-    battery caught both by surviving. It grepped for `\\benv\\s*=\\s*dict\\(`,
-    which (a) misses `_env = dict(...)` outright, because `_` is a word
-    character so there is no boundary before `env`, and (b) was asserting
-    against the wrong thing anyway — a dict built and never used is not a leak.
-    What matters is whether an environment reaches the CALL. So this now walks
-    the AST and looks at the spawn's keyword arguments, which is the actual
-    invariant and cannot be dodged by naming.
+    The previous version of this test asserted the spawn passed no `env=` at all,
+    because inheriting keeps every credential value out of Python-visible memory.
+    That invariant is no longer possible: CLI 2.1.286 rejects
+    `--max-tokens`/`--thinking`, so the two documented controls
+    (CLAUDE_CODE_MAX_OUTPUT_TOKENS, MAX_THINKING_TOKENS) must be merged into
+    the child environment. This pins what still matters: the credential is
+    still inherited from the parent environment, and the merge adds ONLY the
+    overrides build_env() returns — an arbitrary extra key at the spawn site
+    would still trip this test.
     """
-    path = APP_DIR / "services" / "claude_cli.py"
-    tree = ast.parse(path.read_text(encoding="utf-8"))
+    sentinel = "sk-THIS-IS-THE-SECRET-VALUE-0123456789"
+    monkeypatch.setenv(REQUIRED_AUTH_ENV_VARS[0], sentinel)
+    monkeypatch.delenv("MAX_THINKING_TOKENS", raising=False)
+    monkeypatch.delenv("CLAUDE_CODE_MAX_OUTPUT_TOKENS", raising=False)
 
-    spawns = [
-        node for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and (getattr(node.func, "attr", None) in
-             {"create_subprocess_exec", "create_subprocess_shell", "Popen", "run"})
-    ]
-    # NON-EMPTY-SET GUARD: if the spawn call was renamed or moved, "no env= is
-    # passed" is true of zero calls and this test passes having checked nothing.
-    assert spawns, (
-        "no subprocess spawn found in claude_cli.py — this test would pass over "
-        "an empty set. If the spawn moved, move the test."
-    )
+    captured: dict = {}
 
-    handed = [
-        f"{path.name}:{node.lineno}"
-        for node in spawns
-        for kw in node.keywords
-        if kw.arg == "env"
+    class _EmptyStream:
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise StopAsyncIteration
+
+    class _FakeProc:
+        returncode = 0
+        stdin = None
+        stderr = None
+
+        def __init__(self):
+            self.stdout = _EmptyStream()
+
+        async def wait(self):
+            return 0
+
+    async def fake_exec(*args, **kwargs):
+        captured["env"] = kwargs["env"]
+        return _FakeProc()
+
+    monkeypatch.setattr(claude_cli.asyncio, "create_subprocess_exec", fake_exec)
+
+    events = [
+        ev async for ev in claude_cli.run(
+            prompt="hi", model="m", cwd=".", thinking_budget=0, max_tokens=4096
+        )
     ]
-    assert not handed, (
-        f"an explicit environment is handed to the subprocess at {handed}. "
-        f"Inheriting is what keeps the credential out of the server's own memory."
-    )
+    assert events[-1] == {"type": "done"}
+
+    env = captured["env"]
+    # The credential still reaches the child: inherited, not injected by name.
+    assert env[REQUIRED_AUTH_ENV_VARS[0]] == sentinel
+    # Exactly the documented overrides were added; nothing else.
+    extra = set(env) - set(os.environ)
+    assert extra == {"MAX_THINKING_TOKENS", "CLAUDE_CODE_MAX_OUTPUT_TOKENS"}, extra
+    assert env["MAX_THINKING_TOKENS"] == "0"
+    assert env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "4096"

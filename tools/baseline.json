@@ -189,18 +189,6 @@
       "pass": false
     },
     {
-      "path": "details.sb-section > div.sb-section-body > div.metric-row > span.metric-label",
-      "sample": "COST",
-      "ratio": 2.41,
-      "fg": "rgba(148, 163, 184, 0.45)",
-      "bg": "rgb(14, 14, 22)",
-      "fontSize": 9,
-      "fontWeight": "400",
-      "opacity": 1,
-      "required": 4.5,
-      "pass": false
-    },
-    {
       "path": "#settings-drawer > div.drawer-body > div.drawer-section > p.drawer-hint",
       "sample": "Gives Claude more time to reason before ",
       "ratio": 2.7,
@@ -232,30 +220,6 @@
       "bg": "rgb(11, 11, 20)",
       "fontSize": 9,
       "fontWeight": "400",
-      "opacity": 1,
-      "required": 4.5,
-      "pass": false
-    },
-    {
-      "path": "details.sb-section > div.sb-section-body > div.budget-link-row > a.budget-link",
-      "sample": "Check Balance →",
-      "ratio": 2.9,
-      "fg": "rgba(45, 212, 191, 0.45)",
-      "bg": "rgb(14, 14, 22)",
-      "fontSize": 9,
-      "fontWeight": "400",
-      "opacity": 1,
-      "required": 4.5,
-      "pass": false
-    },
-    {
-      "path": "#right-sidebar > details.sb-section > summary > span",
-      "sample": "METRICS",
-      "ratio": 3.03,
-      "fg": "rgba(148, 163, 184, 0.55)",
-      "bg": "rgb(14, 14, 22)",
-      "fontSize": 9,
-      "fontWeight": "700",
       "opacity": 1,
       "required": 4.5,
       "pass": false

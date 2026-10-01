@@ -3,7 +3,7 @@ import { getState } from "../state/store.js";
 import { setStreaming, loadConversations } from "../state/actions.js";
 import { getTemplates } from "../api/template_cache.js";
 import { interpolateTemplate, openTemplatePicker } from "./template_picker.js";
-import { showErrorToast } from "./modal.js";
+import { showErrorToast, showDialog } from "./modal.js";
 import { clearDraft, loadDraft, saveDraft } from "./composer_draft.js";
 import { attachmentDownloadUrl, isImageName } from "./attachment_view.js";
 import * as storage from "../state/storage.js";
@@ -31,46 +31,48 @@ function _escHtml(s) {
 
 function _showAssessment({ level, summary, concerns = [] }) {
   return new Promise((resolve) => {
-    // 2.4.3: hand focus back to whatever opened this assessment (the composer).
-    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay";
-    document.body.appendChild(overlay);
-
     const isDanger = level === "high";
     const levelColor = level === "high" ? "var(--rose)" : level === "medium" ? "var(--amber)" : "var(--emerald)";
+    let dialog = null;
 
-    const box = document.createElement("div");
-    box.className = "modal-box";
-    // 4.1.2: every modal must expose role, modality, and an accessible name.
-    box.setAttribute("role", "dialog");
-    box.setAttribute("aria-modal", "true");
-    box.setAttribute("aria-labelledby", "modal-title");
-    box.innerHTML = `
-      <h3 class="modal-title" id="modal-title">Task Assessment</h3>
-      <div class="assess-level" style="color:${levelColor}">${level.toUpperCase()} RISK</div>
-      <p class="assess-summary">${_escHtml(summary)}</p>
-      ${concerns.length ? `<ul class="assess-concerns">${concerns.map(c => `<li>${_escHtml(c)}</li>`).join("")}</ul>` : ""}
-      <div class="modal-actions">
-        <button class="modal-btn modal-cancel">Cancel</button>
-        <button class="modal-btn modal-confirm${isDanger ? " danger" : ""}" id="assess-proceed">Send anyway</button>
-      </div>
-    `;
-    overlay.appendChild(box);
-
-    const close = (ok) => {
-      overlay.remove();
-      if (returnFocus?.isConnected) returnFocus.focus();
+    function settle(ok, reason) {
       resolve(ok);
-    };
-    box.querySelector(".modal-cancel").addEventListener("click", () => close(false));
-    box.querySelector("#assess-proceed").addEventListener("click", () => close(true));
-    overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(false); });
-    box.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") close(false);
-      if (e.key === "Enter") close(true);
+      dialog?.close({ reason });
+    }
+
+    dialog = showDialog({
+      title: "Task Assessment",
+      body: `
+        <div class="assess-level" style="color:${levelColor}">${level.toUpperCase()} RISK</div>
+        <p class="assess-summary">${_escHtml(summary)}</p>
+        ${concerns.length ? `<ul class="assess-concerns">${concerns.map(c => `<li>${_escHtml(c)}</li>`).join("")}</ul>` : ""}
+      `,
+      actions: [[
+        {
+          className: "modal-btn modal-cancel",
+          label: "Cancel",
+          onClick: () => settle(false, "cancel"),
+        },
+        {
+          className: `modal-btn modal-confirm${isDanger ? " danger" : ""}`,
+          id: "assess-proceed",
+          label: "Send anyway",
+          onClick: () => settle(true, "proceed"),
+        },
+      ]],
+      trap: false,
+      closeOnBackdrop: true,
+      returnFocus: true,
+      onClose: (reason) => {
+        if (reason === "backdrop" || reason === "escape") resolve(false);
+      },
     });
-    box.querySelector("#assess-proceed").focus();
+
+    dialog.box.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") settle(false, "escape");
+      if (e.key === "Enter") settle(true, "proceed");
+    });
+    dialog.box.querySelector("#assess-proceed").focus();
   });
 }
 

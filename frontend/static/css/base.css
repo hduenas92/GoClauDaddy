@@ -288,46 +288,6 @@ html, body {
   visibility: hidden;
 }
 
-/* ============================================================
-   PANEL SECTIONS (shared: left stub panels + right sidebar panels)
-   ============================================================ */
-.sb-section {
-  border-bottom: 1px solid rgba(var(--accent-rgb) / 0.18);
-  flex-shrink: 0;
-}
-.sb-section > summary {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 7px 10px;
-  cursor: pointer;
-  list-style: none;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-muted);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  user-select: none;
-  transition: color 0.15s, background 0.15s, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.sb-section > summary:hover { color: var(--teal-b); background: rgba(var(--accent-rgb) / 0.04); }
-.sb-section > summary::-webkit-details-marker,
-.sb-section > summary::marker { display: none; }
-.sb-section-icon { font-size: 11px; opacity: 0.6; }
-.sb-section-count {
-  margin-left: auto;
-  background: rgba(var(--accent-rgb) / 0.15);
-  color: var(--accent-hi);
-  border-radius: 8px;
-  padding: 0 5px;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  min-width: 16px;
-  text-align: center;
-}
-.sb-section-arrow { margin-left: auto; font-size: 11px; opacity: 0.35; transition: transform 0.15s; }
-.sb-section[open] > summary .sb-section-arrow { transform: rotate(90deg); }
-.sb-section-body { padding: 6px 10px 10px; }
 .sb-empty { color: var(--text-muted); font-size: 11px; padding: 2px 0; font-style: italic; }
 
 /* ============================================================
@@ -632,7 +592,6 @@ html, body {
   font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
   border-radius: 3px; vertical-align: middle; line-height: 14px;
 }
-.conv-source-terminal { background: rgba(var(--working-rgb) / 0.15); color: var(--amber); border: 1px solid rgba(var(--working-rgb) / 0.3); }
 .conv-source-cli      { background: rgba(var(--working-rgb) / 0.15); color: var(--amber); border: 1px solid rgba(var(--working-rgb) / 0.3); }
 
 /* ============================================================
@@ -2418,51 +2377,6 @@ kbd {
   margin-top: 2px;
 }
 
-/* ============================================================
-   EMBEDDED TERMINAL DIALOG
-   ============================================================ */
-.term-dialog {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0;
-  width: 700px;
-  max-width: 96vw;
-  box-shadow: 0 24px 80px rgba(var(--shadow-rgb) / 0.9);
-  color: var(--text);
-}
-.term-dialog::backdrop {
-  background: rgba(var(--shadow-rgb) / 0.65);
-  backdrop-filter: blur(4px);
-}
-.term-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(var(--accent-rgb) / 0.2);
-  background: var(--bg2);
-  border-radius: 8px 8px 0 0;
-}
-.term-icon { font-size: 11px; color: var(--teal); }
-.term-title { font-size: 11px; font-weight: 600; color: var(--teal-b); flex: 1; }
-.term-hint { font-size: 11px; color: var(--text-muted); }
-.term-close {
-  background: none; border: none; color: var(--text2);
-  cursor: pointer; font-size: 13px; padding: 2px 4px;
-  transition: color 0.15s;
-}
-.term-close:hover { color: var(--rose); }
-.term-body {
-  padding: 8px;
-  background: var(--bg);
-  border-radius: 0 0 8px 8px;
-  /* xterm.js renders into this div — height matches 24 rows @ ~20px */
-  min-height: 490px;
-  overflow: hidden;
-}
-/* Inline hint text in settings label */
-.drawer-hint-inline { color: var(--text-muted); font-size: 11px; }
 
 /* ============================================================
    P2-D WCAG 2.1 AA additions — all through the token layer
@@ -2631,12 +2545,10 @@ textarea::placeholder {
 
 /* Console typography: Inter for small UI, Silkscreen for panel headers. */
 [data-theme="cyberpunk-console"] .rsb-panel > summary,
-[data-theme="cyberpunk-console"] .sb-section > summary,
 [data-theme="cyberpunk-console"] .drawer-title,
 [data-theme="cyberpunk-console"] .modal-title,
 [data-theme="cyberpunk-console"] .shortcuts-header,
-[data-theme="cyberpunk-console"] .tp-title,
-[data-theme="cyberpunk-console"] .term-title {
+[data-theme="cyberpunk-console"] .tp-title {
   font-family: var(--font-hud);
   letter-spacing: 0.06em;
 }
@@ -2874,7 +2786,6 @@ textarea::placeholder {
    animation confined to inset:0, so it needs no overflow clipping
    and never fights the ::after tooltips on [data-tooltip]. ---- */
 .rsb-panel > summary,
-.sb-section > summary,
 .conv-item,
 .project-item,
 .quick-chip,
@@ -2892,7 +2803,6 @@ textarea::placeholder {
   position: relative;
 }
 .rsb-panel > summary::before,
-.sb-section > summary::before,
 .conv-item::before,
 .project-item::before,
 .quick-chip::before,
@@ -2919,7 +2829,6 @@ textarea::placeholder {
   pointer-events: none;
 }
 .rsb-panel > summary:hover::before,
-.sb-section > summary:hover::before,
 .conv-item:hover::before,
 .project-item:hover::before,
 .quick-chip:hover::before,
@@ -2942,7 +2851,6 @@ textarea::placeholder {
   to   { background-position: -30% 0; }
 }
 .rsb-panel > summary:hover,
-.sb-section > summary:hover,
 .conv-item:hover,
 .project-item:hover,
 .quick-chip:hover,
@@ -2960,7 +2868,6 @@ textarea::placeholder {
   transform: translateY(-1.5px) scale(1.02);
 }
 .rsb-panel > summary:active,
-.sb-section > summary:active,
 .conv-item:active,
 .project-item:active,
 .quick-chip:active,
@@ -3216,7 +3123,6 @@ textarea::placeholder {
    selectors — the composer's translateX(-50%) centering must survive. */
 @media (prefers-reduced-motion: reduce) {
   .rsb-panel > summary:hover,
-  .sb-section > summary:hover,
   .conv-item:hover,
   .project-item:hover,
   .quick-chip:hover,
@@ -3234,7 +3140,6 @@ textarea::placeholder {
     transform: none !important;
   }
   .rsb-panel > summary::before,
-  .sb-section > summary::before,
   .conv-item::before,
   .project-item::before,
   .quick-chip::before,
@@ -3252,7 +3157,6 @@ textarea::placeholder {
     animation: none !important;
   }
   .rsb-panel > summary:hover::before,
-  .sb-section > summary:hover::before,
   .conv-item:hover::before,
   .project-item:hover::before,
   .quick-chip:hover::before,

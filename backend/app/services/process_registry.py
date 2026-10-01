@@ -5,7 +5,6 @@ something concrete to kill.
 """
 
 import asyncio
-import time
 
 from app.logging_setup import get_logger
 
@@ -21,8 +20,6 @@ class ProcessRegistry:
         self._procs: dict[str, asyncio.subprocess.Process] = {}
         self._tasks: dict[str, asyncio.Task] = {}
         self._locks: dict[str, asyncio.Lock] = {}
-        self._started_at: dict[str, float] = {}
-        self._labels: dict[str, str] = {}
 
     def _lock_for(self, conversation_id: str) -> asyncio.Lock:
         if conversation_id not in self._locks:
@@ -42,29 +39,12 @@ class ProcessRegistry:
     def register_process(self, conversation_id: str, proc: asyncio.subprocess.Process) -> None:
         self._procs[conversation_id] = proc
 
-    def register_task(self, conversation_id: str, task: asyncio.Task, label: str = "") -> None:
+    def register_task(self, conversation_id: str, task: asyncio.Task) -> None:
         self._tasks[conversation_id] = task
-        self._started_at[conversation_id] = time.monotonic()
-        if label:
-            self._labels[conversation_id] = label
 
     def clear(self, conversation_id: str) -> None:
         self._procs.pop(conversation_id, None)
         self._tasks.pop(conversation_id, None)
-        self._started_at.pop(conversation_id, None)
-        self._labels.pop(conversation_id, None)
-
-    def active_agents(self) -> list[dict]:
-        now = time.monotonic()
-        return [
-            {
-                "conversation_id": cid,
-                "label": self._labels.get(cid, ""),
-                "elapsed_s": round(now - self._started_at.get(cid, now), 1),
-            }
-            for cid, task in self._tasks.items()
-            if not task.done()
-        ]
 
     def stop(self, conversation_id: str) -> bool:
         """Kills the running subprocess/task for a conversation, if any. Returns True if something was stopped."""

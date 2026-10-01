@@ -77,7 +77,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
         <label class="drawer-label">Chat font size
           <select id="chat-font-size" class="drawer-select"></select>
         </label>
-        <p class="drawer-hint">Applies to chat messages and the composer. Chat only — the terminal has its own size.</p>
+        <p class="drawer-hint">Applies to chat messages and the composer.</p>
       </div>
       <div class="drawer-section">
         <label class="drawer-label">Your CaaS budget
@@ -126,10 +126,6 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
           <label class="drawer-toggle-row">
             <input type="checkbox" id="feat-assess" class="drawer-toggle-check" aria-label="Evaluate tasks before sending">
             <span class="drawer-toggle-label">Evaluate tasks before sending</span>
-          </label>
-          <label class="drawer-toggle-row">
-            <input type="checkbox" id="feat-terminal" class="drawer-toggle-check" aria-label="Enable terminal panel">
-            <span class="drawer-toggle-label">Enable terminal panel <span class="drawer-hint-inline">(Ctrl+\`)</span></span>
           </label>
           <label class="drawer-toggle-row">
             <input type="checkbox" id="feat-approval" class="drawer-toggle-check" aria-label="Prompt for tool approval">
@@ -332,14 +328,6 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
     assessCheck.checked = storage.getItem("gca_feat_assess") === "1";
     assessCheck.addEventListener("change", () => {
       storage.setItem("gca_feat_assess", assessCheck.checked ? "1" : "0");
-    });
-  }
-
-  const terminalCheck = drawerEl.querySelector("#feat-terminal");
-  if (terminalCheck) {
-    terminalCheck.checked = storage.getItem("gca_feat_terminal") === "1";
-    terminalCheck.addEventListener("change", () => {
-      storage.setItem("gca_feat_terminal", terminalCheck.checked ? "1" : "0");
     });
   }
 

@@ -19,12 +19,11 @@ queries never mention it, so they already behave correctly. But they are correct
 by OMISSION, not by intent: nothing stated the rule and nothing enforced it.
 
 `conversation_stats` was already guarded by
-test_stats_still_count_a_superseded_assistant_message. These cover the three
+test_stats_still_count_a_superseded_assistant_message. These cover the two
 accounting surfaces that were not:
 
   GET /api/conversations   per-conversation cost_usd   (conversations.py)
   GET /api/server/stats    totals + monthly cost       (server.py)
-  GET /api/teams           team aggregate cost         (teams.py)
 
 Each test asserts a STRICT INEQUALITY against a live-only baseline rather than a
 hardcoded number. A test that merely asserted "cost == 0.0012" would also pass if
@@ -116,29 +115,3 @@ def test_server_stats_count_a_superseded_answer(temp_db):
     assert body["monthly_cost_usd"] > 0
 
 
-def test_team_cost_counts_a_superseded_answer(temp_db):
-    conv = _regenerated_conversation()
-
-    # Membership is set at creation; there is no attach route.
-    created = client.post("/api/teams", json={"name": "T1", "conversation_ids": [conv.id]})
-    assert created.status_code in (200, 201), created.text
-    team_id = created.json()["id"]
-
-    listed = client.get("/api/teams")
-    assert listed.status_code == 200
-    team = next(t for t in listed.json() if t["id"] == team_id)
-
-    # `> 0` would pass even with the superseded row dropped, because the live row
-    # is billed too. Compare against both candidate totals instead.
-    model = svc.get_conversation(conv.id).model
-    cost_all = (
-        compute_cost_usd(model, OLD["input_tokens"], OLD["output_tokens"], 0, 0)
-        + compute_cost_usd(model, NEW["input_tokens"], NEW["output_tokens"], 0, 0)
-    )
-    cost_live_only = compute_cost_usd(model, NEW["input_tokens"], NEW["output_tokens"], 0, 0)
-    assert cost_all > cost_live_only, "the two candidate costs must differ, or this proves nothing"
-
-    assert team["cost_usd"] == cost_all, (
-        f"team aggregate reported {team['cost_usd']}; all billed rows give {cost_all} "
-        f"and filtering superseded rows gives {cost_live_only}"
-    )

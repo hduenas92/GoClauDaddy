@@ -187,3 +187,77 @@ def test_foreign_keys_enforced(temp_db):
         conn.execute("DELETE FROM conversations WHERE id = 'c1'")
         remaining = conn.execute("SELECT * FROM messages WHERE id = 'm1'").fetchall()
     assert remaining == []  # ON DELETE CASCADE removed the message too
+
+
+# ---------------------------------------------------------------------------
+# v20: drop the team tables only when both are empty
+# ---------------------------------------------------------------------------
+
+
+def _seed_v19_team_db(db_path):
+    """Create a v19-shaped DB with team tables and one team_sessions row.
+
+    v20 must leave both tables alone when either has data, so this fixture
+    builds the data-bearing side explicitly rather than relying on the current
+    migration list (which, after v20 lands, no longer creates the tables).
+    """
+    from app.db.migrations import _SCHEMA_SQL
+
+    conn = sqlite3.connect(db_path)
+    conn.executescript(_SCHEMA_SQL)
+    conn.executescript(
+        """
+        CREATE TABLE team_sessions (
+          id           TEXT PRIMARY KEY,
+          name         TEXT NOT NULL,
+          created_at   TEXT NOT NULL,
+          completed_at TEXT
+        );
+        CREATE TABLE team_members (
+          team_id         TEXT NOT NULL REFERENCES team_sessions(id) ON DELETE CASCADE,
+          conversation_id TEXT NOT NULL,
+          role            TEXT NOT NULL DEFAULT 'member',
+          PRIMARY KEY (team_id, conversation_id)
+        );
+        """
+    )
+    conn.execute(
+        "INSERT INTO team_sessions (id, name, created_at) VALUES ('t1', 'Keep Me', 'now')"
+    )
+    conn.execute("DELETE FROM schema_version")
+    conn.execute("INSERT INTO schema_version (version) VALUES (19)")
+    conn.commit()
+    conn.close()
+
+
+def test_fresh_db_ends_at_v20_without_team_tables(temp_db):
+    with get_connection() as conn:
+        version = conn.execute("SELECT version FROM schema_version").fetchone()["version"]
+        tables = {
+            r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+    assert version == 20
+    assert "team_sessions" not in tables
+    assert "team_members" not in tables
+
+
+def test_v19_db_with_a_team_row_keeps_team_tables_at_v20(tmp_path, monkeypatch):
+    from app.db import connection as cm
+    from app.db.migrations import apply_migrations
+
+    db_path = tmp_path / "v19-team.db"
+    monkeypatch.setattr(cm, "DB_PATH", db_path)
+    _seed_v19_team_db(db_path)
+
+    apply_migrations()
+
+    with get_connection() as conn:
+        version = conn.execute("SELECT version FROM schema_version").fetchone()["version"]
+        team = conn.execute("SELECT name FROM team_sessions WHERE id = 't1'").fetchone()
+        tables = {
+            r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+
+    assert version == 20
+    assert team["name"] == "Keep Me"
+    assert {"team_sessions", "team_members"} <= tables

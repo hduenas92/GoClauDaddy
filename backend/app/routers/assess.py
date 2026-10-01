@@ -63,8 +63,10 @@ async def assess(body: AssessBody):
         if proc:
             try:
                 proc.kill()
-            except Exception:
+            except (ProcessLookupError, OSError):
                 pass
+            except Exception:
+                log.warning("assess: failed to kill subprocess after assessment failure", exc_info=True)
         return _FALLBACK
 
     try:

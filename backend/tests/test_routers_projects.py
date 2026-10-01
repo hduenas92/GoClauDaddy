@@ -10,16 +10,12 @@ client = TestClient(app)
 _HOME = str(Path.home())
 
 
-def test_create_and_get(temp_db):
+def test_create_project_returns_the_created_row(temp_db):
     res = client.post("/api/projects", json={"name": "Proj", "working_dir": _HOME})
     assert res.status_code == 200
     proj = res.json()
     assert proj["name"] == "Proj"
     assert proj["working_dir"] == _HOME
-
-    res = client.get(f"/api/projects/{proj['id']}")
-    assert res.status_code == 200
-    assert res.json()["id"] == proj["id"]
 
 
 def test_patch_name(temp_db):
@@ -48,7 +44,6 @@ def test_patch_invalid_working_dir_returns_400(temp_db):
 
 def test_404_on_unknown_project(temp_db):
     fake = "00000000-0000-0000-0000-000000000000"
-    assert client.get(f"/api/projects/{fake}").status_code == 404
     assert client.patch(f"/api/projects/{fake}", json={"name": "x"}).status_code == 404
     assert client.delete(f"/api/projects/{fake}").status_code == 404
 

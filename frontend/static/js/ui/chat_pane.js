@@ -4,7 +4,7 @@ import { setStreaming } from "../state/actions.js";
 import { api } from "../api/http.js";
 import { getTemplates } from "../api/template_cache.js";
 import { interpolateTemplate } from "./template_picker.js";
-import { showErrorToast } from "./modal.js";
+import { showErrorToast, showDialog } from "./modal.js";
 import { attachmentDownloadUrl, isImageName } from "./attachment_view.js";
 import * as storage from "../state/storage.js";
 
@@ -697,41 +697,76 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
   }
 
   function _showApprovalModal(tool, action, socket, ev = {}) {
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay";
-    document.body.appendChild(overlay);
+    let dialog = null;
+    let timer = null;
 
-    const box = document.createElement("div");
-    box.className = "modal-box";
-    // 4.1.2: every modal must expose role, modality, and an accessible name.
-    box.setAttribute("role", "dialog");
-    box.setAttribute("aria-modal", "true");
-    box.setAttribute("aria-labelledby", "modal-title");
-    box.innerHTML = `
-      <h3 class="modal-title" id="modal-title">Tool Permission Request</h3>
-      <div class="approval-tool">⚡ <strong>${_escHtml(tool || "tool")}</strong></div>
-      ${action ? `<p class="approval-action">${_escHtml(action)}</p>` : ""}
-      <p class="approval-risk-note">Allow Claude to use this tool?</p>
-      <p class="approval-countdown" id="approval-countdown"></p>
-      <p class="sr-only" id="approval-announce" aria-live="polite"></p>
-      <div class="modal-actions">
-        <button class="modal-btn modal-confirm danger" id="approval-deny-btn">✕ Deny</button>
-        <button class="modal-btn modal-confirm" id="approval-approve-btn">✓ Approve</button>
-      </div>
-      <div class="modal-actions">
-        <button class="modal-btn" id="approval-need-time-btn" hidden>Need more time</button>
-      </div>
-    `;
-    overlay.appendChild(box);
+    function clearTimer() {
+      if (timer !== null) {
+        clearInterval(timer);
+        timer = null;
+      }
+    }
+
+    function close(approved) {
+      clearTimer();
+      dialog?.close({ restore: false });
+      _approvalModal = null;
+      if (approved) socket.approve(); else socket.deny();
+    }
+
+    function dismiss() {
+      clearTimer();
+      dialog?.close({ restore: false });
+      _approvalModal = null;
+    }
+
+    dialog = showDialog({
+      title: "Tool Permission Request",
+      body: `
+        <div class="approval-tool">⚡ <strong>${_escHtml(tool || "tool")}</strong></div>
+        ${action ? `<p class="approval-action">${_escHtml(action)}</p>` : ""}
+        <p class="approval-risk-note">Allow Claude to use this tool?</p>
+        <p class="approval-countdown" id="approval-countdown"></p>
+        <p class="sr-only" id="approval-announce" aria-live="polite"></p>
+      `,
+      actions: [
+        [
+          {
+            className: "modal-btn modal-confirm danger",
+            id: "approval-deny-btn",
+            label: "✕ Deny",
+            onClick: () => close(false),
+          },
+          {
+            className: "modal-btn modal-confirm",
+            id: "approval-approve-btn",
+            label: "✓ Approve",
+            onClick: () => close(true),
+          },
+        ],
+        [
+          {
+            className: "modal-btn",
+            id: "approval-need-time-btn",
+            label: "Need more time",
+            hidden: true,
+            onClick: () => socket.extendApproval(),
+          },
+        ],
+      ],
+      trap: false,
+      closeOnBackdrop: false,
+      returnFocus: false,
+    });
 
     // Server owns the deadline. `remaining` arrives on the approval_needed frame
     // and again on every approval_extended reply; the local 1 Hz tick is only a
     // display of that value, never a second source of truth.
     let remaining = Number(ev.remaining ?? ev.timeout ?? 60);
     let announced = false;
-    const countdownEl = box.querySelector("#approval-countdown");
-    const announceEl = box.querySelector("#approval-announce");
-    const needTimeBtn = box.querySelector("#approval-need-time-btn");
+    const countdownEl = dialog.box.querySelector("#approval-countdown");
+    const announceEl = dialog.box.querySelector("#approval-announce");
+    const needTimeBtn = dialog.box.querySelector("#approval-need-time-btn");
 
     function renderCountdown() {
       const s = Math.max(0, Math.ceil(remaining));
@@ -749,40 +784,19 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     }
     renderCountdown();
 
-    const timer = setInterval(() => {
+    timer = setInterval(() => {
       remaining -= 1;
       if (remaining <= 0) {
         // The server fails closed at its own deadline. Once OUR display of that
         // deadline reaches zero this modal is no longer actionable; remove it
         // without sending anything — the server has already decided.
-        clearInterval(timer);
-        overlay.remove();
+        clearTimer();
+        dialog.close({ restore: false });
         _approvalModal = null;
         return;
       }
       renderCountdown();
     }, 1000);
-
-    needTimeBtn.addEventListener("click", () => {
-      socket.extendApproval();
-    });
-
-    function close(approved) {
-      clearInterval(timer);
-      overlay.remove();
-      _approvalModal = null;
-      if (approved) socket.approve(); else socket.deny();
-    }
-
-    function dismiss() {
-      clearInterval(timer);
-      overlay.remove();
-      _approvalModal = null;
-    }
-
-    box.querySelector("#approval-approve-btn").addEventListener("click", () => close(true));
-    box.querySelector("#approval-deny-btn").addEventListener("click", () => close(false));
-    // No Esc dismiss — this is a blocking decision (deny explicitly if unwanted)
 
     _approvalModal = {
       onExtended(ext) {

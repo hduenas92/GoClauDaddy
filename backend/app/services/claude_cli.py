@@ -7,6 +7,7 @@ on the command line — never pass a raw client string straight to argv.
 
 import asyncio
 import codecs
+import os
 import shutil
 import sys
 from collections.abc import AsyncIterator
@@ -69,17 +70,32 @@ def build_command(
     if system_prompt:
         cmd += ["--system-prompt", system_prompt]
 
-    if thinking_budget and thinking_budget > 0:
-        cmd += ["--thinking", "enabled"]
-
-    if max_tokens and max_tokens > 0:
-        cmd += ["--max-tokens", str(max_tokens)]
-
     if session_id:
         cmd += ["--resume", session_id]  # never --continue — bleeds into unrelated sessions
 
     cmd.append(prompt)
     return cmd
+
+
+def build_env(
+    *,
+    thinking_budget: int | None,
+    max_tokens: int | None,
+) -> dict[str, str]:
+    """Return ONLY the env overrides for the documented CLI controls.
+
+    The CLI rejects `--max-tokens` and `--thinking` (unknown option on
+    2.1.286), so the token controls are passed as environment variables
+    instead. max_tokens must be a positive int to be included;
+    thinking_budget is included whenever it is not None, because 0 is
+    meaningful (it disables thinking).
+    """
+    env: dict[str, str] = {}
+    if max_tokens is not None and max_tokens > 0:
+        env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(max_tokens)
+    if thinking_budget is not None:
+        env["MAX_THINKING_TOKENS"] = str(thinking_budget)
+    return env
 
 
 class ClaudeCliTimeout(Exception):
@@ -175,6 +191,7 @@ async def run(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
+            env={**os.environ, **build_env(thinking_budget=thinking_budget, max_tokens=max_tokens)},
             creationflags=CREATE_NO_WINDOW,
         )
     except FileNotFoundError:

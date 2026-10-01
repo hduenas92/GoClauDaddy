@@ -12,14 +12,13 @@ Covers the six items in `plans/QA_AGENT_INSTRUCTIONS.md` §14:
 P2-M L1 scope (per the P2-M spec's verified facts): the error paths that answer
 the client with an error and must log a stack are
 
-- app/services/claude_cli.py:181 (FileNotFoundError spawn) and :186 (OSError spawn)
+- app/services/claude_cli.py:198 (FileNotFoundError spawn) and :203 (OSError spawn)
 - app/services/attachments_service.py:78-84 -> app/routers/attachments.py:16-17 (507)
-- app/routers/terminal.py:38 (shell spawn -> 500)
 - app/services/dir_picker.py:36 and :42 (-> 503)
 - app/startup_check.py:22 and :31 (abort startup)
 
-plus the already-compliant main.py:79 (HTTP 500) and claude_cli.py:216
-(streaming exception). The non-JSON CLI stdout notice (chat_socket.py:400) is
+plus the already-compliant main.py:79 (HTTP 500) and claude_cli.py:233
+(streaming exception). The non-JSON CLI stdout notice (chat_socket.py:426) is
 a non-fatal `notice` frame, not an error response, so the stack requirement does
 not apply to it; its test below asserts it is still logged at WARNING from the
 correct file:line. Forwarding/non-persistence for that path is covered by P2-B
@@ -42,7 +41,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.logging_setup as logging_setup
-import app.routers.terminal as terminal_mod
 import app.services.attachments_service as att_svc
 import app.services.claude_cli as claude_cli_mod
 import app.services.dir_picker as dir_picker_mod
@@ -93,7 +91,7 @@ def test_l1_http_500_handler_logs_stack(monkeypatch, caplog):
 
 
 def test_l1_ws_chat_cli_not_found_logs_stack(temp_db, monkeypatch, caplog):
-    """WS chat turn with the `claude` CLI missing must log a stack (claude_cli.py:181)."""
+    """WS chat turn with the `claude` CLI missing must log a stack (claude_cli.py:198)."""
     async def fake_exec(*a, **kw):
         raise FileNotFoundError("no such claude")
 
@@ -117,7 +115,7 @@ def test_l1_ws_chat_cli_not_found_logs_stack(temp_db, monkeypatch, caplog):
 
 
 async def test_l1_claude_streaming_exception_logs_stack(monkeypatch, caplog):
-    """A streaming exception inside claude_cli.run logs a stack (claude_cli.py:216)."""
+    """A streaming exception inside claude_cli.run logs a stack (claude_cli.py:233)."""
     async def boom(chunks):
         raise RuntimeError("L1-STREAM-BOOM")
         yield  # pragma: no cover
@@ -175,13 +173,13 @@ def test_l1_disk_full_507_path_logs_stack(temp_db, tmp_path, monkeypatch, caplog
 
 
 def test_l1_non_json_notice_logs_stack(temp_db, monkeypatch, caplog):
-    """A non-JSON CLI stdout notice is logged at chat_socket.py:400.
+    """A non-JSON CLI stdout notice is logged at chat_socket.py:430.
 
     P2-M scope: this path answers the client with a non-fatal `notice` frame,
     not an error response, so it is NOT one of the L1 error paths that must
     carry a stack. The stack assertion is therefore not applied here; what
     must stay true is that the line is logged, at WARNING level, from
-    chat_socket.py:400. Forwarding/non-persistence is covered by P2-B E1
+    chat_socket.py:430. Forwarding/non-persistence is covered by P2-B E1
     (tests/test_non_json_notice.py).
     """
     async def fake_run(**kwargs):
@@ -208,11 +206,11 @@ def test_l1_non_json_notice_logs_stack(temp_db, monkeypatch, caplog):
     rec = records[-1]
     assert rec.levelno == logging.WARNING, f"expected WARNING, got {rec.levelno}"
     assert rec.pathname.endswith(os.path.join("app", "ws", "chat_socket.py")), rec.pathname
-    assert rec.lineno == 400, rec.lineno
+    assert rec.lineno == 430, rec.lineno
 
 
 def test_l1_ws_chat_cli_oserror_logs_stack(temp_db, monkeypatch, caplog):
-    """WS chat turn with an OSError from spawn must log a stack (claude_cli.py:186)."""
+    """WS chat turn with an OSError from spawn must log a stack (claude_cli.py:203)."""
     async def fake_exec(*a, **kw):
         raise OSError("simulated spawn failure")
 
@@ -234,23 +232,7 @@ def test_l1_ws_chat_cli_oserror_logs_stack(temp_db, monkeypatch, caplog):
     records = [r for r in caplog.records if "Failed to start claude" in r.getMessage()]
     rec = _assert_logged_stack(records, "WS chat CLI OSError spawn failure")
     assert rec.pathname.endswith(os.path.join("app", "services", "claude_cli.py")), rec.pathname
-    assert rec.lineno == 186, rec.lineno
-
-
-def test_l1_terminal_shell_spawn_failure_logs_stack(monkeypatch, caplog):
-    """POST /api/terminal with a failing shell spawn must log a stack (terminal.py:38)."""
-    async def fake_exec(*a, **kw):
-        raise OSError("simulated shell spawn failure")
-
-    monkeypatch.setattr(terminal_mod.asyncio, "create_subprocess_exec", fake_exec)
-    client = TestClient(app, raise_server_exceptions=False)
-    res = client.post("/api/terminal")
-    assert res.status_code == 500
-
-    records = [r for r in caplog.records if "Failed to spawn shell" in r.getMessage()]
-    rec = _assert_logged_stack(records, "terminal shell spawn failure")
-    assert rec.pathname.endswith(os.path.join("app", "routers", "terminal.py")), rec.pathname
-    assert rec.lineno == 38, rec.lineno
+    assert rec.lineno == 203, rec.lineno
 
 
 def test_l1_dir_picker_tkinter_import_error_logs_stack(monkeypatch, caplog):

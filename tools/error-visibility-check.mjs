@@ -43,8 +43,6 @@ async function freshPage({ teams = false } = {}) {
       localStorage.setItem('gca_feat_assess', '0');
       localStorage.setItem('gca_sb_open', '1');
       localStorage.setItem('gca_cost_notified', new Date().toISOString().slice(0, 10));
-      if (teams) localStorage.setItem('gca_feat_teams', '1');
-      else localStorage.removeItem('gca_feat_teams');
     } catch {}
     window.__unhandled = [];
     window.addEventListener('unhandledrejection', (e) => {
@@ -383,8 +381,8 @@ async function stubBoot(page, { messages = [] } = {}) {
 
 // E3(agents) and E3(teams) retired 2026-09-30: the theme rework removed the
 // Agents and Teams panels and Houston accepted the removal (decision D8,
-// plans/goclaudaddy-finish.md). No UI calls /api/agents/status or /api/teams,
-// so there is no failure state left to make visible.
+// plans/goclaudaddy-finish.md), so there is no failure state left to make
+// visible.
 
 // E6 frontend — disk-full wording vs size wording
 // ---------------------------------------------------------------------------

@@ -121,10 +121,6 @@ async function stubBoot(page, { messages = [] } = {}) {
         monthly_cost_usd: 0, monthly_input: 10, monthly_output: 5, budget_usd: 200,
       }),
     }));
-  await page.route('**/api/agents/status', (r) =>
-    r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
-  await page.route('**/api/teams', (r) =>
-    r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
 
   // Base conversations collection: list + create.
   await page.route('**/api/conversations', (r) => {
