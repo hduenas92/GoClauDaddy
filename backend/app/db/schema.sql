@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS projects (
 -- ever read it: a placeholder for project-level file attachments that was never
 -- built. Conversation attachments are the separate, live `attachments` table.
 -- Removed HERE as well as in the migration, because a table defined in this file
--- is recreated on every fresh install Ã¢â‚¬â€ dropping it only in the migration would
+-- is recreated on every fresh install — dropping it only in the migration would
 -- leave new installs and existing ones permanently disagreeing.
 
 CREATE TABLE IF NOT EXISTS conversations (
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS attachments (
 
 -- app_config was removed in v19 (Phase 4, 4-D3). 0 rows, read by nothing:
 -- configuration lives in app/config.py and ~/.claude/settings.json. Same
--- reasoning as project_files above Ã¢â‚¬â€ removed from this file as well as dropped
+-- reasoning as project_files above — removed from this file as well as dropped
 -- in the migration, so fresh installs and existing ones agree.
 
 CREATE TABLE IF NOT EXISTS schema_version (

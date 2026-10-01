@@ -1,12 +1,12 @@
 """WebSocket handler: one connection per conversation, duplex (send + stop over the same socket).
 
 Session continuity and message history are backed by SQLite (conversations_service)
-rather than an in-memory dict â€” a conversation must already exist (created via
+rather than an in-memory dict — a conversation must already exist (created via
 POST /api/conversations) before a WS connection to it will accept a send.
 
 IMPORTANT: the main receive loop below must never block on a send's full
 completion. `stop` has to be receivable *while* a send is in flight, or it
-just sits unread until the turn ends on its own â€” a real bug this comment
+just sits unread until the turn ends on its own — a real bug this comment
 exists because of, found by actually sending stop mid-stream and watching it
 do nothing. `_handle_send` runs as its own fire-and-forget task; the loop goes
 straight back to `receive_json()` after starting it.
@@ -111,7 +111,7 @@ async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None
 
     except WebSocketDisconnect:
         log.info("WS disconnected for conversation %s", conversation_id)
-        # Intentionally NOT stopping an in-flight subprocess here â€” a browser
+        # Intentionally NOT stopping an in-flight subprocess here — a browser
         # refresh mid-response shouldn't lose the reply. It finishes and
         # persists headless; the registry entry clears itself on completion.
 
@@ -128,7 +128,7 @@ async def _handle_send(
     outside any guard. A malformed payload, or any DB error while loading the
     conversation or project, therefore escaped a fire-and-forget task: **no frame
     of any kind reached the client**, `registry.clear()` never ran so the
-    conversation could stay `status="busy"` forever, and nothing was logged â€”
+    conversation could stay `status="busy"` forever, and nothing was logged —
     because the failed task stays referenced in `registry._tasks`, so asyncio
     never GC-logs it either. The turn simply vanished.
 
@@ -141,7 +141,7 @@ async def _handle_send(
     would risk changing teardown semantics that are already correct and tested.
 
     `except Exception` deliberately does not catch `asyncio.CancelledError`,
-    which is a BaseException in modern Python â€” a `/stop` must keep cancelling.
+    which is a BaseException in modern Python — a `/stop` must keep cancelling.
     """
     try:
         await _handle_send_inner(websocket, conversation_id, payload, approval_queue)
@@ -199,7 +199,7 @@ async def _handle_send_inner(
     #   1. The question is read back from the DB and is NOT written again. Routing
     #      regenerate through the ordinary send path appended a second user row,
     #      so the transcript read [user][user][assistant] and the duplicate
-    #      survived a reload. Measured, not assumed â€” task 2.1, execution brief.
+    #      survived a reload. Measured, not assumed — task 2.1, execution brief.
     #   2. The previous answer is superseded inside this same turn, rather than by
     #      a separate client DELETE that a failed send would leave half-applied.
     #      Soft, never a hard delete: the money was spent and the row is the record.
@@ -310,7 +310,7 @@ async def _handle_send_inner(
             if ev_type == "approval_needed":
                 # Forward to frontend; wait for approve/deny back over the same WS.
                 # The subprocess is blocked on stdin at this point, so stdout is quiet
-                # until we write y/n â€” no events are missed during the await.
+                # until we write y/n — no events are missed during the await.
                 # The deadline is OWNED HERE: the client's countdown is a display of
                 # this deadline, and an approval_extend message pushes it out by
                 # APPROVAL_TIMEOUT_SECONDS each time (WCAG 2.2.1, no fixed time limit
@@ -419,8 +419,8 @@ async def _handle_send_inner(
                 await websocket.send_json(event)
     except asyncio.CancelledError:
         cancelled = True  # marks the persisted row below; must still propagate
-        raise  # expected â€” a /stop cancelled this task, not a real failure
-    except Exception:  # noqa: BLE001 â€” this task is fire-and-forget; an
+        raise  # expected — a /stop cancelled this task, not a real failure
+    except Exception:  # noqa: BLE001 — this task is fire-and-forget; an
         # uncaught exception here would otherwise vanish into asyncio's default
         # "Task exception was never retrieved" logging instead of our own log
         # or a WS event the client can actually show the user.
@@ -462,7 +462,7 @@ async def _handle_send_inner(
             )
         elif has_content:
             # `content` is what the model said, nothing more. Cancellation is a
-            # column (v15), not an HTML comment smuggled into the text â€” see the
+            # column (v15), not an HTML comment smuggled into the text — see the
             # note on STOPPED_MARKER above.
             convs.add_message(
                 conversation_id,

@@ -1,4 +1,4 @@
-"""CRUD + message persistence for conversations. All queries parameterized â€” never
+"""CRUD + message persistence for conversations. All queries parameterized — never
 string-format user input into SQL.
 """
 
@@ -52,7 +52,7 @@ def get_conversation_healed(conversation_id: str) -> tuple[Conversation | None, 
     """Like get_conversation, but self-heals a stale/invalid stored model to the
     default and persists the fix. Returns (conversation, invalid_model_replaced)
     where the second element is None when no correction was needed (including
-    when model is NULL â€” that's a legitimate "use the default" state, not a defect).
+    when model is NULL — that's a legitimate "use the default" state, not a defect).
     """
     conv = get_conversation(conversation_id)
     if conv is None:
@@ -411,7 +411,7 @@ def supersede_last_assistant(conversation_id: str) -> bool:
 
     Soft delete, never a `DELETE`: the money was spent and the row is the record,
     so `superseded_by` (v16) is what removes it from the live transcript while the
-    accounting views keep counting it. This is the operation regenerate performs â€”
+    accounting views keep counting it. This is the operation regenerate performs —
     the old name said "delete", which is exactly what it must not do.
     """
     with get_connection() as conn:
@@ -426,7 +426,7 @@ def supersede_last_assistant(conversation_id: str) -> bool:
 
 
 def delete_last_message(conversation_id: str) -> bool:
-    """HTTP-compat name for `supersede_last_assistant` â€” nothing is deleted."""
+    """HTTP-compat name for `supersede_last_assistant` — nothing is deleted."""
     return supersede_last_assistant(conversation_id)
 
 

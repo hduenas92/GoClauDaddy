@@ -11,7 +11,7 @@ log = get_logger("migrations")
 
 _SCHEMA_SQL = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
 
-# (version, description, sql). Append new entries here for future schema changes Ã¢â‚¬â€
+# (version, description, sql). Append new entries here for future schema changes —
 # never edit an already-shipped entry.
 MIGRATIONS: list[tuple[int, str, str]] = [
     (1, "initial schema", _SCHEMA_SQL),
@@ -67,7 +67,7 @@ MIGRATIONS: list[tuple[int, str, str]] = [
     # NULL = live. Non-NULL = the id of the message that replaced it.
     # Deliberately no FK: ALTER TABLE cannot enforce one retroactively, and the
     # app owns this invariant. Read semantics differ by caller and are NOT
-    # uniform Ã¢â‚¬â€ see the module docstring in conversations_service.
+    # uniform — see the module docstring in conversations_service.
     (16, "messages superseded_by column", [
         "ALTER TABLE messages ADD COLUMN superseded_by TEXT",
         "CREATE INDEX IF NOT EXISTS idx_messages_live ON messages(conversation_id, superseded_by, seq)",
@@ -127,7 +127,7 @@ END""",
     #   app_config         0 rows   read by nothing; configuration lives in
     #                               app/config.py and ~/.claude/settings.json
     #
-    # A FORWARD migration, never an edit to v17 Ã¢â‚¬â€ v17 has already run on real
+    # A FORWARD migration, never an edit to v17 — v17 has already run on real
     # databases and rewriting history there would leave installs disagreeing
     # about what version 17 means.
     #
@@ -138,7 +138,7 @@ END""",
     # new installs are fixed by schema.sql.
     #
     # IF TAGS OR PROJECT FILES ARE EVER WANTED: add a new forward migration with
-    # a schema designed for the real requirement. Do not resurrect these Ã¢â‚¬â€ they
+    # a schema designed for the real requirement. Do not resurrect these — they
     # were guesses at features that did not exist.
     (19, "drop unconsumed tables: conversation_tags, project_files, app_config", [
         "DROP TABLE IF EXISTS conversation_tags",
@@ -170,7 +170,7 @@ def apply_migrations() -> None:
                 continue
             log.info("Applying migration %d: %s", version, description)
             if version == 1:
-                # v1 baseline is multi-statement Ã¢â‚¬â€ executescript is the only way
+                # v1 baseline is multi-statement — executescript is the only way
                 # to run it. It issues an implicit COMMIT first, then runs schema.sql
                 # in autocommit. Safe because schema.sql is all CREATE TABLE IF NOT
                 # EXISTS (idempotent on retry if the version write crashes after).
@@ -187,7 +187,7 @@ def apply_migrations() -> None:
                     conn.execute(stmt)
             else:
                 # ponytail: executescript issues implicit COMMIT before running, so
-                # DDL executes in autocommit Ã¢â‚¬â€ a crash between the ALTER TABLE and
+                # DDL executes in autocommit — a crash between the ALTER TABLE and
                 # the version write leaves the column added with version unchanged,
                 # causing a duplicate-column crash loop on the next restart.
                 # conn.execute() keeps the DDL and version write in the same
