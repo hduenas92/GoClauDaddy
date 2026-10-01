@@ -7,6 +7,7 @@ import {
   createConversation,
 } from "./state/actions.js";
 import { getState, subscribe } from "./state/store.js";
+import * as storage from "./state/storage.js";
 
 const MODEL_LABELS = {
   "claude-sonnet-4-6": "Sonnet 4.6",
@@ -158,7 +159,7 @@ async function boot() {
           <button id="export-btn" title="Export conversation (Ctrl+E)" class="header-btn" data-tooltip="Export (Ctrl+E)">⬇ Export</button>
           <button id="shortcuts-btn" title="Keyboard shortcuts (?)" class="header-btn" data-tooltip="Shortcuts (?)">⌨</button>
           <button id="settings-btn" title="Settings (Ctrl+,)" class="header-btn" data-tooltip="Settings (Ctrl+,)">⚙</button>
-          <button id="sb-toggle-btn" title="Toggle sidebar (Ctrl+B)" class="header-btn" data-tooltip="Sidebar (Ctrl+B)">◫</button>
+          <button id="sb-toggle-btn" title="Toggle sidebar (Ctrl+B)" class="header-btn" data-tooltip="Sidebar (Ctrl+B)" aria-controls="right-sidebar" aria-expanded="true">◫</button>
         </div>
       </div>
       <div id="settings-drawer" class="settings-drawer" aria-hidden="true" inert></div>
@@ -193,7 +194,14 @@ async function boot() {
   `;
 
   const rightSidebarEl = document.getElementById("right-sidebar");
-  if (localStorage.getItem("gca_sb_open") !== "1") rightSidebarEl.classList.add("sb-collapsed");
+  const sbToggleBtn = document.getElementById("sb-toggle-btn");
+  function setSidebarCollapsed(collapsed, persist = false) {
+    rightSidebarEl.classList.toggle("sb-collapsed", collapsed);
+    rightSidebarEl.toggleAttribute("inert", collapsed);
+    sbToggleBtn.setAttribute("aria-expanded", String(!collapsed));
+    if (persist) storage.setItem("gca_sb_open", collapsed ? "0" : "1");
+  }
+  setSidebarCollapsed(window.innerWidth < 1280 || storage.getItem("gca_sb_open") !== "1");
   rightSidebarRef = mountRightSidebar(rightSidebarEl);
 
   const chatScrollEl = document.getElementById("chat-scroll");
@@ -220,9 +228,8 @@ async function boot() {
       document.getElementById("settings-btn")?.focus();
     } else openDrawer(settingsDrawerEl);
   });
-  document.getElementById("sb-toggle-btn").addEventListener("click", () => {
-    const collapsed = rightSidebarEl.classList.toggle("sb-collapsed");
-    localStorage.setItem("gca_sb_open", collapsed ? "0" : "1");
+  sbToggleBtn.addEventListener("click", () => {
+    setSidebarCollapsed(!rightSidebarEl.classList.contains("sb-collapsed"), true);
   });
   document.getElementById("export-btn").addEventListener("click", () => {
     chatPane.exportConversation();
@@ -358,7 +365,7 @@ async function boot() {
     if (mod && e.key === "`") {
       if (overlayOpen) return;
       e.preventDefault();
-      if (localStorage.getItem("gca_feat_terminal") === "1") {
+      if (storage.getItem("gca_feat_terminal") === "1") {
         import("./ui/terminal.js").then(m => m.openTerminal()).catch(() => {});
       }
       return;
@@ -381,8 +388,7 @@ async function boot() {
     if (mod && e.key === "b") {
       if (overlayOpen) return;
       e.preventDefault();
-      const collapsed = rightSidebarEl.classList.toggle("sb-collapsed");
-      localStorage.setItem("gca_sb_open", collapsed ? "0" : "1");
+      setSidebarCollapsed(!rightSidebarEl.classList.contains("sb-collapsed"), true);
       return;
     }
     // Ctrl+E — export

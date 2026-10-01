@@ -6,6 +6,7 @@ import { getTemplates } from "../api/template_cache.js";
 import { interpolateTemplate } from "./template_picker.js";
 import { showErrorToast } from "./modal.js";
 import { attachmentDownloadUrl, isImageName } from "./attachment_view.js";
+import * as storage from "../state/storage.js";
 
 const STATUS_LABEL = { done: "Done", error: "Error", stopped: "Stopped", timeout: "Timed out" };
 
@@ -916,7 +917,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       // countdown in the modal; the modal handle is set by _showApprovalModal.
       socket.on("approval_extended", (ev) => _approvalModal?.onExtended?.(ev)),
       socket.on("approval_needed", (ev) => {
-        if (localStorage.getItem("gca_feat_approval") !== "1") {
+        if (storage.getItem("gca_feat_approval") !== "1") {
           // Feature flag off — auto-approve so the subprocess isn't left hanging
           socket.approve();
           return;

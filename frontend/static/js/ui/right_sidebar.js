@@ -1,4 +1,5 @@
 import { getState, subscribe } from "../state/store.js";
+import * as storage from "../state/storage.js";
 
 function escHtml(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -25,7 +26,7 @@ export const BUDGET_KEY = "gca_budget_usd";
  */
 export function userBudget() {
   try {
-    const raw = localStorage.getItem(BUDGET_KEY);
+    const raw = storage.getItem(BUDGET_KEY);
     if (raw == null || raw === "") return null;
     const n = Number(raw);
     return Number.isFinite(n) && n > 0 ? n : null;
@@ -152,11 +153,11 @@ export function mountRightSidebar(root) {
   // Persist <details> open/closed state per panel.
   root.querySelectorAll("details.rsb-panel").forEach((el) => {
     const key = `gca_rsb_${el.id}`;
-    const saved = localStorage.getItem(key);
+    const saved = storage.getItem(key);
     if (saved === "0") el.removeAttribute("open");
     else if (saved === "1") el.setAttribute("open", "");
     el.addEventListener("toggle", () => {
-      try { localStorage.setItem(key, el.open ? "1" : "0"); } catch { /* private mode */ }
+      try { storage.setItem(key, el.open ? "1" : "0"); } catch { /* private mode */ }
     });
   });
 
@@ -352,9 +353,9 @@ export function mountRightSidebar(root) {
         // Daily toast — deduped by date so repeated _fetchStats calls don't re-show it
         const TODAY = new Date().toISOString().slice(0, 10);
         const NOTIF_KEY = "gca_cost_notified";
-        if (cost > 0 && localStorage.getItem(NOTIF_KEY) !== TODAY && stats.monthly_cost_usd != null) {
+        if (cost > 0 && storage.getItem(NOTIF_KEY) !== TODAY && stats.monthly_cost_usd != null) {
           showCostToast(cost, budget);
-          localStorage.setItem(NOTIF_KEY, TODAY);
+          storage.setItem(NOTIF_KEY, TODAY);
         }
       })
       .catch(() => {

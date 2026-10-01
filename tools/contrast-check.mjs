@@ -27,7 +27,7 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
-const REPO = process.env.GCA_REPO ?? 'C:\\Users\\hduenas\\LLMs\\Claude\\Projects\\ClaudioUI';
+const REPO = process.env.GCA_REPO ?? 'C:\\Users\\hduenas\\LLMs\\Claude\\Projects\\GoClaudaddy\\app';
 const require = createRequire(path.join(REPO, 'package.json'));
 const { chromium } = require('playwright');
 

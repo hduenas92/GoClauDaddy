@@ -5,6 +5,7 @@ mode directly: a multi-byte UTF-8 character split across two separate reads.
 """
 
 import json
+import logging
 
 import pytest
 
@@ -17,7 +18,10 @@ async def _chunks(*byte_pieces):
 
 
 def _text_event(text: str) -> bytes:
-    line = json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}})
+    line = json.dumps(
+        {"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}},
+        ensure_ascii=False,
+    )
     return (line + "\n").encode("utf-8")
 
 
@@ -68,3 +72,42 @@ async def test_final_line_without_trailing_newline_is_still_parsed():
     line = _text_event("no trailing newline").rstrip(b"\n")
     events = [ev async for ev in decode_and_parse_lines(_chunks(line))]
     assert events == [{"type": "text", "text": "no trailing newline"}]
+
+
+@pytest.mark.asyncio
+async def test_legitimately_encoded_replacement_character_does_not_warn(caplog):
+    """Bytes EF BF BD decode to U+FFFD legitimately; nothing was replaced."""
+    text = "a � b"
+    with caplog.at_level(logging.WARNING, logger="goclaudaddy.claude_cli"):
+        events = [ev async for ev in decode_and_parse_lines(_chunks(_text_event(text)))]
+
+    assert events == [{"type": "text", "text": text}]
+    warning_records = [
+        record
+        for record in caplog.records
+        if record.name == "goclaudaddy.claude_cli" and record.levelno == logging.WARNING
+    ]
+    assert warning_records == []
+
+
+@pytest.mark.asyncio
+async def test_incomplete_utf8_at_stream_end_warns_on_final_flush(caplog):
+    """The final decoder flush can replace an incomplete sequence; warn then."""
+    full_line = _text_event("a — b").rstrip(b"\n")
+    dash_bytes = "—".encode()
+    idx = full_line.find(dash_bytes)
+    assert idx != -1
+    truncated = full_line[: idx + 1]  # ends with only the first byte of the em dash
+
+    with caplog.at_level(logging.WARNING, logger="goclaudaddy.claude_cli"):
+        events = [ev async for ev in decode_and_parse_lines(_chunks(truncated))]
+
+    assert events  # the replacement-tail buffer is emitted as a non-JSON notice
+    warning_messages = [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "goclaudaddy.claude_cli" and record.levelno == logging.WARNING
+    ]
+    assert warning_messages == [
+        "Non-UTF-8 byte(s) in claude output — replaced (data loss of 1 char)"
+    ]

@@ -216,7 +216,7 @@ checks for overflow and layout shift afterwards.
 
 ```powershell
 # no raw color literal may remain outside :root / [data-theme] blocks
-cd C:\Users\hduenas\LLMs\Claude\Projects\ClaudioUI
+cd C:\Users\hduenas\LLMs\Claude\Projects\GoClaudaddy\app
 node tools\ui-check.mjs        # contrast sweep must show 0 below AA; console clean
 ```
 

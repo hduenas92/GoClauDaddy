@@ -96,20 +96,40 @@ async function withPage(fn, { status = 'idle', pending = false } = {}) {
   // reads as a clean PASS for any assertion phrased as an absence. Counting the
   // hits is the difference between "the feature is correct" and "the test never
   // looked at it". Callers must check it; none may assume it.
+  //
+  // The marker labels the LAST assistant reply (chat_pane.js
+  // showResyncCompleted), so section C needs a transcript that ends in one. The
+  // conversation a boot opens is whatever the user touched last — on 2026-09-30
+  // an empty chat, so the positive case failed with nothing to label while both
+  // absence cases passed vacuously. A transcript that does not end in a reply
+  // gets one appended, shaped like the API's own rows; a real one is left alone.
+  // `synthetic` records which kind the case measured.
   let patched = 0;
+  let synthetic = 0;
   await page.route('**/*', async (route) => {
     const p = new URL(route.request().url()).pathname;
     if (p !== `/api/conversations/${CID}`) return route.continue();
     const real = await route.fetch();
     const body = await real.json();
     body.conversation.status = status;
+    const last = body.messages.at(-1);
+    if (last?.role !== 'assistant') {
+      body.messages.push({
+        id: 'resync-check-synthetic-reply', conversation_id: CID, role: 'assistant',
+        content: 'Synthetic reply (resync-check fixture).', thinking: '', tool_calls: null,
+        input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_creation_tokens: 0,
+        model: body.conversation.model, seq: (last?.seq ?? 0) + 1,
+        created_at: new Date().toISOString(), stopped: false, attachments: [],
+      });
+      synthetic += 1;
+    }
     patched += 1;
     return route.fulfill({ response: real, json: body });
   });
   await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
   try {
     const out = await fn(page);
-    return { ...out, patched };
+    return { ...out, patched, synthetic };
   } finally {
     await ctx.close();
   }
@@ -225,6 +245,9 @@ const readUi = async (page) => {
     status: document.querySelector('#chat-status')?.textContent?.trim() ?? '',
     markers: [...document.querySelectorAll(sel)]
       .filter((m) => m.textContent.includes('Completed while you were away')).length,
+    // A "no marker" assertion means nothing without a reply the marker could
+    // have labelled, so the absence cases require one.
+    replies: document.querySelectorAll('.msg-assistant').length,
   }), marker);
 };
 
@@ -242,15 +265,17 @@ console.log('\nC. Behaviour through a real app boot:');
     await browser.close();
     process.exit(2);
   }
-  t('the conversation under test was actually opened', busy.patched > 0, `route fired ${busy.patched}x`);
+  t('the conversation under test was actually opened', busy.patched > 0,
+    `route fired ${busy.patched}x; last reply ${busy.synthetic ? 'synthetic (transcript ended without one)' : 'real'}`);
 
   t('busy on return -> in-progress notice', /still responding/i.test(busy.status),
     JSON.stringify(busy.status));
-  t('busy on return -> no completed marker', busy.markers === 0, `markers=${busy.markers}`);
+  t('busy on return -> no completed marker', busy.replies > 0 && busy.markers === 0,
+    `markers=${busy.markers} replies=${busy.replies} (0 replies would make this vacuous)`);
 
   const done = await withPage(readUi, { status: 'idle', pending: true });
   t('idle + unseen turn -> completed marker', done.markers === 1,
-    `markers=${done.markers} (route fired ${done.patched}x)`);
+    `markers=${done.markers} replies=${done.replies} (route fired ${done.patched}x)`);
 
   // The false-positive guard. Identical to the case above in every respect
   // except the flag — so if this also produced a marker, the marker would be
@@ -263,8 +288,8 @@ console.log('\nC. Behaviour through a real app boot:');
   // working feature.
   const plain = await withPage(readUi, { status: 'idle', pending: false });
   t('idle + no pending flag -> NO marker (false-positive guard)',
-    plain.patched > 0 && plain.markers === 0,
-    `markers=${plain.markers} (route fired ${plain.patched}x - 0 would make this vacuous)`);
+    plain.patched > 0 && plain.replies > 0 && plain.markers === 0,
+    `markers=${plain.markers} replies=${plain.replies} (route fired ${plain.patched}x - 0 of either would make this vacuous)`);
   t('idle + no pending flag -> no in-progress notice', !/still responding/i.test(plain.status),
     JSON.stringify(plain.status));
 }

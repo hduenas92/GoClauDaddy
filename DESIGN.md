@@ -124,7 +124,7 @@ Note the spec's ban on "neon outer glows" and "card shadows" is otherwise still 
 ## How to verify a visual change
 
 ```powershell
-cd C:\Users\hduenas\LLMs\Claude\Projects\ClaudioUI
+cd C:\Users\hduenas\LLMs\Claude\Projects\GoClaudaddy\app
 node tools\ui-check.mjs              # contrast, measure, code width, console, drift
 node tools\ui-check.mjs --width 2560
 node tools\ui-check.mjs --reduced    # prefers-reduced-motion

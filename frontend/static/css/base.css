@@ -279,10 +279,13 @@ html, body {
   overflow-y: auto;
   transition: width 0.25s ease, border-left-color 0.25s ease;
 }
-#right-sidebar.sb-collapsed {
+#right-sidebar.sb-collapsed,
+[data-theme] #right-sidebar.sb-collapsed {
   width: 0;
   overflow: hidden;
   border-left-color: transparent;
+  box-shadow: none;
+  visibility: hidden;
 }
 
 /* ============================================================

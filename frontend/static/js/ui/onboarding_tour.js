@@ -4,6 +4,7 @@
  */
 
 import { trapFocus } from "./modal.js";
+import * as storage from "../state/storage.js";
 
 const STEPS = [
   {
@@ -29,11 +30,11 @@ const STEPS = [
 ];
 
 function _mark() {
-  localStorage.setItem("gca_onboarded", "1");
+  storage.setItem("gca_onboarded", "1");
 }
 
 export function maybeShowOnboarding() {
-  if (localStorage.getItem("gca_onboarded") === "1") return;
+  if (storage.getItem("gca_onboarded") === "1") return;
   showOnboarding();
 }
 

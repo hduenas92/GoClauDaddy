@@ -322,18 +322,20 @@ async function stubBoot(page, { messages = [] } = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// E3(stats) — /api/server/stats failure: "—", never "undefined chats"; recovers
+// E3(stats) — /api/server/stats failure: MONTH shows "—", never undefined/NaN; recovers
+// The theme rework (P2-U) removed the old rail's #met-all / #met-cost; the stats
+// endpoint now feeds the MONTH panel (#met-month-cost, #met-budget-pct), whose
+// failure branch is right_sidebar.js _fetchStats().catch. Same guarantee, new ids.
 // ---------------------------------------------------------------------------
 {
-  const name = 'E3. /api/server/stats failure shows "—" (never undefined/NaN) and recovers';
+  const name = 'E3. /api/server/stats failure shows "—" in MONTH (never undefined/NaN) and recovers';
   const { ctx, page } = await freshPage();
   try {
     await stubBoot(page);
     let statsCalls = 0;
     await page.route('**/api/server/stats', (r) => {
       statsCalls += 1;
-      // Two stats fetches happen at boot (mount + setConversation); fail both
-      // so the failure state is actually on screen before we sample it.
+      // Fail the boot fetches so the failure state is on screen before sampling.
       if (statsCalls <= 2) {
         return r.fulfill({ status: 500, contentType: 'application/json', body: '{"detail":"boom"}' });
       }
@@ -347,16 +349,16 @@ async function stubBoot(page, { messages = [] } = {}) {
       });
     });
     await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#met-all', { timeout: 8000 });
+    await page.waitForSelector('#met-month-cost', { state: 'attached', timeout: 8000 });
     await page.waitForTimeout(500);
-    const before = await page.evaluate(() => ({
-      all: document.getElementById('met-all')?.textContent ?? '',
-      cost: document.getElementById('met-cost')?.textContent ?? '',
+    const read = () => page.evaluate(() => ({
+      cost: document.getElementById('met-month-cost')?.textContent ?? '',
+      pct: document.getElementById('met-budget-pct')?.textContent ?? '',
     }));
-    const clean = before.all === '—' && before.cost === '—'
-      && !/undefined|NaN/.test(before.all + before.cost);
+    const before = await read();
+    const clean = before.cost === '—' && before.pct === '—' && !/undefined|NaN/.test(before.cost + before.pct);
     if (!clean) {
-      fail(name, `ALL CHATS/COST must be "—" on failure, got ${JSON.stringify(before)} (defect: "undefined chats"/NaN)`);
+      fail(name, `MONTH cost/pct must be "—" on failure, got ${JSON.stringify(before)} (statsCalls=${statsCalls})`);
     } else {
       // Turn-end refresh (real product path) is the next successful poll.
       await page.evaluate(async () => {
@@ -369,11 +371,8 @@ async function stubBoot(page, { messages = [] } = {}) {
         m.setState({ streaming: false });
       });
       await page.waitForTimeout(800);
-      const after = await page.evaluate(() => ({
-        all: document.getElementById('met-all')?.textContent ?? '',
-        cost: document.getElementById('met-cost')?.textContent ?? '',
-      }));
-      const ok = /3 chats/.test(after.all) && /\$/.test(after.cost) && !/undefined|NaN/.test(after.all + after.cost);
+      const after = await read();
+      const ok = /\$1\.50/.test(after.cost) && /%/.test(after.pct) && !/undefined|NaN/.test(after.cost + after.pct);
       if (!ok) fail(name, `stats did not recover on the next poll: ${JSON.stringify(after)} (statsCalls=${statsCalls})`);
       else pass(name, `failure -> "—"; recovered to ${JSON.stringify(after)} (statsCalls=${statsCalls})`);
     }
@@ -382,87 +381,11 @@ async function stubBoot(page, { messages = [] } = {}) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// E3(agents) — /api/agents/status failure shows Unavailable, recovers on poll
-// ---------------------------------------------------------------------------
-{
-  const name = 'E3. /api/agents/status failure shows Unavailable and recovers on the next poll';
-  const { ctx, page } = await freshPage();
-  try {
-    await stubBoot(page);
-    let agentsCalls = 0;
-    await page.route('**/api/agents/status', (r) => {
-      agentsCalls += 1;
-      if (agentsCalls === 1) {
-        return r.fulfill({ status: 500, contentType: 'application/json', body: '{"detail":"boom"}' });
-      }
-      return r.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-    await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#rsb-agent-count', { state: 'attached', timeout: 8000 });
-    await page.waitForTimeout(500);
-    const before = await page.evaluate(() => ({
-      count: document.getElementById('rsb-agent-count')?.textContent ?? '',
-      body: document.getElementById('rsb-agents-body')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-    }));
-    if (!(before.count === '—' && /unavailable/i.test(before.body) && !/undefined|NaN/.test(before.count + before.body))) {
-      fail(name, `agents must show "—"/Unavailable, got ${JSON.stringify(before)} (defect: undefined/NaN)`);
-    } else {
-      await page.waitForTimeout(2600); // 2s poll
-      const after = await page.evaluate(() => ({
-        count: document.getElementById('rsb-agent-count')?.textContent ?? '',
-        body: document.getElementById('rsb-agents-body')?.innerText?.trim() ?? '',
-      }));
-      const ok = after.count === '0' && !/undefined|NaN/.test(after.count + after.body);
-      if (!ok) fail(name, `agents did not recover on the next poll: ${JSON.stringify(after)} (agentsCalls=${agentsCalls})`);
-      else pass(name, `failure -> Unavailable; recovered to count=${after.count} (agentsCalls=${agentsCalls})`);
-    }
-  } finally {
-    await ctx.close().catch(() => {});
-  }
-}
+// E3(agents) and E3(teams) retired 2026-09-30: the theme rework removed the
+// Agents and Teams panels and Houston accepted the removal (decision D8,
+// plans/goclaudaddy-finish.md). No UI calls /api/agents/status or /api/teams,
+// so there is no failure state left to make visible.
 
-// ---------------------------------------------------------------------------
-// E3(teams) — /api/teams failure shows Unavailable, recovers on poll
-// ---------------------------------------------------------------------------
-{
-  const name = 'E3. /api/teams failure shows Unavailable and recovers on the next poll';
-  const { ctx, page } = await freshPage({ teams: true });
-  try {
-    await stubBoot(page);
-    let teamsCalls = 0;
-    await page.route('**/api/teams', (r) => {
-      teamsCalls += 1;
-      if (teamsCalls === 1) {
-        return r.fulfill({ status: 500, contentType: 'application/json', body: '{"detail":"boom"}' });
-      }
-      return r.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-    await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#rsb-team-count', { state: 'attached', timeout: 8000 });
-    await page.waitForTimeout(500);
-    const before = await page.evaluate(() => ({
-      count: document.getElementById('rsb-team-count')?.textContent ?? '',
-      body: document.getElementById('rsb-teams-body')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-    }));
-    if (!(before.count === '—' && /unavailable/i.test(before.body) && !/undefined|NaN/.test(before.count + before.body))) {
-      fail(name, `teams must show "—"/Unavailable, got ${JSON.stringify(before)} (defect: undefined/NaN)`);
-    } else {
-      await page.waitForTimeout(5600); // 5s poll
-      const after = await page.evaluate(() => ({
-        count: document.getElementById('rsb-team-count')?.textContent ?? '',
-        body: document.getElementById('rsb-teams-body')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-      }));
-      const ok = after.count === '0' && !/undefined|NaN/.test(after.count + after.body);
-      if (!ok) fail(name, `teams did not recover on the next poll: ${JSON.stringify(after)} (teamsCalls=${teamsCalls})`);
-      else pass(name, `failure -> Unavailable; recovered to count=${after.count} (teamsCalls=${teamsCalls})`);
-    }
-  } finally {
-    await ctx.close().catch(() => {});
-  }
-}
-
-// ---------------------------------------------------------------------------
 // E6 frontend — disk-full wording vs size wording
 // ---------------------------------------------------------------------------
 {

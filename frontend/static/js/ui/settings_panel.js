@@ -5,6 +5,7 @@ import { showErrorToast } from "./modal.js";
 // writes exactly what the sidebar reads; keeping two copies of a storage key
 // in sync by hand is how a setting silently stops taking effect.
 import { BUDGET_KEY } from "./right_sidebar.js";
+import * as storage from "../state/storage.js";
 
 // Keep in sync with PERM_LABELS in main.js
 const PERM_LABELS = {
@@ -123,10 +124,6 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
           <p class="drawer-hint">Experimental features. Changes take effect on the next conversation.</p>
           <button class="drawer-link-btn" id="replay-onboarding-btn">Replay onboarding tour</button>
           <label class="drawer-toggle-row">
-            <input type="checkbox" id="feat-teams" class="drawer-toggle-check" aria-label="Enable team sessions">
-            <span class="drawer-toggle-label">Enable team sessions</span>
-          </label>
-          <label class="drawer-toggle-row">
             <input type="checkbox" id="feat-assess" class="drawer-toggle-check" aria-label="Evaluate tasks before sending">
             <span class="drawer-toggle-label">Evaluate tasks before sending</span>
           </label>
@@ -156,7 +153,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
   themeSelect.addEventListener("change", () => {
     const id = themeSelect.value;
     document.documentElement.setAttribute("data-theme", id);
-    try { localStorage.setItem(THEME_STORAGE_KEY, id); } catch { /* private mode — theme still applied for this session */ }
+    try { storage.setItem(THEME_STORAGE_KEY, id); } catch { /* private mode — theme still applied for this session */ }
   });
 
   // F3: chat font size. Writes the same --chat-font-size variable the
@@ -170,7 +167,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
     fontSelect.appendChild(opt);
   });
   let storedFont = null;
-  try { storedFont = localStorage.getItem(FONT_SIZE_STORAGE_KEY); } catch { /* private mode */ }
+  try { storedFont = storage.getItem(FONT_SIZE_STORAGE_KEY); } catch { /* private mode */ }
   if (!FONT_SIZE_OPTIONS.some((o) => o.value === storedFont)) {
     storedFont = "14px"; // the :root default; bootstrap keeps a valid value valid
   }
@@ -178,7 +175,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
   fontSelect.addEventListener("change", () => {
     const size = fontSelect.value;
     document.documentElement.style.setProperty("--chat-font-size", size);
-    try { localStorage.setItem(FONT_SIZE_STORAGE_KEY, size); } catch { /* private mode — still applied for this session */ }
+    try { storage.setItem(FONT_SIZE_STORAGE_KEY, size); } catch { /* private mode — still applied for this session */ }
   });
 
   const modelSelect = drawerEl.querySelector("#model-select");
@@ -300,7 +297,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
   const budgetInput = drawerEl.querySelector("#budget-input");
   if (budgetInput) {
     try {
-      const stored = localStorage.getItem(BUDGET_KEY);
+      const stored = storage.getItem(BUDGET_KEY);
       if (stored) budgetInput.value = stored;
     } catch { /* private mode: the field just starts empty */ }
 
@@ -308,7 +305,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
       const raw = budgetInput.value.trim();
       try {
         if (raw === "") {
-          localStorage.removeItem(BUDGET_KEY);
+          storage.removeItem(BUDGET_KEY);
         } else {
           const n = Number(raw);
           if (!Number.isFinite(n) || n <= 0) {
@@ -318,7 +315,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
             _flashError(budgetInput, "Enter a dollar amount greater than zero, or leave it blank for the default.");
             return;
           }
-          localStorage.setItem(BUDGET_KEY, String(n));
+          storage.setItem(BUDGET_KEY, String(n));
         }
       } catch {
         _flashError(budgetInput, "Couldn't save that — your browser is blocking local storage.");
@@ -332,34 +329,25 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
 
   const assessCheck = drawerEl.querySelector("#feat-assess");
   if (assessCheck) {
-    assessCheck.checked = localStorage.getItem("gca_feat_assess") === "1";
+    assessCheck.checked = storage.getItem("gca_feat_assess") === "1";
     assessCheck.addEventListener("change", () => {
-      localStorage.setItem("gca_feat_assess", assessCheck.checked ? "1" : "0");
+      storage.setItem("gca_feat_assess", assessCheck.checked ? "1" : "0");
     });
   }
 
   const terminalCheck = drawerEl.querySelector("#feat-terminal");
   if (terminalCheck) {
-    terminalCheck.checked = localStorage.getItem("gca_feat_terminal") === "1";
+    terminalCheck.checked = storage.getItem("gca_feat_terminal") === "1";
     terminalCheck.addEventListener("change", () => {
-      localStorage.setItem("gca_feat_terminal", terminalCheck.checked ? "1" : "0");
-    });
-  }
-
-  const teamsCheck = drawerEl.querySelector("#feat-teams");
-  if (teamsCheck) {
-    teamsCheck.checked = localStorage.getItem("gca_feat_teams") === "1";
-    teamsCheck.addEventListener("change", () => {
-      localStorage.setItem("gca_feat_teams", teamsCheck.checked ? "1" : "0");
-      window.dispatchEvent(new CustomEvent("gca:feature", { detail: { name: "teams", enabled: teamsCheck.checked } }));
+      storage.setItem("gca_feat_terminal", terminalCheck.checked ? "1" : "0");
     });
   }
 
   const approvalCheck = drawerEl.querySelector("#feat-approval");
   if (approvalCheck) {
-    approvalCheck.checked = localStorage.getItem("gca_feat_approval") === "1";
+    approvalCheck.checked = storage.getItem("gca_feat_approval") === "1";
     approvalCheck.addEventListener("change", () => {
-      localStorage.setItem("gca_feat_approval", approvalCheck.checked ? "1" : "0");
+      storage.setItem("gca_feat_approval", approvalCheck.checked ? "1" : "0");
     });
   }
 

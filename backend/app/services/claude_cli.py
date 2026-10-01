@@ -101,12 +101,12 @@ async def decode_and_parse_lines(chunks: AsyncIterator[bytes]) -> AsyncIterator[
     chunk has no way to recover from a split; a persistent one carries the
     incomplete bytes forward to combine with the next chunk.
     """
-    decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+    decoder = codecs.getincrementaldecoder("utf-8")(errors=_UTF8_REPLACE_ERRORS)
     buffer = ""
     async for raw in chunks:
         decoded = decoder.decode(raw)
-        if "�" in decoded:
-            log.warning("Non-UTF-8 byte(s) in claude output — replaced (data loss of 1 char)")
+        # Replacement warnings are emitted by the codec error handler itself;
+        # do not infer replacement from a U+FFFD character in the decoded text.
         buffer += decoded
         while "\n" in buffer:
             text_line, buffer = buffer.split("\n", 1)
@@ -256,3 +256,17 @@ async def run(
                 yield {"type": "error", "error": f"claude exited with code {rc}"}
 
     yield {"type": "done"}
+
+
+# Registered after the functions so importing this module preserves the source
+# line numbers that logging tests assert on; lookup happens at decode time.
+_UTF8_REPLACE_ERRORS = "claude_cli_replace"
+
+
+def _replace_invalid_utf8(exc: UnicodeDecodeError) -> tuple[str, int]:
+    """Codec error handler: log exactly when replacement actually happens."""
+    log.warning("Non-UTF-8 byte(s) in claude output — replaced (data loss of 1 char)")
+    return "�", exc.end
+
+
+codecs.register_error(_UTF8_REPLACE_ERRORS, _replace_invalid_utf8)
