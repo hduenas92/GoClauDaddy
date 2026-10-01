@@ -89,7 +89,7 @@ async function discoverToken() {
 
 const browser = await chromium.launch();
 
-async function freshPage({ blockSearch = false } = {}) {
+async function freshPage({ blockSearch = false, fixtureChats = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await ctx.addInitScript(() => {
     try {
@@ -99,14 +99,26 @@ async function freshPage({ blockSearch = false } = {}) {
     } catch {}
   });
   const page = await ctx.newPage();
-  if (blockSearch) {
+  if (blockSearch || fixtureChats) {
     // Scoped to the search route by pathname. A `**/api/**` glob would also
     // match the static module at /static/js/api/http.js and break module
     // loading, which reads as "the filter is broken" — a trap already hit once
     // on this project.
-    await page.route('**/*', (route) => {
-      const p = new URL(route.request().url()).pathname;
-      return p === '/api/search' ? route.abort() : route.continue();
+    await page.route('**/*', async (route) => {
+      const req = route.request();
+      const p = new URL(req.url()).pathname;
+      if (blockSearch && p === '/api/search') return route.abort();
+      // 2026-10-01: case 1 filters the sidebar client-side and needs 2+ chats;
+      // the live DB may hold one. Append two old fixture chats to the real list
+      // (never written to the DB; older than every real chat, so boot still
+      // opens a real one).
+      if (fixtureChats && p === '/api/conversations' && req.method() === 'GET') {
+        const real = await (await route.fetch()).json();
+        const fx = (id, name) => ({ ...(real[0] ?? {}), id, name, session_id: null, status: 'idle',
+          created_at: '2000-01-01T00:00:00+00:00', updated_at: '2000-01-01T00:00:00+00:00' });
+        return route.fulfill({ json: [...real, fx('fixture-a', 'Zebra fixture chat'), fx('fixture-b', 'Quokka fixture notes')] });
+      }
+      return route.continue();
     });
   }
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
@@ -141,7 +153,7 @@ try {
   // --- 1. local filter works with the network blocked --------------------
   {
     const label = '1. the Chats filter works with /api/search blocked';
-    const { ctx, page } = await freshPage({ blockSearch: true });
+    const { ctx, page } = await freshPage({ blockSearch: true, fixtureChats: true });
     try {
       const before = (await groups(page)).chats.length;
       if (before < 2) {
