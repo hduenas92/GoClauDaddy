@@ -17,6 +17,7 @@ import socket
 import sqlite3
 import subprocess
 import time
+import sys
 from pathlib import Path
 
 import httpx
@@ -27,7 +28,7 @@ from tests.fixtures import fake_claude_cli as fake
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = BACKEND_DIR.parent
-VENV_PYTHON = REPO_ROOT / ".venv" / "Scripts" / "python.exe"
+VENV_PYTHON = Path(sys.executable)  # the interpreter running pytest; a fixed .venv path broke clones and worktrees
 FAKE_CLI_SCRIPT = BACKEND_DIR / "tests" / "fixtures" / "fake_claude_cli.py"
 
 USER_MESSAGE_1 = "Survival user message one - please read the attached file."
