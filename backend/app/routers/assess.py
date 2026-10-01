@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from app.config import ASSESS_MODEL
 from app.logging_setup import get_logger
 
 router = APIRouter(prefix="/api/conversations", tags=["assess"])
@@ -43,7 +44,7 @@ async def assess(body: AssessBody):
     cmd = [
         resolved, "-p",
         "--output-format", "json",
-        "--model", "claude-haiku-4-5-20251001",
+        "--model", ASSESS_MODEL,
         "--system-prompt", _SYSTEM,
         body.message[:2000],
     ]

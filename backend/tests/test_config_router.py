@@ -37,6 +37,7 @@ def test_get_config_models_include_pricing():
     for model in data["models"]:
         assert "value" in model
         assert "label" in model
+        assert "description" in model and model["description"]
         assert "context_window" in model
         assert "input_rate" in model
         assert "output_rate" in model

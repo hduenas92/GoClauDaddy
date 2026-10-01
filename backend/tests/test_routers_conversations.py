@@ -202,3 +202,24 @@ def test_get_conversation_returns_stopped_per_message(temp_db):
 
     data = client.get(f"/api/conversations/{conv_id}").json()
     assert [m["stopped"] for m in data["messages"]] == [True, False]
+
+
+def test_settings_patch_rejects_unknown_model(temp_db):
+    conv_id = client.post("/api/conversations", json={}).json()["id"]
+    res = client.patch(f"/api/conversations/{conv_id}/settings", json={"model": "claude-3-5-haiku"})
+    assert res.status_code == 422
+
+
+def test_settings_clear_permission_mode_resets_to_null(temp_db):
+    conv_id = client.post("/api/conversations", json={}).json()["id"]
+
+    res = client.patch(f"/api/conversations/{conv_id}/settings", json={"permission_mode": "plan"})
+    assert res.status_code == 200
+    assert res.json()["permission_mode"] == "plan"
+
+    res = client.patch(f"/api/conversations/{conv_id}/settings", json={"clear_permission_mode": True})
+    assert res.status_code == 200
+    assert res.json()["permission_mode"] is None
+
+    fetched = client.get(f"/api/conversations/{conv_id}").json()["conversation"]
+    assert fetched["permission_mode"] is None

@@ -41,7 +41,7 @@ def test_published_rates_and_context_windows(model_id, input_rate, output_rate, 
     assert entry["context_window"] == ctx
 
 
-@pytest.mark.parametrize("field", ["id", "label", "context_window", "input_rate", "output_rate"])
+@pytest.mark.parametrize("field", ["id", "label", "description", "context_window", "input_rate", "output_rate"])
 def test_every_model_carries_every_field(field):
     for m in MODELS:
         assert field in m, f"{m.get('id', m)} missing {field}"

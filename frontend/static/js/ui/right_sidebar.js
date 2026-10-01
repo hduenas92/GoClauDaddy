@@ -163,6 +163,7 @@ export function mountRightSidebar(root) {
 
   // Populated from /api/config on mount; safe fallback until fetch resolves.
   let _ctxByModel = {};
+  let _labelsByModel = {};
 
   const modelEl   = root.querySelector("#met-model");
   const messagesEl = root.querySelector("#met-messages");
@@ -186,12 +187,6 @@ export function mountRightSidebar(root) {
   let _activeConvId = null;
   // One r.ok-checked JSON GET for every sidebar poll (P2-B E3/E4/E5).
   const _getJSON = (url) => fetch(url).then((r) => { if (!r.ok) throw new Error(`${url} ${r.status}`); return r.json(); });
-
-  const MODEL_LABELS = {
-    "claude-sonnet-4-6": "Sonnet 4.6",
-    "claude-opus-4-5": "Opus 4.5",
-    "claude-haiku-4-5-20251001": "Haiku 4.5",
-  };
 
   function fmtTok(n) {
     return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
@@ -279,11 +274,15 @@ export function mountRightSidebar(root) {
   function _fetchConfig() {
     _getJSON("/api/config")
       .then((cfg) => {
-        (cfg.models || []).forEach((m) => { _ctxByModel[m.value] = m.context_window; });
+        (cfg.models || []).forEach((m) => {
+          _ctxByModel[m.value] = m.context_window;
+          _labelsByModel[m.value] = m.label;
+        });
         // Re-apply for the model currently on screen so a failed first fetch
         // (CTX showing "—") recovers on the next successful poll.
         if (_currentModel != null) {
           ctxMax = _ctxByModel[_currentModel] ?? null;
+          if (modelEl) modelEl.textContent = _labelsByModel[_currentModel] ?? _currentModel ?? "—";
           _refreshCtx();
         }
       })
@@ -381,7 +380,7 @@ export function mountRightSidebar(root) {
   function setModel(model) {
     _currentModel = model;
     ctxMax = _ctxByModel[model] ?? null;
-    if (modelEl) modelEl.textContent = MODEL_LABELS[model] ?? model ?? "—";
+    if (modelEl) modelEl.textContent = _labelsByModel[model] ?? model ?? "—";
     _refreshCtx();
   }
 
@@ -394,7 +393,7 @@ export function mountRightSidebar(root) {
     if (!conversationId) return;
     const conv = getState().conversations.find(c => c.id === conversationId);
     if (conv) {
-      if (modelEl) modelEl.textContent = MODEL_LABELS[conv.model] ?? conv.model ?? "—";
+      if (modelEl) modelEl.textContent = _labelsByModel[conv.model] ?? conv.model ?? "—";
       _renderProject(conv.project_id);
     }
     _renderMessages();

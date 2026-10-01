@@ -9,11 +9,18 @@ import {
 import { getState, subscribe } from "./state/store.js";
 import * as storage from "./state/storage.js";
 
-const MODEL_LABELS = {
-  "claude-sonnet-4-6": "Sonnet 4.6",
-  "claude-opus-4-5": "Opus 4.5",
-  "claude-haiku-4-5-20251001": "Haiku 4.5",
-};
+let MODEL_LABELS = {};
+
+async function loadModelLabels() {
+  try {
+    const config = await api.getConfig();
+    MODEL_LABELS = Object.fromEntries(
+      (config.models || []).map((m) => [m.value, m.label])
+    );
+  } catch {
+    MODEL_LABELS = {};
+  }
+}
 
 function fmtTok(n) {
   return n >= 1000 ? `${(n / 1000).toFixed(0)}k` : `${n}`;
@@ -202,6 +209,7 @@ async function boot() {
   }
   setSidebarCollapsed(window.innerWidth < 1280 || storage.getItem("gca_sb_open") !== "1");
   rightSidebarRef = mountRightSidebar(rightSidebarEl);
+  await loadModelLabels();
 
   const chatScrollEl = document.getElementById("chat-scroll");
   const chatPane = mountChatPane(chatScrollEl, {
@@ -354,35 +362,35 @@ async function boot() {
       !!document.querySelector(".modal-overlay");
 
     // Ctrl+Shift+N — new conversation
-    if (mod && e.shiftKey && e.key === "N") {
+    if (mod && e.shiftKey && e.key.toLowerCase() === "n") {
       if (overlayOpen) return;
       e.preventDefault();
       createConversation().then((conv) => switchToConversation(conv.id, chatPane, composerRoot));
       return;
     }
     // Ctrl+Shift+T — template picker
-    if (mod && e.shiftKey && e.key === "T") {
+    if (mod && e.shiftKey && e.key.toLowerCase() === "t") {
       if (overlayOpen) return;
       e.preventDefault();
       openTemplatePicker({ onSelect: (text) => { composerRoot.setText?.(text); } });
       return;
     }
     // Ctrl+, — toggle settings
-    if (mod && e.key === ",") {
+    if (mod && e.key === "," && !inInput) {
       e.preventDefault();
       if (settingsDrawerEl.classList.contains("drawer-open")) closeDrawer(settingsDrawerEl);
       else openDrawer(settingsDrawerEl);
       return;
     }
     // Ctrl+B — toggle right sidebar
-    if (mod && e.key === "b") {
+    if (mod && e.key.toLowerCase() === "b" && !inInput) {
       if (overlayOpen) return;
       e.preventDefault();
       setSidebarCollapsed(!rightSidebarEl.classList.contains("sb-collapsed"), true);
       return;
     }
     // Ctrl+E — export
-    if (mod && e.key === "e" && !inInput) {
+    if (mod && e.key.toLowerCase() === "e" && !inInput) {
       if (overlayOpen) return;
       e.preventDefault();
       chatPane.exportConversation();

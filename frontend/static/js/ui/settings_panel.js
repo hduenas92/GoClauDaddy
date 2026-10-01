@@ -25,14 +25,6 @@ const THINKING_OPTIONS = [
   { value: "32000", label: "Maximum" },
 ];
 
-const MODEL_DESCRIPTIONS = {
-  "claude-opus-5": "Most capable — complex tasks, deep reasoning",
-  "claude-sonnet-5": "Balanced — fast and intelligent, best for most work",
-  "claude-haiku-4-5-20251001": "Fastest — quick tasks, high throughput",
-  "claude-sonnet-4-6": "Smart and efficient — reliable for most tasks",
-  "claude-opus-4-5": "Highly capable — advanced reasoning and analysis",
-};
-
 /**
  * Mounts settings into a drawer element. Returns { open, close } to control visibility.
  */
@@ -61,30 +53,17 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
   const config = await api.getConfig();
   const themes = getThemes();
   const themeSectionHidden = themes.length > 1 ? "" : "hidden";
+  const MODEL_DESCRIPTIONS = Object.fromEntries(
+    (config.models || []).map((m) => [m.value, m.description || ""])
+  );
 
   drawerEl.innerHTML = `
     <div class="drawer-header">
-      <span class="drawer-title">⚙ Conversation Settings</span>
+      <span class="drawer-title">⚙ Settings</span>
       <button class="drawer-close" title="Close (Esc)">✕</button>
     </div>
     <div class="drawer-body">
-      <div class="drawer-section" id="theme-section" ${themeSectionHidden}>
-        <label class="drawer-label">Theme
-          <select id="theme-select" class="drawer-select"></select>
-        </label>
-      </div>
-      <div class="drawer-section">
-        <label class="drawer-label">Chat font size
-          <select id="chat-font-size" class="drawer-select"></select>
-        </label>
-        <p class="drawer-hint">Applies to chat messages and the composer.</p>
-      </div>
-      <div class="drawer-section">
-        <label class="drawer-label">Your CaaS budget
-          <input type="number" id="budget-input" class="drawer-select" min="1" step="1" placeholder="200">
-        </label>
-        <p class="drawer-hint">Your monthly allowance in dollars, used for the spend bar. The default is $200; leave blank if that's yours.</p>
-      </div>
+      <h2 class="drawer-section-heading">This conversation</h2>
       <div class="drawer-section">
         <label class="drawer-label">Model
           <select id="model-select" class="drawer-select"></select>
@@ -118,11 +97,28 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
           <button id="clear-system-prompt" class="drawer-link-btn">Clear</button>
         </div>
       </div>
+      <h2 class="drawer-section-heading">App</h2>
+      <div class="drawer-section" id="theme-section" ${themeSectionHidden}>
+        <label class="drawer-label">Theme
+          <select id="theme-select" class="drawer-select"></select>
+        </label>
+      </div>
+      <div class="drawer-section">
+        <label class="drawer-label">Chat font size
+          <select id="chat-font-size" class="drawer-select"></select>
+        </label>
+        <p class="drawer-hint">Applies to chat messages and the composer.</p>
+      </div>
+      <div class="drawer-section">
+        <label class="drawer-label">Your CaaS budget
+          <input type="number" id="budget-input" class="drawer-select" min="1" step="1" placeholder="200">
+        </label>
+        <p class="drawer-hint">Your monthly allowance in dollars, used for the spend bar. The default is $200; leave blank if that's yours.</p>
+      </div>
       <details class="drawer-section drawer-advanced" id="advanced-settings-section">
         <summary class="drawer-advanced-summary">Advanced</summary>
         <div class="drawer-advanced-body">
-          <p class="drawer-hint">Experimental features. Changes take effect on the next conversation.</p>
-          <button class="drawer-link-btn" id="replay-onboarding-btn">Replay onboarding tour</button>
+          <p class="drawer-hint">Feature toggles apply immediately.</p>
           <label class="drawer-toggle-row">
             <input type="checkbox" id="feat-assess" class="drawer-toggle-check" aria-label="Evaluate tasks before sending">
             <span class="drawer-toggle-label">Evaluate tasks before sending</span>
@@ -132,6 +128,7 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
             <span class="drawer-toggle-label">Prompt for tool approval <span class="drawer-badge-exp">experimental</span></span>
           </label>
           <p class="drawer-hint drawer-hint-risk">⚠ Depends on Claude CLI output format and may not work reliably.</p>
+          <button class="drawer-link-btn" id="replay-onboarding-btn">Replay onboarding tour</button>
         </div>
       </details>
     </div>
@@ -208,11 +205,13 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
   });
   permissionSelect.value = conversation.permission_mode || "";
   permissionSelect.addEventListener("change", async () => {
+    const mode = permissionSelect.value;
     try {
-      await api.updateConversationSettings(conversation.id, {
-        permission_mode: permissionSelect.value || null,
-      });
-      onChange?.({ permission_mode: permissionSelect.value || null });
+      await api.updateConversationSettings(
+        conversation.id,
+        mode ? { permission_mode: mode } : { clear_permission_mode: true },
+      );
+      onChange?.({ permission_mode: mode || null });
     } catch { _flashError(permissionSelect, "Couldn't change the permission mode — your change wasn't saved. Try again."); }
   });
 

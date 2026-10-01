@@ -45,11 +45,12 @@ PERMISSION_MODES = ("acceptEdits", "auto", "bypassPermissions", "manual", "dontA
 DEFAULT_WORKING_DIR = str(Path.home())
 
 DEFAULT_MODEL = "claude-sonnet-4-6"
+ASSESS_MODEL = "claude-haiku-4-5-20251001"
 # Rates are $/million tokens (Anthropic retail pricing). context_window in tokens.
 MODELS = [
-    {"id": "claude-sonnet-4-6",         "label": "Sonnet 4.6", "context_window": 1_000_000, "input_rate":  3.00, "output_rate": 15.00},
-    {"id": "claude-opus-4-5",           "label": "Opus 4.5",   "context_window": 1_000_000, "input_rate":  5.00, "output_rate": 25.00},
-    {"id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5",  "context_window":   200_000, "input_rate":  1.00, "output_rate":  5.00},
+    {"id": "claude-sonnet-4-6",         "label": "Sonnet 4.6", "description": "Smart and efficient — reliable for most tasks", "context_window": 1_000_000, "input_rate":  3.00, "output_rate": 15.00},
+    {"id": "claude-opus-4-5",           "label": "Opus 4.5",   "description": "Highly capable — advanced reasoning and analysis", "context_window": 1_000_000, "input_rate":  5.00, "output_rate": 25.00},
+    {"id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5",  "description": "Fastest — quick tasks, high throughput", "context_window":   200_000, "input_rate":  1.00, "output_rate":  5.00},
 ]
 
 

@@ -6,14 +6,15 @@
  * Ctrl+Shift+T, Ctrl+`, Ctrl+B and Ctrl+E all fired regardless — stacking a
  * second overlay on the first, or switching conversation mid-rename.
  *
- * WHY THE OBVIOUS FIX IS WRONG, and why this harness has 17 assertions and not
+ * WHY THE OBVIOUS FIX IS WRONG, and why this harness has 19 assertions and not
  * 15. Ctrl+, and ? are toggles: each CLOSES its own surface. A single guard
  * above the branch table makes the settings drawer and the shortcuts overlay
  * openable and then un-closable by the same key — two new dead ends traded for
  * one bug. A build that passes all 15 inert-assertions and fails the 2 toggle
  * assertions is the broken fix, and must read as FAIL, not as 88% good.
  *
- * 5 guarded combos x 3 overlays = 15, plus 2 toggle-closes = 17.
+ * 5 guarded combos x 3 overlays = 15, plus 2 toggle-closes, plus 2 Caps Lock
+ * cases (Ctrl+B and Ctrl+K) = 19.
  *
  * Exit: 0 PASS · 1 FAIL · 2 INCONCLUSIVE
  */
@@ -57,7 +58,13 @@ const OVERLAYS = {
     }),
   },
   drawer: {
-    open: async (page) => { await page.keyboard.press('Control+Comma'); },
+    // Ctrl+, is gated on !inInput, and the composer autofocuses on load, so a
+    // user who is not mid-sentence blurs first. Without this the drawer would
+    // never open and every drawer case below would be INCONCLUSIVE.
+    open: async (page) => {
+      await page.evaluate(() => document.activeElement?.blur?.());
+      await page.keyboard.press('Control+Comma');
+    },
     isOpen: (page) => page.evaluate(() =>
       !!document.querySelector('.drawer-open')),
   },
@@ -104,6 +111,43 @@ const COMBOS = {
   },
 };
 
+// --- Caps Lock: a browser with Caps Lock on reports e.key as the UPPERCASE
+// character and getModifierState('CapsLock') === true. Playwright's
+// keyboard.press() cannot express the Caps Lock modifier, so synthesize the
+// exact keydown a real browser delivers: uppercase key, cancelable, dispatched
+// at the element that owns the listener (document for the global shortcuts,
+// the composer textarea for Ctrl+K). Returns what the handler did.
+async function pressWithCapsLock(page, { key, ctrlKey = true, metaKey = false, shiftKey = false, selector = null }) {
+  return page.evaluate(({ key, ctrlKey, metaKey, shiftKey, selector }) => {
+    const target = selector ? document.querySelector(selector) : document;
+    if (!target) return { targetFound: false, defaultPrevented: false, capsLock: false };
+    const ev = new KeyboardEvent('keydown', {
+      key,
+      code: `Key${key.toUpperCase()}`,
+      ctrlKey,
+      metaKey,
+      shiftKey,
+      bubbles: true,
+      cancelable: true,
+      modifierCapsLock: true,
+    });
+    // Some engines ignore modifierCapsLock in the init dict. Caps Lock is ON in
+    // this scenario, so guarantee what getModifierState must report.
+    if (!ev.getModifierState('CapsLock')) {
+      const real = ev.getModifierState.bind(ev);
+      Object.defineProperty(ev, 'getModifierState', {
+        value: (m) => (m === 'CapsLock' ? true : real(m)),
+      });
+    }
+    target.dispatchEvent(ev);
+    return {
+      targetFound: true,
+      defaultPrevented: ev.defaultPrevented,
+      capsLock: ev.getModifierState('CapsLock'),
+    };
+  }, { key, ctrlKey, metaKey, shiftKey, selector });
+}
+
 for (const [oName, o] of Object.entries(OVERLAYS)) {
   for (const [cName, c] of Object.entries(COMBOS)) {
     const label = `${cName} is inert with the ${oName} overlay open`;
@@ -145,6 +189,10 @@ for (const [oName, o] of Object.entries(OVERLAYS)) {
   const label = 'Ctrl+, still closes an open settings drawer';
   const { ctx, page } = await newPage();
   try {
+    // Ctrl+, is gated on !inInput and the composer autofocuses on load, so
+    // blur first or the toggle can never open its own surface.
+    await page.evaluate(() => document.activeElement?.blur?.());
+    await page.waitForTimeout(150);
     await page.keyboard.press('Control+Comma');
     await page.waitForTimeout(600);
     const opened = await OVERLAYS.drawer.isOpen(page);
@@ -182,19 +230,52 @@ for (const [oName, o] of Object.entries(OVERLAYS)) {
   } finally { await ctx.close(); }
 }
 
+// --- Caps Lock regression: with Caps Lock ON the browser reports e.key as the
+// UPPERCASE letter, and these shortcuts were compared case-sensitively, so they
+// silently died. Both must still fire. ----------------------------------------
+{
+  const label = 'Ctrl+B still fires with Caps Lock on (uppercase e.key)';
+  const { ctx, page } = await newPage();
+  try {
+    // Ctrl+B is gated on !inInput and the composer autofocuses on load.
+    await page.evaluate(() => document.activeElement?.blur?.());
+    const before = await page.evaluate(() =>
+      document.getElementById('right-sidebar')?.className ?? '');
+    const dispatch = await pressWithCapsLock(page, { key: 'B', ctrlKey: true });
+    await page.waitForTimeout(600);
+    const after = await page.evaluate(() =>
+      document.getElementById('right-sidebar')?.className ?? '');
+    if (!dispatch.targetFound) add(label, 'INCONCLUSIVE', 'the right sidebar was not found');
+    else if (dispatch.defaultPrevented && before !== after) add(label, 'PASS', `keydown was handled and the sidebar toggled (${JSON.stringify(before)} -> ${JSON.stringify(after)})`);
+    else add(label, 'FAIL', `the shortcut did not fire with an uppercase e.key (defaultPrevented=${dispatch.defaultPrevented}, capsLock=${dispatch.capsLock}, ${JSON.stringify(before)} -> ${JSON.stringify(after)})`);
+  } finally { await ctx.close(); }
+}
+{
+  const label = 'Ctrl+K still fires with Caps Lock on (uppercase e.key)';
+  const { ctx, page } = await newPage();
+  try {
+    const dispatch = await pressWithCapsLock(page, { key: 'K', ctrlKey: true, selector: '#composer-input' });
+    await page.waitForTimeout(600);
+    const suggestOpen = await page.evaluate(() => !!document.querySelector('.suggest-dropdown'));
+    if (!dispatch.targetFound) add(label, 'INCONCLUSIVE', 'the composer input was not found');
+    else if (dispatch.defaultPrevented) add(label, 'PASS', suggestOpen ? 'keydown was handled and the template autosuggest opened' : 'keydown was handled (preventDefault)');
+    else add(label, 'FAIL', `the shortcut did not fire with an uppercase e.key (defaultPrevented=${dispatch.defaultPrevented}, capsLock=${dispatch.capsLock})`);
+  } finally { await ctx.close(); }
+}
+
 await browser.close();
 
 console.log('\n=== shortcut-guard-check ===\n');
 for (const r of results) console.log(`${r.state.padEnd(13)} ${r.label}\n              ${r.detail}`);
 
-if (results.length !== 17) {
-  console.log(`\nRESULT: FAIL — expected 17 assertions, ran ${results.length}. The inventory and the harness disagree.`);
+if (results.length !== 19) {
+  console.log(`\nRESULT: FAIL — expected 19 assertions, ran ${results.length}. The inventory and the harness disagree.`);
   process.exit(1);
 }
 const bad = results.filter((r) => r.state === 'FAIL');
 const meh = results.filter((r) => r.state === 'INCONCLUSIVE');
-console.log(`\n${results.filter((r) => r.state === 'PASS').length} passed · ${bad.length} failed · ${meh.length} inconclusive · 17 assertions`);
+console.log(`\n${results.filter((r) => r.state === 'PASS').length} passed · ${bad.length} failed · ${meh.length} inconclusive · 19 assertions`);
 if (bad.length) { console.log(`\nRESULT: FAIL — ${bad.length}`); process.exit(1); }
 if (meh.length) { console.log(`\nRESULT: INCONCLUSIVE — ${meh.length}`); process.exit(2); }
-console.log('\nRESULT: PASS — guarded combos inert under every overlay; both toggles still close their own');
+console.log('\nRESULT: PASS — guarded combos inert under every overlay; both toggles still close their own; Caps Lock letters fire');
 process.exit(0);

@@ -1186,6 +1186,14 @@ html, body {
 .drawer-close:hover { color: var(--rose); }
 
 .drawer-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 16px; }
+.drawer-section-heading {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--teal-b);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 2px 0 -4px;
+}
 .drawer-section { display: flex; flex-direction: column; gap: 6px; }
 .drawer-label {
   display: flex;

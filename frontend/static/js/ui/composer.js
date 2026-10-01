@@ -510,7 +510,7 @@ export function mountComposer(root, socket, chatPane) {
       return;
     }
     // Ctrl+K — template autosuggest
-    if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
       openSuggest();
       return;

@@ -3,12 +3,14 @@ import dataclasses
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
 
-from app.config import PERMISSION_MODES
+from app.config import MODELS, PERMISSION_MODES
 from app.db.connection import get_connection
 from app.services import conversations_service as svc
 from app.services.cost import compute_cost_usd
 
 router = APIRouter(prefix="/api/conversations", tags=["conversations"])
+
+_VALID_MODEL_IDS = {m["id"] for m in MODELS}
 
 
 class CreateConversationRequest(BaseModel):
@@ -27,9 +29,17 @@ class UpdateConversationSettingsRequest(BaseModel):
     system_prompt: str | None = None
     thinking_budget: int | None = None
     max_tokens: int | None = None
+    clear_permission_mode: bool = False
     clear_system_prompt: bool = False
     clear_thinking_budget: bool = False
     clear_max_tokens: bool = False
+
+    @field_validator("model")
+    @classmethod
+    def _validate_model(cls, v):
+        if v is not None and v not in _VALID_MODEL_IDS:
+            raise ValueError(f"model must be one of {sorted(_VALID_MODEL_IDS)}")
+        return v
 
     @field_validator("permission_mode")
     @classmethod
@@ -115,6 +125,7 @@ def update_settings(conversation_id: str, body: UpdateConversationSettingsReques
         system_prompt=body.system_prompt,
         thinking_budget=body.thinking_budget,
         max_tokens=body.max_tokens,
+        clear_permission_mode=body.clear_permission_mode,
         clear_system_prompt=body.clear_system_prompt,
         clear_thinking_budget=body.clear_thinking_budget,
         clear_max_tokens=body.clear_max_tokens,

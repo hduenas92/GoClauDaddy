@@ -91,6 +91,7 @@ def update_conversation_settings(
     system_prompt: str | None = None,
     thinking_budget: int | None = None,
     max_tokens: int | None = None,
+    clear_permission_mode: bool = False,
     clear_system_prompt: bool = False,
     clear_thinking_budget: bool = False,
     clear_max_tokens: bool = False,
@@ -102,6 +103,8 @@ def update_conversation_settings(
     if permission_mode is not None:
         fields.append("permission_mode = ?")
         params.append(permission_mode)
+    elif clear_permission_mode:
+        fields.append("permission_mode = NULL")
     if system_prompt is not None:
         fields.append("system_prompt = ?")
         params.append(system_prompt)
