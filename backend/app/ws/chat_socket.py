@@ -71,7 +71,7 @@ async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None
 
     try:
         while True:
-            payload = await websocket.receive_json()
+            payload = await _receive_json_or_sentinel(websocket)
             msg_type = payload.get("type")
 
             if msg_type in ("approve", "deny", "approval_extend"):
@@ -94,7 +94,7 @@ async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None
                 continue
 
             if msg_type != "send":
-                await websocket.send_json({"type": "error", "error": f"Unknown message type: {msg_type}"})
+                await websocket.send_json({"type": "error", "error": "Invalid JSON frame." if msg_type == "__invalid_json__" else f"Unknown message type: {msg_type}"})
                 continue
 
             if registry.is_busy(conversation_id):
@@ -111,9 +111,8 @@ async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None
 
     except WebSocketDisconnect:
         log.info("WS disconnected for conversation %s", conversation_id)
-        # Intentionally NOT stopping an in-flight subprocess here — a browser
-        # refresh mid-response shouldn't lose the reply. It finishes and
-        # persists headless; the registry entry clears itself on completion.
+        if conversation_id in _approval_pending:  # only an approval-blocked turn can't finish headless
+            registry.stop(conversation_id)
 
 
 async def _handle_send(
@@ -330,7 +329,7 @@ async def _handle_send_inner(
         ):
             ev_type = event.get("type")
             if ev_type == "approval_needed":
-                # Forward to frontend; wait for approve/deny back over the same WS.
+                _approval_pending.add(conversation_id)  # waiting for approve/deny
                 # The subprocess is blocked on stdin at this point, so stdout is quiet
                 # until we write y/n — no events are missed during the await.
                 # The deadline is OWNED HERE: the client's countdown is a display of
@@ -365,6 +364,7 @@ async def _handle_send_inner(
                             })
                         continue
                     approved = item
+                _approval_pending.discard(conversation_id)
                 if timed_out:
                     # FAIL CLOSED. This used to be `approved = True` with the
                     # comment "timeout = auto-approve, keep stream alive", and
@@ -461,7 +461,7 @@ async def _handle_send_inner(
                 {"type": "error", "error": "Something went wrong. Check the logs folder for details."}
             )
     finally:
-        registry.clear(conversation_id)
+        _approval_pending.discard(conversation_id); registry.clear(conversation_id)
         convs.set_status(conversation_id, "error" if had_error else "idle")
         if not sent_done:
             with contextlib.suppress(RuntimeError):
@@ -507,3 +507,20 @@ async def _handle_send_inner(
                 cache_read_tokens=usage.get("cache_read_input_tokens") or 0,
                 cache_creation_tokens=usage.get("cache_creation_input_tokens") or 0,
             )
+
+
+# Defined after the streaming loop on purpose: tests pin the line number of
+# the non-JSON notice log above, so this tracking state must not shift it.
+_approval_pending: set[str] = set()
+
+
+async def _receive_json_or_sentinel(websocket: WebSocket) -> dict:
+    """Receive a client frame, treating malformed JSON as an unknown type.
+
+    Returning an unrecognized `type` lets the main loop's existing
+    unknown-message branch answer with a defined error frame and keep reading.
+    """
+    try:
+        return await websocket.receive_json()
+    except json.JSONDecodeError:
+        return {"type": "__invalid_json__"}

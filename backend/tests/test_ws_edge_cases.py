@@ -415,16 +415,6 @@ def test_reply_larger_than_1mb_persisted_and_delivered_without_truncation(temp_d
 # 5. socket closed while an approval_needed is pending
 # --------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "BUG: socket close with an approval pending never stops the CLI "
-        "subprocess -- chat_socket.py:112-116 returns on WebSocketDisconnect "
-        "without calling registry.stop(), and the generator suspended at its "
-        "yield is never aclosed so claude_cli.run's kill-on-CancelledError does "
-        "not run."
-    ),
-)
 def test_socket_closed_during_pending_approval_terminates_the_subprocess(temp_db, monkeypatch):
     """Closing the socket with an approval pending must not leave the CLI running.
 
@@ -466,14 +456,6 @@ def test_socket_closed_during_pending_approval_terminates_the_subprocess(temp_db
 # 6. malformed client frames
 # --------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "BUG: invalid JSON raises JSONDecodeError out of "
-        "chat_socket.handle_chat_socket (receive_json at chat_socket.py:74 is "
-        "unguarded), so the websocket dies instead of being ignored or answered."
-    ),
-)
 def test_malformed_invalid_json_does_not_kill_the_connection(temp_db, monkeypatch):
     """A non-JSON text frame must be ignored or answered, never fatal.
 
