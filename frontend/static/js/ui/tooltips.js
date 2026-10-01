@@ -94,12 +94,16 @@ export function mountTooltips() {
     }
   });
 
+  // One tooltip at a time: moving straight to an adjacent host (no pointermove outside both) must close the old one.
+  function open(host) {
+    if (openHost !== host) close(openHost);
+    host.classList.remove("tooltip-killed");
+    host.classList.add("tooltip-open");
+    openHost = host;
+  }
+
   for (const host of hosts) {
-    host.addEventListener("pointerenter", () => {
-      host.classList.remove("tooltip-killed");
-      host.classList.add("tooltip-open");
-      openHost = host;
-    });
+    host.addEventListener("pointerenter", () => open(host));
     host.addEventListener("pointerleave", () => {
       // A real element would let the pointer cross the gap; the ::after sits
       // directly below the host so pointermove keeps it open. Leave is only
@@ -107,11 +111,7 @@ export function mountTooltips() {
       // handles that); here we only clear the suppression once the pointer has
       // left the host.
     });
-    host.addEventListener("focus", () => {
-      host.classList.remove("tooltip-killed");
-      host.classList.add("tooltip-open");
-      openHost = host;
-    });
+    host.addEventListener("focus", () => open(host));
     host.addEventListener("blur", () => {
       host.classList.remove("tooltip-killed");
       close(host);
