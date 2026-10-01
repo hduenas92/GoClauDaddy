@@ -3,6 +3,7 @@
 import os
 import shutil
 import socket
+import urllib.parse
 
 from app.config import ATTACHMENTS_DIR, DATA_DIR, HOST, PORT, REQUIRED_AUTH_ENV_VARS
 from app.logging_setup import get_logger
@@ -44,7 +45,8 @@ def _check_claude_on_path() -> None:
 
 
 def _check_auth_env_vars() -> None:
-    # Presence only — never read the value into a log line or exception message.
+    # Name-only messages for present values: never read a value into a log line
+    # or exception message.
     missing = [name for name in REQUIRED_AUTH_ENV_VARS if not os.environ.get(name)]
     if missing:
         raise StartupCheckError(
@@ -54,6 +56,32 @@ def _check_auth_env_vars() -> None:
             + "(e.g. via `setx`, not a one-off `$env:` in a single PowerShell window) — "
             + "see the 'One-time setup' section at the top of README.md for the exact commands."
         )
+
+    problems = []
+
+    for name in REQUIRED_AUTH_ENV_VARS:
+        if name == "ANTHROPIC_BASE_URL":
+            continue
+        if any(ch.isspace() for ch in os.environ.get(name, "")):
+            problems.append(
+                f"{name} is invalid: it contains whitespace (often a copy-paste error). "
+                "Re-set it without spaces or line breaks."
+            )
+
+    if "ANTHROPIC_BASE_URL" in REQUIRED_AUTH_ENV_VARS:
+        try:
+            parsed = urllib.parse.urlparse(os.environ["ANTHROPIC_BASE_URL"])
+            base_url_is_valid = parsed.scheme in ("http", "https") and bool(parsed.netloc)
+        except ValueError:
+            base_url_is_valid = False
+
+        if not base_url_is_valid:
+            problems.append(
+                "ANTHROPIC_BASE_URL is invalid: expected a URL like https://host..."
+            )
+
+    if problems:
+        raise StartupCheckError("\n".join(problems))
 
 
 def run_startup_checks() -> None:

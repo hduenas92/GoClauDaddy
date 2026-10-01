@@ -185,10 +185,6 @@ def test_qa4_2_auth_env_missing_or_empty_reports_clear_error(monkeypatch, mode):
     assert "persistent" in message.lower(), message
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: auth env vars are only checked for presence; malformed values pass startup without a distinct error",
-)
 def test_qa4_2_auth_env_malformed_reports_distinct_comprehensible_error(monkeypatch):
     # A token with whitespace and a syntactically invalid base URL are malformed
     # by any reasonable definition, but startup_check._check_auth_env_vars()
@@ -201,6 +197,19 @@ def test_qa4_2_auth_env_malformed_reports_distinct_comprehensible_error(monkeypa
 
     message = str(exc.value).lower()
     assert "malformed" in message or "invalid" in message or "valid url" in message, message
+
+
+def test_qa4_2_auth_env_malformed_error_does_not_include_token_value(monkeypatch):
+    token_value = "sk-LIVE-SECRET-TOKEN-0123456789"
+    monkeypatch.setenv(REQUIRED_AUTH_ENV_VARS[0], token_value + "\n")
+    monkeypatch.setenv(REQUIRED_AUTH_ENV_VARS[1], "https://example.invalid")
+
+    with pytest.raises(startup_check.StartupCheckError) as exc:
+        startup_check._check_auth_env_vars()
+
+    message = str(exc.value)
+    assert REQUIRED_AUTH_ENV_VARS[0] in message, message
+    assert token_value not in message, f"token value leaked into: {message!r}"
 
 
 # ---------------------------------------------------------------------------
