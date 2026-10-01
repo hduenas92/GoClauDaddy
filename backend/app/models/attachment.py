@@ -25,3 +25,14 @@ class Attachment:
             size_bytes=row["size_bytes"],
             created_at=row["created_at"],
         )
+
+    def to_api_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "message_id": self.message_id,
+            "conversation_id": self.conversation_id,
+            "original_name": self.original_name,
+            "mime_type": self.mime_type,
+            "size_bytes": self.size_bytes,
+            "created_at": self.created_at,
+        }

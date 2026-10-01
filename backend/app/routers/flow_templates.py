@@ -2,18 +2,21 @@ import datetime
 import uuid
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, constr
 
 from app.db.connection import get_connection
 
 router = APIRouter(prefix="/api/flow-templates", tags=["flow-templates"])
 
 
+_NonEmptyText = constr(strip_whitespace=True, min_length=1)
+
+
 class TemplateBody(BaseModel):
-    title: str
+    title: _NonEmptyText
     description: str | None = None
-    body: str
-    category: str
+    body: _NonEmptyText
+    category: _NonEmptyText
 
 
 def _now() -> str:

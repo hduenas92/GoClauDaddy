@@ -106,12 +106,21 @@ async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None
             # Fire-and-forget: registered immediately (no await between the
             # is_busy check above and this) so a second rapid `send` can't
             # slip past registry.is_busy() before this one is tracked.
+            #
+            # Record the owner at the same instant as the task: the disconnect
+            # path above may stop this turn for THIS socket only.
+            _turn_owner[conversation_id] = websocket
             task = asyncio.ensure_future(_handle_send(websocket, conversation_id, payload, approval_queue))
             registry.register_task(conversation_id, task)
 
     except WebSocketDisconnect:
         log.info("WS disconnected for conversation %s", conversation_id)
-        if conversation_id in _approval_pending:  # only an approval-blocked turn can't finish headless
+        # Only the socket that started the in-flight turn may stop it by
+        # disconnecting. Two browser tabs share a conversation_id but are
+        # separate sockets, so closing the second tab must not kill the first
+        # tab's approval-blocked turn. An explicit `stop` frame from ANY socket
+        # still stops it -- that is the branch above and is unchanged.
+        if conversation_id in _approval_pending and _turn_owner.get(conversation_id) is websocket:
             registry.stop(conversation_id)
 
 
@@ -171,6 +180,7 @@ async def _handle_send(
                 exc_info=True,
             )
         # Never leave the conversation wedged as busy.
+        _release_owner(conversation_id, websocket)
         try:
             registry.clear(conversation_id)
         except Exception:
@@ -462,6 +472,8 @@ async def _handle_send_inner(
             )
     finally:
         _approval_pending.discard(conversation_id); registry.clear(conversation_id)
+        # The turn is over; it no longer has an owner that may stop it.
+        _release_owner(conversation_id, websocket)
         convs.set_status(conversation_id, "error" if had_error else "idle")
         if not sent_done:
             with contextlib.suppress(RuntimeError):
@@ -512,6 +524,19 @@ async def _handle_send_inner(
 # Defined after the streaming loop on purpose: tests pin the line number of
 # the non-JSON notice log above, so this tracking state must not shift it.
 _approval_pending: set[str] = set()
+
+# Which websocket started the in-flight turn for each conversation. Only that
+# socket's disconnect may stop the turn (see handle_chat_socket's
+# WebSocketDisconnect handler); a second socket disconnecting must not. Set
+# when a `send` starts a turn and cleared when the turn ends. An explicit
+# `stop` frame deliberately ignores this.
+_turn_owner: dict[str, WebSocket] = {}
+
+
+def _release_owner(conversation_id: str, websocket: WebSocket) -> None:
+    # Only if still ours: the outer guard runs after awaits, by which time another tab may own a new turn.
+    if _turn_owner.get(conversation_id) is websocket:
+        del _turn_owner[conversation_id]
 
 
 async def _receive_json_or_sentinel(websocket: WebSocket) -> dict:

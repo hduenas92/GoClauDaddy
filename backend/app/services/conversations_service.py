@@ -19,6 +19,10 @@ from app.models.message import Message
 log = get_logger("conversations")
 
 
+class ProjectNotFound(LookupError):
+    pass
+
+
 def _now() -> str:
     return datetime.datetime.now(datetime.UTC).isoformat()
 
@@ -30,6 +34,12 @@ def create_conversation(
     now = _now()
     name = name or f"Chat {datetime.datetime.now().strftime('%b %d %H:%M')}"
     with get_connection() as conn:
+        if project_id is not None:
+            project = conn.execute(
+                "SELECT 1 FROM projects WHERE id = ?", (project_id,)
+            ).fetchone()
+            if not project:
+                raise ProjectNotFound(project_id)
         conn.execute(
             """INSERT INTO conversations
                (id, project_id, name, session_id, model, permission_mode, status, created_at, updated_at)
@@ -382,29 +392,57 @@ def _thinking_block(thinking: str | None) -> str:
     return f"<details><summary>Thinking</summary>\n\n{_fenced(thinking)}\n\n</details>\n"
 
 
+def _human_size(size_bytes: int) -> str:
+    """Compact byte count for the export list: 21 B / 3.4 KB / 1.2 MB."""
+    size = float(size_bytes)
+    if size < 1024:
+        return f"{int(size)} B"
+    for unit in ("KB", "MB", "GB", "TB"):
+        size /= 1024
+        if size < 1024:
+            return f"{size:.1f} {unit}"
+    return f"{size:.1f} PB"
+
+
+def _attachments_line(attachments: list[dict]) -> str:
+    """Names each attachment — never its contents or stored path."""
+    if not attachments:
+        return ""
+    parts = [
+        f"{att['original_name']} ({att['mime_type'] or 'unknown'}, {_human_size(att['size_bytes'])})"
+        for att in attachments
+    ]
+    return "Attachments: " + ", ".join(parts) + "\n"
+
+
 def export_as_markdown(conversation_id: str) -> str:
     conv = get_conversation(conversation_id)
     if not conv:
         return ""
-    msgs = list_messages(conversation_id)
+    msgs = list_messages_with_attachments(conversation_id)
     lines = [f"# {conv.name}\n"]
     for m in msgs:
-        if m.role == "user":
-            lines.append(f"**You:** {m.content or ''}\n")
-            if m.stopped:
+        attachments_line = _attachments_line(m["attachments"])
+        if m["role"] == "user":
+            lines.append(f"**You:** {m['content'] or ''}\n")
+            if attachments_line:
+                lines.append(attachments_line)
+            if m["stopped"]:
                 lines.append("_(stopped)_\n")
             continue
         lines.append("**Claude:**\n")
-        thinking_block = _thinking_block(m.thinking)
+        thinking_block = _thinking_block(m["thinking"])
         if thinking_block:
             lines.append(thinking_block)
-        content = m.content or ""
+        content = m["content"] or ""
         if content:
             lines.append(f"{content}\n")
-        tool_block = _tool_calls_block(m.tool_calls)
+        if attachments_line:
+            lines.append(attachments_line)
+        tool_block = _tool_calls_block(m["tool_calls"])
         if tool_block:
             lines.append(tool_block)
-        if m.stopped:
+        if m["stopped"]:
             lines.append("_(stopped)_\n")
     return "\n".join(lines)
 
@@ -460,10 +498,11 @@ def list_messages_with_attachments(conversation_id: str) -> list[dict]:
     """Messages for GET /api/conversations/{id}, with each message's attachments
     embedded as a list of {id, original_name, mime_type, size_bytes} dicts.
 
-    list_messages() stays attachment-free: export and auto-title only need the
-    transcript. The history renderer (F2 image preview) needs to know which
-    attachment rows belong to which message after a reload, and this is the
-    endpoint it reads.
+    list_messages() stays attachment-free: auto-title only needs the transcript.
+    Export reads this function instead, because it lists attachment names and
+    sizes after each message's content. The history renderer (F2 image preview)
+    needs to know which attachment rows belong to which message after a reload,
+    and this is the endpoint it reads.
     """
     msgs = list_messages(conversation_id)
     with get_connection() as conn:

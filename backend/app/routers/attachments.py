@@ -17,7 +17,7 @@ async def upload_attachment(conversation_id: str, file: UploadFile = File(...)):
         raise HTTPException(507, str(exc)) from exc
     except svc.AttachmentRejected as exc:
         raise HTTPException(400, str(exc)) from exc
-    return att
+    return att.to_api_dict()
 
 
 @router.get("/{attachment_id}/download")

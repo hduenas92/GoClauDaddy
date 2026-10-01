@@ -1,7 +1,7 @@
 import asyncio
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, constr
 
 from app.services import dir_picker
 from app.services import projects_service as svc
@@ -9,14 +9,17 @@ from app.services import projects_service as svc
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
+_NonEmptyName = constr(strip_whitespace=True, min_length=1)
+
+
 class CreateProjectRequest(BaseModel):
-    name: str
+    name: _NonEmptyName
     working_dir: str | None = None
     system_prompt: str | None = None
 
 
 class UpdateProjectRequest(BaseModel):
-    name: str | None = None
+    name: _NonEmptyName | None = None
     working_dir: str | None = None
     system_prompt: str | None = None
 

@@ -1,7 +1,7 @@
 import dataclasses
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, constr, field_validator
 
 from app.config import MODELS, PERMISSION_MODES
 from app.db.connection import get_connection
@@ -11,20 +11,35 @@ from app.services.cost import compute_cost_usd
 router = APIRouter(prefix="/api/conversations", tags=["conversations"])
 
 _VALID_MODEL_IDS = {m["id"] for m in MODELS}
+_NonEmptyName = constr(strip_whitespace=True, min_length=1)
 
 
-class CreateConversationRequest(BaseModel):
+class _ModelValidatedRequest(BaseModel):
+    model: str | None = None
+
+    @field_validator("model")
+    @classmethod
+    def _validate_model(cls, v):
+        if v is not None and v not in _VALID_MODEL_IDS:
+            raise ValueError(f"model must be one of {sorted(_VALID_MODEL_IDS)}")
+        return v
+
+
+class CreateConversationRequest(_ModelValidatedRequest):
     name: str | None = None
     project_id: str | None = None
-    model: str | None = None
+
+    @field_validator("model", mode="before")
+    @classmethod
+    def _empty_model_uses_default(cls, v):
+        return None if v == "" else v
 
 
 class RenameConversationRequest(BaseModel):
-    name: str
+    name: _NonEmptyName
 
 
-class UpdateConversationSettingsRequest(BaseModel):
-    model: str | None = None
+class UpdateConversationSettingsRequest(_ModelValidatedRequest):
     permission_mode: str | None = None
     system_prompt: str | None = None
     thinking_budget: int | None = None
@@ -33,13 +48,6 @@ class UpdateConversationSettingsRequest(BaseModel):
     clear_system_prompt: bool = False
     clear_thinking_budget: bool = False
     clear_max_tokens: bool = False
-
-    @field_validator("model")
-    @classmethod
-    def _validate_model(cls, v):
-        if v is not None and v not in _VALID_MODEL_IDS:
-            raise ValueError(f"model must be one of {sorted(_VALID_MODEL_IDS)}")
-        return v
 
     @field_validator("permission_mode")
     @classmethod
@@ -91,7 +99,10 @@ def create_conversation(body: CreateConversationRequest):
     kwargs = {"name": body.name, "project_id": body.project_id}
     if body.model:
         kwargs["model"] = body.model
-    return svc.create_conversation(**kwargs)
+    try:
+        return svc.create_conversation(**kwargs)
+    except svc.ProjectNotFound as exc:
+        raise HTTPException(404, "Project not found") from exc
 
 
 @router.get("/{conversation_id}")
