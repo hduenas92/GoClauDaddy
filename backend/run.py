@@ -22,13 +22,10 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[1]  # ClaudioUI/
 
 
 def _create_desktop_shortcut() -> None:
-    """Create a GoClaudaddy.lnk on the Windows desktop (best-effort, silent on failure)."""
+    """Create a GoClaudaddy.lnk on the Windows desktop (best-effort, never raises)."""
     if sys.platform != "win32":
         return
     try:
-        desktop = Path.home() / "Desktop"
-        lnk = desktop / "GoClaudaddy.lnk"
-
         bat = _PROJECT_ROOT / "Launch GoClaudaddy.bat"
         if bat.exists():
             target = str(bat)
@@ -41,23 +38,36 @@ def _create_desktop_shortcut() -> None:
             args = f'"{Path(__file__).resolve()}"'
             workdir = str(Path(__file__).resolve().parent)
 
+        # Resolve the desktop inside PowerShell: OneDrive Known Folder Move
+        # redirects it away from Path.home() / "Desktop".
         ps = (
-            f'$s=(New-Object -ComObject WScript.Shell).CreateShortcut("{lnk}");'
+            f'$desktop=[Environment]::GetFolderPath(\'Desktop\');'
+            f'$lnk=Join-Path $desktop \'GoClaudaddy.lnk\';'
+            f'$s=(New-Object -ComObject WScript.Shell).CreateShortcut($lnk);'
             f'$s.TargetPath="{target}";'
             f'$s.Arguments=\'{args}\';'
             f'$s.WorkingDirectory="{workdir}";'
             f'$s.Description="GoClaudaddy - Private Claude Interface";'
             f'$s.Save()'
         )
-        subprocess.run(
+        result = subprocess.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
             capture_output=True,
             timeout=10,
         )
-        _SHORTCUT_FLAG.touch()
-        log.info("Created desktop shortcut at %s", lnk)
-    except Exception:  # noqa: BLE001
-        pass  # shortcut is a nice-to-have; never block startup
+        if result.returncode == 0:
+            _SHORTCUT_FLAG.touch()
+            log.info("Created desktop shortcut")
+        else:
+            stderr = (result.stderr or b"").decode(errors="replace").strip()
+            log.warning(
+                "Could not create desktop shortcut (powershell exit %s): %s",
+                result.returncode,
+                stderr,
+            )
+    except Exception as exc:  # noqa: BLE001
+        # Shortcut is a nice-to-have; never block startup.
+        log.warning("Could not create desktop shortcut: %s", exc)
 
 
 def main() -> None:
