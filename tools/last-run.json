@@ -3,7 +3,7 @@
     "url": "http://127.0.0.1:8765",
     "width": 1440,
     "reducedMotion": true,
-    "at": "2026-09-30T23:59:12.661Z"
+    "at": "2026-10-01T02:40:03.903Z"
   },
   "styles": {
     "body": {
@@ -136,7 +136,7 @@
     }
   },
   "listeners": {
-    "domNodes": 358
+    "domNodes": 346
   },
   "missing": [],
   "seeded": {
@@ -153,18 +153,6 @@
   },
   "textAudit": [
     {
-      "path": "#conv-subtitle > span.sub-project",
-      "sample": "Legacy Project",
-      "ratio": 5.47,
-      "fg": "rgba(45, 212, 191, 0.7)",
-      "bg": "rgb(14, 14, 22)",
-      "fontSize": 11,
-      "fontWeight": "400",
-      "opacity": 1,
-      "required": 4.5,
-      "pass": true
-    },
-    {
       "path": "#rsb-console > div.console-line.lvl-error",
       "sample": "probe: error line",
       "ratio": 5.48,
@@ -178,7 +166,7 @@
     },
     {
       "path": "#conv-list > li.conv-item.active > span.conv-body > span.conv-ts",
-      "sample": "30m",
+      "sample": "5h",
       "ratio": 6.04,
       "fg": "rgb(148, 163, 184)",
       "bg": "rgb(17, 39, 45)",
@@ -237,6 +225,18 @@
       "pass": true
     },
     {
+      "path": "#chat-messages > div.empty-state > div.quick-chips > button.quick-chip",
+      "sample": "Ask a question",
+      "ratio": 7.24,
+      "fg": "rgb(148, 163, 184)",
+      "bg": "rgb(8, 21, 23)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
       "path": "#project-list > li.project-item > span.project-name",
       "sample": "Legacy Project",
       "ratio": 7.38,
@@ -250,7 +250,7 @@
     },
     {
       "path": "#conv-list > li.conv-item > span.conv-body > span.conv-name",
-      "sample": "Chat Sep 30 13:45",
+      "sample": "Chat Sep 30 13:34",
       "ratio": 7.38,
       "fg": "rgb(148, 163, 184)",
       "bg": "rgb(16, 16, 25)",
@@ -262,7 +262,7 @@
     },
     {
       "path": "#conv-list > li.conv-item > span.conv-body > span.conv-ts",
-      "sample": "3h",
+      "sample": "6h",
       "ratio": 7.38,
       "fg": "rgb(148, 163, 184)",
       "bg": "rgb(16, 16, 25)",
@@ -346,7 +346,7 @@
     },
     {
       "path": "#met-budget-ref",
-      "sample": "~$0.26 / $200",
+      "sample": "~$0.00 / $200",
       "ratio": 7.38,
       "fg": "rgb(148, 163, 184)",
       "bg": "rgb(16, 16, 25)",
@@ -363,18 +363,6 @@
       "fg": "rgb(148, 163, 184)",
       "bg": "rgb(16, 16, 25)",
       "fontSize": 11,
-      "fontWeight": "400",
-      "opacity": 1,
-      "required": 4.5,
-      "pass": true
-    },
-    {
-      "path": "#met-project-dir",
-      "sample": "C:\\Users\\hduenas\\LLMs\\Claude\\Projects\\Cl",
-      "ratio": 7.38,
-      "fg": "rgb(148, 163, 184)",
-      "bg": "rgb(16, 16, 25)",
-      "fontSize": 10,
       "fontWeight": "400",
       "opacity": 1,
       "required": 4.5,
@@ -513,6 +501,30 @@
       "pass": true
     },
     {
+      "path": "#chat-messages > div.empty-state > p.empty-state-sub",
+      "sample": "What would you like to do today?",
+      "ratio": 7.84,
+      "fg": "rgb(148, 163, 184)",
+      "bg": "rgb(7, 7, 11)",
+      "fontSize": 12,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#featured-templates > h3.featured-heading",
+      "sample": "Start from a template",
+      "ratio": 7.84,
+      "fg": "rgb(148, 163, 184)",
+      "bg": "rgb(7, 7, 11)",
+      "fontSize": 11,
+      "fontWeight": "600",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
       "path": "#composer-hint",
       "sample": "Enter to send · Shift+Enter for newline",
       "ratio": 7.84,
@@ -537,14 +549,14 @@
       "pass": true
     },
     {
-      "path": "html.dark > body > div.cost-toast > div.cost-toast-body",
-      "sample": "Estimated GoClaudaddy spend this month: ",
-      "ratio": 7.84,
-      "fg": "rgb(148, 163, 184)",
+      "path": "#browse-all-link",
+      "sample": "Browse all templates →",
+      "ratio": 8.08,
+      "fg": "rgb(20, 184, 166)",
       "bg": "rgb(7, 7, 11)",
       "fontSize": 11,
       "fontWeight": "400",
-      "opacity": 1,
+      "opacity": 0.8,
       "required": 4.5,
       "pass": true
     },
@@ -621,6 +633,54 @@
       "pass": true
     },
     {
+      "path": "#featured-grid > button.featured-card > span.featured-card-cat.tp-cat-report",
+      "sample": "report",
+      "ratio": 8.63,
+      "fg": "rgb(45, 212, 191)",
+      "bg": "rgb(12, 37, 37)",
+      "fontSize": 11,
+      "fontWeight": "600",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#featured-grid > button.featured-card > span.featured-card-cat.tp-cat-email",
+      "sample": "email",
+      "ratio": 8.63,
+      "fg": "rgb(45, 212, 191)",
+      "bg": "rgb(12, 37, 37)",
+      "fontSize": 11,
+      "fontWeight": "600",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#featured-grid > button.featured-card > span.featured-card-cat.tp-cat-document",
+      "sample": "document",
+      "ratio": 8.63,
+      "fg": "rgb(45, 212, 191)",
+      "bg": "rgb(12, 37, 37)",
+      "fontSize": 11,
+      "fontWeight": "600",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#featured-grid > button.featured-card > span.featured-card-cat.tp-cat-analysis",
+      "sample": "analysis",
+      "ratio": 8.63,
+      "fg": "rgb(45, 212, 191)",
+      "bg": "rgb(12, 37, 37)",
+      "fontSize": 11,
+      "fontWeight": "600",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
       "path": "#new-project-btn",
       "sample": "＋ New Project",
       "ratio": 9.19,
@@ -682,7 +742,7 @@
     },
     {
       "path": "#met-month-cost",
-      "sample": "~$0.26",
+      "sample": "~$0.00",
       "ratio": 10.17,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(16, 16, 25)",
@@ -707,18 +767,6 @@
     {
       "path": "#rsb-panel-month > div.rsb-panel-body > div.budget-link-row > a.budget-link",
       "sample": "Check Balance →",
-      "ratio": 10.17,
-      "fg": "rgb(45, 212, 191)",
-      "bg": "rgb(16, 16, 25)",
-      "fontSize": 11,
-      "fontWeight": "400",
-      "opacity": 1,
-      "required": 4.5,
-      "pass": true
-    },
-    {
-      "path": "#met-project",
-      "sample": "Legacy Project",
       "ratio": 10.17,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(16, 16, 25)",
@@ -814,7 +862,7 @@
     },
     {
       "path": "#conv-title-text",
-      "sample": "Second attempt",
+      "sample": "Chat Sep 30 13:45",
       "ratio": 10.3,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(14, 14, 22)",
@@ -849,39 +897,15 @@
       "pass": true
     },
     {
-      "path": "body > div.cost-toast > div.cost-toast-header > span.cost-toast-title",
-      "sample": "Monthly Spend Estimate",
+      "path": "#chat-messages > div.empty-state > h2.empty-state-title",
+      "sample": "GoClaudaddy",
       "ratio": 10.8,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(7, 7, 11)",
-      "fontSize": 11,
+      "fontSize": 22,
       "fontWeight": "700",
       "opacity": 1,
-      "required": 4.5,
-      "pass": true
-    },
-    {
-      "path": "html.dark > body > div.cost-toast > a.cost-toast-link",
-      "sample": "Check Balance →",
-      "ratio": 10.8,
-      "fg": "rgb(45, 212, 191)",
-      "bg": "rgb(7, 7, 11)",
-      "fontSize": 11,
-      "fontWeight": "400",
-      "opacity": 1,
-      "required": 4.5,
-      "pass": true
-    },
-    {
-      "path": "#chat-messages > div.msg.msg-user > div.msg-meta",
-      "sample": "04:28 PM",
-      "ratio": 11.29,
-      "fg": "rgb(251, 191, 36)",
-      "bg": "rgb(17, 16, 26)",
-      "fontSize": 10,
-      "fontWeight": "400",
-      "opacity": 1,
-      "required": 4.5,
+      "required": 3,
       "pass": true
     },
     {
@@ -958,7 +982,7 @@
     },
     {
       "path": "#conv-list > li.conv-item.active > span.conv-body > span.conv-name",
-      "sample": "Second attempt",
+      "sample": "Chat Sep 30 13:45",
       "ratio": 14.81,
       "fg": "rgb(248, 250, 252)",
       "bg": "rgb(17, 39, 45)",
@@ -970,7 +994,7 @@
     },
     {
       "path": "#rsb-console > div.console-line.lvl-info",
-      "sample": "16:59:09 [INFO] goclaudaddy.main: GoClau",
+      "sample": "19:39:41 [INFO] goclaudaddy.main: GoClau",
       "ratio": 16.63,
       "fg": "rgb(200, 240, 255)",
       "bg": "rgb(7, 7, 11)",
@@ -981,13 +1005,13 @@
       "pass": true
     },
     {
-      "path": "div.msg.msg-user > div.msg-bubble > div.text-block > p",
-      "sample": "second attempt",
-      "ratio": 18.53,
+      "path": "#featured-grid > button.featured-card > span.featured-card-title",
+      "sample": "Weekly Status Report",
+      "ratio": 18.17,
       "fg": "rgb(248, 250, 252)",
-      "bg": "rgb(13, 13, 20)",
-      "fontSize": 14,
-      "fontWeight": "400",
+      "bg": "rgb(8, 18, 20)",
+      "fontSize": 11,
+      "fontWeight": "600",
       "opacity": 1,
       "required": 4.5,
       "pass": true
@@ -1000,13 +1024,13 @@
     "overflowX": "auto"
   },
   "occlusion": {
-    "swept": 47,
+    "swept": 46,
     "offscreen": 11,
     "clipped": 0,
     "occluded": []
   },
   "reducedMotion": {
-    "swept": 358,
+    "swept": 346,
     "offenders": []
   },
   "drift": [
