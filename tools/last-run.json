@@ -3,7 +3,7 @@
     "url": "http://127.0.0.1:8765",
     "width": 1440,
     "reducedMotion": true,
-    "at": "2026-10-01T02:40:03.903Z"
+    "at": "2026-10-01T16:08:50.015Z"
   },
   "styles": {
     "body": {
@@ -136,7 +136,7 @@
     }
   },
   "listeners": {
-    "domNodes": 346
+    "domNodes": 652
   },
   "missing": [],
   "seeded": {
@@ -166,7 +166,7 @@
     },
     {
       "path": "#conv-list > li.conv-item.active > span.conv-body > span.conv-ts",
-      "sample": "5h",
+      "sample": "31m",
       "ratio": 6.04,
       "fg": "rgb(148, 163, 184)",
       "bg": "rgb(17, 39, 45)",
@@ -250,7 +250,7 @@
     },
     {
       "path": "#conv-list > li.conv-item > span.conv-body > span.conv-name",
-      "sample": "Chat Sep 30 13:34",
+      "sample": "Chat Oct 01 08:36",
       "ratio": 7.38,
       "fg": "rgb(148, 163, 184)",
       "bg": "rgb(16, 16, 25)",
@@ -262,7 +262,7 @@
     },
     {
       "path": "#conv-list > li.conv-item > span.conv-body > span.conv-ts",
-      "sample": "6h",
+      "sample": "32m",
       "ratio": 7.38,
       "fg": "rgb(148, 163, 184)",
       "bg": "rgb(16, 16, 25)",
@@ -381,32 +381,8 @@
       "pass": true
     },
     {
-      "path": "#theme-section > label.drawer-label",
-      "sample": "Theme",
-      "ratio": 7.84,
-      "fg": "rgb(148, 163, 184)",
-      "bg": "rgb(7, 7, 11)",
-      "fontSize": 11,
-      "fontWeight": "400",
-      "opacity": 1,
-      "required": 4.5,
-      "pass": true
-    },
-    {
       "path": "#settings-drawer > div.drawer-body > div.drawer-section > label.drawer-label",
-      "sample": "Chat font size",
-      "ratio": 7.84,
-      "fg": "rgb(148, 163, 184)",
-      "bg": "rgb(7, 7, 11)",
-      "fontSize": 11,
-      "fontWeight": "400",
-      "opacity": 1,
-      "required": 4.5,
-      "pass": true
-    },
-    {
-      "path": "#settings-drawer > div.drawer-body > div.drawer-section > p.drawer-hint",
-      "sample": "Applies to chat messages and the compose",
+      "sample": "Model",
       "ratio": 7.84,
       "fg": "rgb(148, 163, 184)",
       "bg": "rgb(7, 7, 11)",
@@ -429,8 +405,32 @@
       "pass": true
     },
     {
+      "path": "#settings-drawer > div.drawer-body > div.drawer-section > p.drawer-hint",
+      "sample": "Gives Claude more time to reason before ",
+      "ratio": 7.84,
+      "fg": "rgb(148, 163, 184)",
+      "bg": "rgb(7, 7, 11)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
       "path": "#clear-system-prompt",
       "sample": "Clear",
+      "ratio": 7.84,
+      "fg": "rgb(148, 163, 184)",
+      "bg": "rgb(7, 7, 11)",
+      "fontSize": 11,
+      "fontWeight": "400",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#theme-section > label.drawer-label",
+      "sample": "Theme",
       "ratio": 7.84,
       "fg": "rgb(148, 163, 184)",
       "bg": "rgb(7, 7, 11)",
@@ -454,19 +454,7 @@
     },
     {
       "path": "#advanced-settings-section > div.drawer-advanced-body > p.drawer-hint",
-      "sample": "Experimental features. Changes take effe",
-      "ratio": 7.84,
-      "fg": "rgb(148, 163, 184)",
-      "bg": "rgb(7, 7, 11)",
-      "fontSize": 11,
-      "fontWeight": "400",
-      "opacity": 1,
-      "required": 4.5,
-      "pass": true
-    },
-    {
-      "path": "#replay-onboarding-btn",
-      "sample": "Replay onboarding tour",
+      "sample": "Feature toggles apply immediately.",
       "ratio": 7.84,
       "fg": "rgb(148, 163, 184)",
       "bg": "rgb(7, 7, 11)",
@@ -489,8 +477,8 @@
       "pass": true
     },
     {
-      "path": "div.drawer-advanced-body > label.drawer-toggle-row > span.drawer-toggle-label > span.drawer-hint-inline",
-      "sample": "(Ctrl+`)",
+      "path": "#replay-onboarding-btn",
+      "sample": "Replay onboarding tour",
       "ratio": 7.84,
       "fg": "rgb(148, 163, 184)",
       "bg": "rgb(7, 7, 11)",
@@ -862,7 +850,7 @@
     },
     {
       "path": "#conv-title-text",
-      "sample": "Chat Sep 30 13:45",
+      "sample": "Chat Oct 01 08:37",
       "ratio": 10.3,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(14, 14, 22)",
@@ -886,7 +874,19 @@
     },
     {
       "path": "#settings-drawer > div.drawer-header > span.drawer-title",
-      "sample": "⚙ Conversation Settings",
+      "sample": "⚙ Settings",
+      "ratio": 10.8,
+      "fg": "rgb(45, 212, 191)",
+      "bg": "rgb(7, 7, 11)",
+      "fontSize": 11,
+      "fontWeight": "700",
+      "opacity": 1,
+      "required": 4.5,
+      "pass": true
+    },
+    {
+      "path": "#settings-drawer > div.drawer-body > h2.drawer-section-heading",
+      "sample": "This conversation",
       "ratio": 10.8,
       "fg": "rgb(45, 212, 191)",
       "bg": "rgb(7, 7, 11)",
@@ -982,7 +982,7 @@
     },
     {
       "path": "#conv-list > li.conv-item.active > span.conv-body > span.conv-name",
-      "sample": "Chat Sep 30 13:45",
+      "sample": "Chat Oct 01 08:37",
       "ratio": 14.81,
       "fg": "rgb(248, 250, 252)",
       "bg": "rgb(17, 39, 45)",
@@ -994,7 +994,7 @@
     },
     {
       "path": "#rsb-console > div.console-line.lvl-info",
-      "sample": "19:39:41 [INFO] goclaudaddy.main: GoClau",
+      "sample": "09:06:19 [INFO] goclaudaddy.chat_socket:",
       "ratio": 16.63,
       "fg": "rgb(200, 240, 255)",
       "bg": "rgb(7, 7, 11)",
@@ -1024,13 +1024,13 @@
     "overflowX": "auto"
   },
   "occlusion": {
-    "swept": 46,
+    "swept": 52,
     "offscreen": 11,
     "clipped": 0,
     "occluded": []
   },
   "reducedMotion": {
-    "swept": 346,
+    "swept": 652,
     "offenders": []
   },
   "drift": [
