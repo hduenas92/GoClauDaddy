@@ -8,6 +8,7 @@
  */
 
 import { api } from "../api/http.js";
+import { escapeHtml } from "../render/escape.js";
 
 let _dialogIdSeq = 0;
 
@@ -231,14 +232,14 @@ export function showModal({ title, fields = [], confirmText = "Save", danger = f
     const body = `
       <div class="modal-fields">
         ${fields.map((f) => {
-          const val = escHtml(initial[f.name] !== undefined ? initial[f.name] : (f.value || ""));
-          const ph = escHtml(f.placeholder || "");
-          const nm = escHtml(f.name);
+          const val = escapeHtml(initial[f.name] !== undefined ? initial[f.name] : (f.value || ""));
+          const ph = escapeHtml(f.placeholder || "");
+          const nm = escapeHtml(f.name);
           if (f.type === "textarea") {
             return `
           <label class="modal-label">
-            <span>${escHtml(f.label)}</span>
-            <textarea class="modal-input" name="${nm}" rows="4" placeholder="${ph}">${escHtml(initial[f.name] || f.value || "")}</textarea>
+            <span>${escapeHtml(f.label)}</span>
+            <textarea class="modal-input" name="${nm}" rows="4" placeholder="${ph}">${escapeHtml(initial[f.name] || f.value || "")}</textarea>
           </label>`;
           }
           if (f.type === "directory") {
@@ -251,7 +252,7 @@ export function showModal({ title, fields = [], confirmText = "Save", danger = f
             return `
           <div class="modal-dir-field">
             <label class="modal-label modal-dir-label">
-              <span>${escHtml(f.label)}</span>
+              <span>${escapeHtml(f.label)}</span>
               <input class="modal-input" type="text" name="${nm}" value="${val}" placeholder="${ph}">
             </label>
             <button type="button" class="modal-browse" data-for="${nm}" title="Browse for a folder">Browse…</button>
@@ -259,8 +260,8 @@ export function showModal({ title, fields = [], confirmText = "Save", danger = f
           }
           return `
           <label class="modal-label">
-            <span>${escHtml(f.label)}</span>
-            <input class="modal-input" type="${escHtml(f.type || "text")}" name="${nm}" value="${val}" placeholder="${ph}">
+            <span>${escapeHtml(f.label)}</span>
+            <input class="modal-input" type="${escapeHtml(f.type || "text")}" name="${nm}" value="${val}" placeholder="${ph}">
           </label>`;
         }).join("")}
       </div>
@@ -362,10 +363,6 @@ export function showConfirm({ message, confirmText = "Delete", danger = true }) 
   });
 }
 
-function escHtml(s) {
-  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
 // Moved out of chat_pane.js (was module-private there) so every non-boot
 // failure in the app — not just chat turns — can show through one surface
 // instead of native blocking dialogs, silent catches, or ad-hoc CSS flashes.
@@ -378,7 +375,7 @@ export function showErrorToast(message) {
   toast.innerHTML = `
     <div class="error-toast-content">
       <span class="error-toast-icon">⚠</span>
-      <span>${escHtml(message)}</span>
+      <span>${escapeHtml(message)}</span>
       <button class="error-toast-close" aria-label="Close">✕</button>
     </div>
   `;

@@ -111,7 +111,7 @@ def test_render_card_escapes_every_template_field_it_interpolates():
         # boolean/ternary guard. `t.is_builtin ? ... : ""` and `isCustom ? ...`
         # choose between literals and cannot carry a payload.
         if re.search(r'\bt\.\w+', expr)
-        and "escHtml" not in expr
+        and "escapeHtml" not in expr
         and "?" not in expr
     ]
     assert not bare, (

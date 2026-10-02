@@ -1,10 +1,7 @@
 import { getState, subscribe } from "../state/store.js";
 import * as storage from "../state/storage.js";
 import { contextTokens } from "../state/ctx_tokens.js";
-
-function escHtml(s) {
-  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
+import { escapeHtml } from "../render/escape.js";
 
 /** localStorage key for the user's own CaaS allowance. */
 export const BUDGET_KEY = "gca_budget_usd";
@@ -299,7 +296,7 @@ export function mountRightSidebar(root) {
         if (!body) return;
         body.innerHTML = `
           <div class="server-status" role="status"><span class="server-dot"></span><span>Online</span></div>
-          <div class="server-url">${escHtml(info.url)}</div>
+          <div class="server-url">${escapeHtml(info.url)}</div>
           <button class="server-btn" id="rsb-open-browser">⎋ Open in Browser</button>
         `;
         body.querySelector("#rsb-open-browser")?.addEventListener("click", () => {

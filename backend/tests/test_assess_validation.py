@@ -56,4 +56,4 @@ def test_non_list_concerns_become_empty(monkeypatch):
 def test_composer_allow_lists_and_escapes_level():
     s = COMPOSER.read_text(encoding="utf-8")
     assert '["low", "medium", "high"].includes(level)' in s
-    assert "${_escHtml(lvl[0].toUpperCase() + lvl.slice(1))} risk" in s
+    assert "${escapeHtml(lvl[0].toUpperCase() + lvl.slice(1))} risk" in s

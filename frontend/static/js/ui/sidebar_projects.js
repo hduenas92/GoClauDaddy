@@ -2,6 +2,7 @@ import { api } from "../api/http.js";
 import { getState, subscribe } from "../state/store.js";
 import { createProject, deleteProject, loadProjects, selectProject } from "../state/actions.js";
 import { showModal, showConfirm, showErrorToast, attachDirectoryBrowse } from "./modal.js";
+import { escapeHtml } from "../render/escape.js";
 
 export function mountSidebarProjects(root, onSwitchProject) {
   root.innerHTML = `
@@ -137,8 +138,4 @@ export function mountSidebarProjects(root, onSwitchProject) {
 
   subscribe(render);
   render();
-}
-
-function escapeHtml(s) {
-  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

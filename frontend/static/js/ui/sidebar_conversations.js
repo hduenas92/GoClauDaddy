@@ -3,6 +3,7 @@ import { createConversation, deleteConversation, renameConversation, loadConvers
 import { showModal, showConfirm, showErrorToast } from "./modal.js";
 import { api } from "../api/http.js";
 import { endSentence } from "./sentence.js";
+import { escapeHtml } from "../render/escape.js";
 
 // Long enough that typing a word does not fire a request per keystroke, short
 // enough that the Messages group feels like part of the same box. The local
@@ -207,8 +208,4 @@ function _relTime(isoStr) {
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
   return `${Math.floor(diff / 86_400_000)}d`;
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

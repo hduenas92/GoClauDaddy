@@ -10,6 +10,7 @@ import { trapFocus } from "./modal.js";
 import { api } from "../api/http.js";
 import { getTemplates, invalidateTemplates } from "../api/template_cache.js";
 import { showModal, showConfirm } from "./modal.js";
+import { escapeHtml } from "../render/escape.js";
 
 const CATEGORIES = ["report", "email", "document", "analysis", "code", "custom"];
 export const CAT_LABELS = { report: "Reports", email: "Email", document: "Docs", analysis: "Analysis", code: "Code", custom: "Custom" };
@@ -93,7 +94,7 @@ export function openTemplatePicker({ onSelect }) {
       <div class="tp-box">
         <div class="tp-header">
           <span class="tp-title">Templates</span>
-          <input class="tp-search" id="tp-search" type="text" placeholder="Search templates…" aria-label="Search templates" value="${escHtml(searchQuery)}">
+          <input class="tp-search" id="tp-search" type="text" placeholder="Search templates…" aria-label="Search templates" value="${escapeHtml(searchQuery)}">
           <button class="tp-close" aria-label="Close templates">✕</button>
         </div>
         <div class="tp-body">
@@ -159,18 +160,18 @@ export function openTemplatePicker({ onSelect }) {
     // text is its accessible name. Name the card explicitly so the title and
     // category are separated; the visible DOM is unchanged.
     return `
-      <div class="tp-card" data-id="${escHtml(t.id)}" tabindex="0" role="button" aria-label="${escHtml(t.title)}, ${escHtml(CAT_LABELS[t.category] ?? t.category)} category">
+      <div class="tp-card" data-id="${escapeHtml(t.id)}" tabindex="0" role="button" aria-label="${escapeHtml(t.title)}, ${escapeHtml(CAT_LABELS[t.category] ?? t.category)} category">
         <div class="tp-card-top">
-          <span class="tp-card-title">${escHtml(t.title)}</span>
-          <span class="tp-card-badge tp-cat-${escHtml(t.category)}">${escHtml(CAT_LABELS[t.category] ?? t.category)}</span>
+          <span class="tp-card-title">${escapeHtml(t.title)}</span>
+          <span class="tp-card-badge tp-cat-${escapeHtml(t.category)}">${escapeHtml(CAT_LABELS[t.category] ?? t.category)}</span>
           ${t.is_builtin ? `<span class="tp-lock" title="Built-in">🔒</span>` : ""}
         </div>
-        ${t.description ? `<p class="tp-card-desc">${escHtml(t.description)}</p>` : ""}
-        <p class="tp-card-preview">${escHtml(preview)}…</p>
+        ${t.description ? `<p class="tp-card-desc">${escapeHtml(t.description)}</p>` : ""}
+        <p class="tp-card-preview">${escapeHtml(preview)}…</p>
         ${isCustom ? `
           <div class="tp-card-actions">
-            <button class="tp-edit-btn" data-id="${escHtml(t.id)}" title="Edit">✎</button>
-            <button class="tp-del-btn" data-id="${escHtml(t.id)}" title="Delete">×</button>
+            <button class="tp-edit-btn" data-id="${escapeHtml(t.id)}" title="Edit">✎</button>
+            <button class="tp-del-btn" data-id="${escapeHtml(t.id)}" title="Delete">×</button>
           </div>
         ` : ""}
       </div>
@@ -253,13 +254,4 @@ export function openTemplatePicker({ onSelect }) {
     .catch(() => {
       overlay.querySelector(".tp-grid").innerHTML = `<div class="tp-empty">Could not load templates. Check your connection, then reopen the template picker.</div>`;
     });
-}
-
-// escHtml must be available in this module — reuse the global defined in the page or define inline
-function escHtml(s) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }

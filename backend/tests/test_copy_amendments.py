@@ -82,7 +82,7 @@ def test_call_sites_use_the_helper():
     assert "${endSentence(msg)}${sizeHint}" in composer
     assert "const dot = " not in composer
     main = src("frontend/static/js/main.js")
-    assert re.search(r"Couldn't start GoClaudaddy: \$\{_esc\(endSentence\(", main)
+    assert re.search(r"Couldn't start GoClaudaddy: \$\{(?:_esc|escapeHtml)\(endSentence\(", main)
     assert "}. Restart the app" not in main
     side = src("frontend/static/js/ui/sidebar_conversations.js")
     assert re.search(r"Search didn't run: \$\{endSentence\(", side)

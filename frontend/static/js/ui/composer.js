@@ -8,6 +8,7 @@ import { clearDraft, loadDraft, saveDraft } from "./composer_draft.js";
 import { attachmentDownloadUrl, isImageName } from "./attachment_view.js";
 import { endSentence } from "./sentence.js";
 import * as storage from "../state/storage.js";
+import { escapeHtml } from "../render/escape.js";
 
 const _RISKY = /\b(delete|drop|remove|wipe|destroy|format|truncate|uninstall|overwrite|migrate|deploy|execute|rm\s+-rf)\b/i;
 
@@ -26,10 +27,6 @@ function _showToast(msg, ms = 4000) {
   setTimeout(() => t.remove(), ms);
 }
 
-function _escHtml(s) {
-  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
 function _showAssessment({ level, summary, concerns = [] }) {
   const lvl = typeof level === "string" && ["low", "medium", "high"].includes(level) ? level : "unknown";
   return new Promise((resolve) => {
@@ -45,9 +42,9 @@ function _showAssessment({ level, summary, concerns = [] }) {
     dialog = showDialog({
       title: "Task Assessment",
       body: `
-        <div class="assess-level" style="color:${levelColor}">${_escHtml(lvl[0].toUpperCase() + lvl.slice(1))} risk</div>
-        <p class="assess-summary">${_escHtml(summary)}</p>
-        ${concerns.length ? `<ul class="assess-concerns">${concerns.map(c => `<li>${_escHtml(c)}</li>`).join("")}</ul>` : ""}
+        <div class="assess-level" style="color:${levelColor}">${escapeHtml(lvl[0].toUpperCase() + lvl.slice(1))} risk</div>
+        <p class="assess-summary">${escapeHtml(summary)}</p>
+        ${concerns.length ? `<ul class="assess-concerns">${concerns.map(c => `<li>${escapeHtml(c)}</li>`).join("")}</ul>` : ""}
       `,
       actions: [[
         {
@@ -76,10 +73,6 @@ function _showAssessment({ level, summary, concerns = [] }) {
     });
     dialog.box.querySelector("#assess-proceed").focus();
   });
-}
-
-function _escSuggest(s) {
-  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 export function mountComposer(root, socket, chatPane) {
@@ -146,13 +139,13 @@ export function mountComposer(root, socket, chatPane) {
     function _renderSuggest() {
       const list = _filtered();
       suggestEl.innerHTML = `
-        <input class="suggest-search" placeholder="Filter templates… (↑↓ navigate, Enter select, Esc close)" aria-label="Filter templates" value="${_escSuggest(query)}">
+        <input class="suggest-search" placeholder="Filter templates… (↑↓ navigate, Enter select, Esc close)" aria-label="Filter templates" value="${escapeHtml(query)}">
         <div class="suggest-list">
           ${list.length
           ? list.map((t, i) => `
                 <div class="suggest-item${i === activeIdx ? " suggest-active" : ""}" data-idx="${i}">
-                  <span class="suggest-title">${_escSuggest(t.title)}</span>
-                  <span class="suggest-cat">${_escSuggest(t.category)}</span>
+                  <span class="suggest-title">${escapeHtml(t.title)}</span>
+                  <span class="suggest-cat">${escapeHtml(t.category)}</span>
                 </div>`).join("")
           : `<div class="suggest-empty">No templates match — clear the filter or press Esc.</div>`}
         </div>

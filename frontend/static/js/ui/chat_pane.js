@@ -7,6 +7,7 @@ import { interpolateTemplate, CAT_LABELS } from "./template_picker.js";
 import { showErrorToast, showDialog } from "./modal.js";
 import { attachmentDownloadUrl, isImageName } from "./attachment_view.js";
 import * as storage from "../state/storage.js";
+import { escapeHtml } from "../render/escape.js";
 
 const STATUS_LABEL = { done: "Done", error: "Error", stopped: "Stopped", timeout: "Timed out" };
 const TOOL_LABELS = {
@@ -113,9 +114,9 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       grid.innerHTML = featured.map(t => {
         const cat = String(t.category ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
         return `
-        <button class="featured-card" data-id="${_escHtml(t.id)}" title="${_escHtml(t.title)}">
-          <span class="featured-card-title">${_escHtml(t.title)}</span>
-          <span class="featured-card-cat tp-cat-${cat}">${_escHtml(CAT_LABELS[t.category] ?? t.category)}</span>
+        <button class="featured-card" data-id="${escapeHtml(t.id)}" title="${escapeHtml(t.title)}">
+          <span class="featured-card-title">${escapeHtml(t.title)}</span>
+          <span class="featured-card-cat tp-cat-${cat}">${escapeHtml(CAT_LABELS[t.category] ?? t.category)}</span>
         </button>
       `;
       }).join("");
@@ -706,10 +707,6 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     root.scrollTop = root.scrollHeight;
   }
 
-  function _escHtml(s) {
-    return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
-
   function _showApprovalModal(tool, action, socket, ev = {}) {
     let dialog = null;
     let timer = null;
@@ -737,8 +734,8 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     dialog = showDialog({
       title: "Tool Permission Request",
       body: `
-        <div class="approval-tool">⚡ <strong>${_escHtml(tool || "tool")}</strong></div>
-        ${action ? `<p class="approval-action">${_escHtml(action)}</p>` : ""}
+        <div class="approval-tool">⚡ <strong>${escapeHtml(tool || "tool")}</strong></div>
+        ${action ? `<p class="approval-action">${escapeHtml(action)}</p>` : ""}
         <p class="approval-risk-note">Allow Claude to use this tool?</p>
         <p class="approval-countdown" id="approval-countdown"></p>
         <p class="sr-only" id="approval-announce" aria-live="polite"></p>

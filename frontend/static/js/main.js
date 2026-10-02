@@ -8,6 +8,7 @@ import {
 } from "./state/actions.js";
 import { getState, subscribe } from "./state/store.js";
 import * as storage from "./state/storage.js";
+import { escapeHtml } from "./render/escape.js";
 
 let MODEL_LABELS = {};
 
@@ -36,10 +37,6 @@ const PERM_LABELS = {
   plan: "Plan mode",
 };
 
-function _esc(s) {
-  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
 function updateTelemetry(conv) {
   const subtitle = document.getElementById("conv-subtitle");
   if (!subtitle) return;
@@ -47,9 +44,9 @@ function updateTelemetry(conv) {
   const model = MODEL_LABELS[conv.model] ?? "Model unknown";
   const permLabel = PERM_LABELS[conv.permission_mode];
   const project = projects.find(p => p.id === conv.project_id);
-  const parts = [`<span class="sub-model">${_esc(model)}</span>`];
-  if (permLabel) parts.push(_esc(permLabel));
-  if (project) parts.push(`<span class="sub-project">${_esc(project.name)}</span>`);
+  const parts = [`<span class="sub-model">${escapeHtml(model)}</span>`];
+  if (permLabel) parts.push(escapeHtml(permLabel));
+  if (project) parts.push(`<span class="sub-project">${escapeHtml(project.name)}</span>`);
   subtitle.innerHTML = parts.join(' <span class="sub-sep">·</span> ');
 }
 import { mountChatPane } from "./ui/chat_pane.js";
@@ -418,6 +415,6 @@ boot().then(() => maybeShowOnboarding()).catch((err) => {
   // switchToConversation shows its own retry UI), say so visibly.
   const app = document.getElementById("app");
   if (app && !app.querySelector("#composer") && !app.querySelector("#chat-retry-btn")) {
-    app.innerHTML = `<div id="boot-msg">Couldn't start GoClaudaddy: ${_esc(endSentence(String(err?.message || err)))} Restart the app; if it keeps failing, open the LOG panel for details.</div>`;
+    app.innerHTML = `<div id="boot-msg">Couldn't start GoClaudaddy: ${escapeHtml(endSentence(String(err?.message || err)))} Restart the app; if it keeps failing, open the LOG panel for details.</div>`;
   }
 });
