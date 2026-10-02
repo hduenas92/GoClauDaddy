@@ -231,7 +231,7 @@ html, body {
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb) / 0.35); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb) / 0.35); border-radius: var(--radius-2); }
 ::-webkit-scrollbar-thumb:hover { background: rgba(var(--accent-hi-rgb) / 0.7); }
 
 /* ---- ambient ---- */
@@ -302,7 +302,7 @@ html, body {
   visibility: hidden;
 }
 
-.sb-empty { color: var(--text-muted); font-size: 11px; padding: 2px 0; font-style: italic; }
+.sb-empty { color: var(--text-muted); font-size: var(--fs-11); padding: var(--sp-2) 0; font-style: italic; }
 
 /* ============================================================
    METRICS PANEL
@@ -311,20 +311,20 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  padding: 4px 0;
+  padding: var(--sp-4) 0;
   border-bottom: 1px solid rgba(var(--accent-rgb) / 0.07);
 }
 .metric-row:last-child { border-bottom: none; }
 .metric-label {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   flex-shrink: 0;
 }
 .metric-value {
   color: var(--accent-hi);
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-family: var(--font-shell);
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -340,23 +340,23 @@ html, body {
 .server-status {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
+  gap: var(--sp-5);
+  font-size: var(--fs-11);
   color: var(--text2);
-  margin-bottom: 6px;
+  margin-bottom: var(--sp-6);
 }
 .server-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--emerald);
   box-shadow: 0 0 5px rgba(var(--success-rgb) / 0.6);
   flex-shrink: 0;
 }
 .server-url {
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--accent-hi);
-  margin-bottom: 8px;
+  margin-bottom: var(--sp-8);
   letter-spacing: 0.02em;
 }
 .server-btn {
@@ -365,12 +365,12 @@ html, body {
   background: rgba(var(--accent-rgb) / 0.07);
   border: 1px solid rgba(var(--accent-rgb) / 0.22);
   color: var(--text2);
-  border-radius: 3px;
-  padding: 4px 8px;
+  border-radius: var(--radius-3);
+  padding: var(--sp-4) var(--sp-8);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-family: inherit;
-  margin-bottom: 3px;
+  margin-bottom: var(--sp-3);
   transition: all 0.15s;
   text-align: left;
 }
@@ -386,14 +386,14 @@ html, body {
 .console-log {
   max-height: 220px;
   overflow-y: auto;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-family: var(--font-shell);
   color: var(--text2);
   line-height: 1.45;
   background: rgba(var(--ground-rgb) / 0.7);
   border: 1px solid rgba(var(--accent-rgb) / 0.12);
-  border-radius: 3px;
-  padding: 5px 6px;
+  border-radius: var(--radius-3);
+  padding: var(--sp-5) var(--sp-6);
 }
 .console-line { white-space: pre-wrap; word-break: break-all; margin-bottom: 1px; }
 .console-line.lvl-info  { color: var(--accent-hi); }
@@ -418,21 +418,21 @@ html, body {
   box-shadow: 4px 0 18px rgba(var(--accent-rgb) / 0.12);
   display: flex;
   flex-direction: column;
-  padding: 12px;
+  padding: var(--sp-12);
   overflow-y: auto;
 }
 
 #sidebar-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 4px 10px;
+  gap: var(--sp-8);
+  padding: var(--sp-4) var(--sp-4) var(--sp-10);
   border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
+  margin-bottom: var(--sp-8);
 }
 #sidebar-logo img { height: 28px; width: auto; flex-shrink: 0; }
 #sidebar-logo span {
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
   color: var(--violet);
   letter-spacing: 0.1em;
@@ -440,19 +440,19 @@ html, body {
   text-shadow: 0 0 10px rgba(var(--accent-hi-rgb) / 0.7);
 }
 
-.sidebar-sep { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+.sidebar-sep { border: none; border-top: 1px solid var(--border); margin: var(--sp-8) 0; }
 
 #new-project-btn,
 #new-conv-btn {
   background: rgba(var(--accent-rgb) / 0.08);
   border: 1px dashed rgba(var(--accent-hi-rgb) / 0.4);
   color: var(--teal-b);
-  border-radius: 4px;
-  padding: 7px 8px;
+  border-radius: var(--radius);
+  padding: var(--sp-7) var(--sp-8);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-family: inherit;
-  margin-bottom: 6px;
+  margin-bottom: var(--sp-6);
   width: 100%;
   transition: all 0.22s;
   text-shadow: 0 0 6px rgba(var(--accent-hi-rgb) / 0.35);
@@ -469,19 +469,19 @@ html, body {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-bottom: 4px;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
 }
 
 .project-item,
 .conv-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border-radius: 4px;
+  gap: var(--sp-6);
+  padding: var(--sp-6) var(--sp-8);
+  border-radius: var(--radius);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--text2);
   border: 1px solid transparent;
   transition: all 0.2s;
@@ -522,8 +522,8 @@ html, body {
   border: none;
   color: var(--text2);
   cursor: pointer;
-  font-size: 11px;
-  padding: 2px;
+  font-size: var(--fs-11);
+  padding: var(--sp-2);
   transition: color 0.15s;
 }
 .project-edit:hover, .project-delete:hover,
@@ -532,17 +532,17 @@ html, body {
 .project-edit-form {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 4px 0;
+  gap: var(--sp-4);
+  padding: var(--sp-4) 0;
   width: 100%;
 }
 .project-edit-form input {
   background: var(--elev);
   border: 1px solid rgba(var(--accent-rgb) / 0.4);
   color: var(--text);
-  border-radius: 3px;
-  padding: 3px 6px;
-  font-size: 11px;
+  border-radius: var(--radius-3);
+  padding: var(--sp-3) var(--sp-6);
+  font-size: var(--fs-11);
   font-family: inherit;
   width: 100%;
 }
@@ -551,7 +551,7 @@ html, body {
   border-color: var(--teal-b);
   box-shadow: 0 0 6px rgba(var(--accent-hi-rgb) / 0.3);
 }
-.pef-dir-row { display: flex; gap: 4px; }
+.pef-dir-row { display: flex; gap: var(--sp-4); }
 .pef-dir-row input { flex: 1; min-width: 0; }
 /* Was `.pef-browse` with no element in the document bearing that class — the
    style for a Browse button that had never been wired up. 4-D6 wired it; the
@@ -559,24 +559,24 @@ html, body {
 .pef-browse-dir {
   background: var(--elev);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--radius-3);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-family: inherit;
-  padding: 2px 6px;
+  padding: var(--sp-2) var(--sp-6);
   color: var(--text2);
 }
 .pef-browse-dir:hover:not(:disabled) { color: var(--teal-b); border-color: var(--teal-b); }
 .pef-browse-dir:disabled { opacity: 0.55; cursor: progress; }
-.pef-actions { display: flex; gap: 4px; }
+.pef-actions { display: flex; gap: var(--sp-4); }
 .pef-save {
   background: var(--amber);
   color: var(--ground);
   border: none;
-  border-radius: 3px;
-  padding: 3px 10px;
+  border-radius: var(--radius-3);
+  padding: var(--sp-3) var(--sp-10);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-family: inherit;
   font-weight: 700;
   box-shadow: 0 0 10px rgba(var(--working-rgb) / 0.3);
@@ -585,26 +585,26 @@ html, body {
   background: none;
   border: 1px solid var(--border);
   color: var(--text2);
-  border-radius: 3px;
-  padding: 3px 10px;
+  border-radius: var(--radius-3);
+  padding: var(--sp-3) var(--sp-10);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-family: inherit;
 }
 
 .conv-dot {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--text2);
   flex-shrink: 0;
 }
 .conv-dot-busy  { background: var(--amber); box-shadow: 0 0 6px rgba(var(--working-rgb) / 0.6); }
 .conv-dot-error { background: var(--rose);  box-shadow: 0 0 6px rgba(var(--error-rgb) / 0.6); }
 .conv-source-badge {
-  display: inline-block; margin-left: 5px; padding: 0 4px;
-  font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
-  border-radius: 3px; vertical-align: middle; line-height: 14px;
+  display: inline-block; margin-left: var(--sp-5); padding: 0 var(--sp-4);
+  font-size: var(--fs-11); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  border-radius: var(--radius-3); vertical-align: middle; line-height: 14px;
 }
 .conv-source-cli      { background: rgba(var(--working-rgb) / 0.15); color: var(--amber); border: 1px solid rgba(var(--working-rgb) / 0.3); }
 
