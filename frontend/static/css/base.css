@@ -919,9 +919,9 @@ html, body {
   position: relative;
   background: rgba(var(--ground-rgb) / 0.95);
   backdrop-filter: blur(12px);
-  border-radius: 8px;
-  padding: 10px;
-  margin: 0 12px 12px;
+  border-radius: var(--radius-lg);
+  padding: var(--sp-10);
+  margin: 0 var(--sp-12) var(--sp-12);
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.85);
   box-shadow:
     0 10px 40px -5px rgba(var(--shadow-rgb) / 0.95),
@@ -929,16 +929,16 @@ html, body {
     0 0 2px rgba(var(--accent-hi-rgb) / 1);
 }
 
-#attachment-strip { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+#attachment-strip { display: flex; gap: var(--sp-6); flex-wrap: wrap; margin-bottom: var(--sp-6); }
 .attachment-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-6);
   background: var(--elev);
   border: 1px solid rgba(var(--accent-rgb) / 0.4);
-  border-radius: 12px;
-  padding: 3px 8px;
-  font-size: 11px;
+  border-radius: var(--radius-12);
+  padding: var(--sp-3) var(--sp-8);
+  font-size: var(--fs-11);
   color: var(--text2);
 }
 .attachment-chip button {
@@ -946,7 +946,7 @@ html, body {
   border: none;
   color: var(--text2);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--fs-11);
   padding: 0;
 }
 /* F2: image attachments get a thumbnail in the composer chip and in history. */
@@ -955,7 +955,7 @@ html, body {
   width: 40px;
   height: 40px;
   object-fit: cover;
-  border-radius: 3px;
+  border-radius: var(--radius-3);
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.4);
   flex-shrink: 0;
 }
@@ -963,33 +963,33 @@ html, body {
   width: 72px;
   height: 72px;
   display: block;
-  margin: 0 0 8px;
+  margin: 0 0 var(--sp-8);
 }
 .attachment-chip-name,
 .msg-attachment-name {
   color: var(--text2);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .msg-attachment-name {
   display: inline-block;
-  padding: 2px 8px;
+  padding: var(--sp-2) var(--sp-8);
   border: 1px solid rgba(var(--accent-rgb) / 0.4);
-  border-radius: 12px;
+  border-radius: var(--radius-12);
   background: var(--elev);
-  margin: 0 0 8px;
+  margin: 0 0 var(--sp-8);
 }
 
-#composer-row { display: flex; gap: 8px; align-items: flex-end; }
+#composer-row { display: flex; gap: var(--sp-8); align-items: flex-end; }
 
 #composer-attach {
   background: rgba(var(--accent-rgb) / 0.1);
   border: 1px solid rgba(var(--accent-rgb) / 0.5);
   color: var(--text2);
-  border-radius: 4px;
-  padding: 9px 10px;
+  border-radius: var(--radius);
+  padding: 9px var(--sp-10);
   cursor: pointer;
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: var(--fs-13);
   transition: all 0.2s;
 }
 #composer-attach:hover {
@@ -1005,8 +1005,8 @@ html, body {
   border: 1px solid rgba(var(--accent-rgb) / 0.7);
   box-shadow: inset 0 0 8px rgba(var(--accent-rgb) / 0.1), 0 0 10px rgba(var(--accent-rgb) / 0.12);
   color: var(--text);
-  border-radius: 4px;
-  padding: 9px 12px;
+  border-radius: var(--radius);
+  padding: 9px var(--sp-12);
   font-family: var(--font-shell);
   font-size: var(--chat-font-size);
   font-weight: 600;
@@ -1025,9 +1025,9 @@ html, body {
   color: var(--ground);
   font-weight: 700;
   font-family: inherit;
-  font-size: 12px;
-  border-radius: 4px;
-  padding: 0 16px;
+  font-size: var(--fs-12);
+  border-radius: var(--radius);
+  padding: 0 var(--sp-16);
   height: 40px;
   cursor: pointer;
   flex-shrink: 0;
@@ -1067,7 +1067,7 @@ html, body {
   justify-content: space-between;
 }
 .conv-title-text {
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 700;
   color: var(--teal-b);
   text-shadow: 0 0 8px rgba(var(--accent-hi-rgb) / 0.4);
@@ -1077,15 +1077,15 @@ html, body {
   white-space: nowrap;
   max-width: 360px;
 }
-#header-actions { display: flex; gap: 4px; align-items: center; }
+#header-actions { display: flex; gap: var(--sp-4); align-items: center; }
 .header-btn {
   background: rgba(var(--accent-rgb) / 0.07);
   border: 1px solid rgba(var(--accent-rgb) / 0.3);
   color: var(--text2);
-  border-radius: 4px;
-  padding: 4px 8px;
+  border-radius: var(--radius);
+  padding: var(--sp-4) var(--sp-8);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-family: inherit;
   transition: all 0.2s;
 }
@@ -1100,19 +1100,19 @@ html, body {
 .header-title-group {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--sp-3);
   min-width: 0;
   flex: 1;
 }
 .header-title-row {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--sp-7);
 }
 .header-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   flex-shrink: 0;
 }
 .header-dot-idle { background: rgba(var(--accent-hi-rgb) / 0.4); }
@@ -1126,7 +1126,7 @@ html, body {
   50%       { opacity: 0.3; }
 }
 .conv-subtitle {
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--accent-hi);
   letter-spacing: 0.03em;
   overflow: hidden;
