@@ -30,3 +30,6 @@ shot*.png
 # Personal to this machine — not shared team config
 .claude/settings.local.json
 
+
+# gate output, rewritten by tools/ui-check.mjs on every run (M8)
+tools/last-run.json
