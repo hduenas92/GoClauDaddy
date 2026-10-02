@@ -84,6 +84,40 @@
   --radius:    4px;   /* spec: <=4px, no pills for primary actions */
   --radius-lg: 8px;
 
+  /* ---- calm tokens (THEMECV1): spacing scale ---- */
+  --sp-2: 2px;
+  --sp-3: 3px;
+  --sp-4: 4px;
+  --sp-5: 5px;
+  --sp-6: 6px;
+  --sp-7: 7px;
+  --sp-8: 8px;
+  --sp-10: 10px;
+  --sp-12: 12px;
+  --sp-14: 14px;
+  --sp-16: 16px;
+  --sp-24: 24px;
+
+  /* ---- calm tokens (THEMECV1): radius scale ---- */
+  --radius-2: 2px;
+  --radius-3: 3px;
+  --radius-6: 6px;
+  --radius-10: 10px;
+  --radius-12: 12px;
+  --radius-20: 20px;
+  --radius-full: 50%;
+
+  /* ---- calm tokens (THEMECV1): font-size scale ---- */
+  --fs-10: 10px;
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-16: 16px;
+  --fs-22: 22px;
+  --fs-36: 36px;
+  --fs-48: 48px;
+
   /* P2-V: floating-composer geometry. Overridden per theme and by the
      narrow-width media queries further down. */
   --p2v-left-rail:  256px;
