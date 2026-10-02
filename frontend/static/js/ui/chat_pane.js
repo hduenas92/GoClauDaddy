@@ -943,8 +943,10 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       socket.on("approval_extended", (ev) => _approvalModal?.onExtended?.(ev)),
       socket.on("approval_needed", (ev) => {
         if (storage.getItem("gca_feat_approval") !== "1") {
-          // Feature flag off — auto-approve so the subprocess isn't left hanging
-          socket.approve();
+          // Feature flag off — deny by default so no tool runs without the user's
+          // decision; deny() still answers the subprocess, so nothing is left hanging.
+          socket.deny();
+          statusEl.textContent = "A tool asked for approval and was denied. Turn on 'Prompt for tool approval' in Settings to decide yourself.";
           return;
         }
         _showApprovalModal(ev.tool, ev.action, socket, ev);
