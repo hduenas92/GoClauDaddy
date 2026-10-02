@@ -21,7 +21,7 @@ HAIKU = "claude-haiku-4-5-20251001"
 
 # (id, input_rate, output_rate, context_window)
 EXPECTED_MODELS = [
-    (SONNET, 3.00, 15.00, 1_000_000),
+    (SONNET, 2.00, 10.00, 1_000_000),
     (OPUS, 4.00, 20.00, 1_000_000),
     (HAIKU, 1.00, 5.00, 200_000),
 ]
@@ -59,8 +59,8 @@ def test_haiku_1000_in_100_out():
 
 
 def test_sonnet_1000_in_100_out():
-    # 1000/1e6*3.00 + 100/1e6*15.00 = 0.0030 + 0.0015
-    assert compute_cost_usd(SONNET, 1000, 100) == pytest.approx(0.0045, abs=1e-9)
+    # 1000/1e6*2.00 + 100/1e6*10.00 = 0.0020 + 0.0010
+    assert compute_cost_usd(SONNET, 1000, 100) == pytest.approx(0.0030, abs=1e-9)
 
 
 def test_opus_1000_in_100_out():
