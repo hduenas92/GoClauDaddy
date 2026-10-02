@@ -33,6 +33,10 @@ CASES = {
     "raw_img": "<img src=x onerror=alert(1)>",
     "raw_inline": "hi <b onclick=alert(1)>there</b>",
     "attr_break": '[x](https://a.com" onmouseover="alert(1))',
+    "title_amp": '[t](https://a.com "A & B")',
+    "title_quote": "[t](https://a.com 'A \"B\"')",
+    "img_title_alt": '![al&t](https://a.com/x.png "T&T")',
+    "title_attr_break": "[x](https://a.com 'a\" onmouseover=\"alert(1)')",
     "lt_text": "1 < 2 & 3 > 2",
 }
 
@@ -82,6 +86,37 @@ def test_plain_markdown_still_renders(out):
 def test_safe_links_kept(out):
     assert re.search(r'<a href="https://example\.com/a\?b=1&(amp;)?c=2"', out["http"]), out["http"]
     assert '<a href="#anchor"' in out["rel"], out["rel"]
+
+
+def test_link_title_escaped_once_not_twice(out):
+    """marked already escapes the title (escape$1(link.title) in outputLink)."""
+    h = out["title_amp"]
+    assert 'title="A &amp; B"' in h, h
+    assert "&amp;amp;" not in h, h
+
+
+def test_link_title_quote_escaped_once_not_twice(out):
+    h = out["title_quote"]
+    assert 'title="A &quot;B&quot;"' in h, h
+    assert "&amp;quot;" not in h, h
+
+
+def test_image_title_and_alt_escaped_once(out):
+    h = out["img_title_alt"]
+    assert 'title="T&amp;T"' in h, h
+    assert 'alt="al&amp;t"' in h, h
+    assert "&amp;amp;" not in h and "&amp;quot;" not in h, h
+
+
+def test_title_attribute_break_stays_inert(out):
+    """A quote in the title must not break out of the title attribute."""
+    for k in ("title_attr_break", "attr_break"):
+        h = out[k]
+        # A live handler needs a RAW quote introducing the value; the title's
+        # quote is emitted as &quot;, so `onmouseover=` stays inside the value.
+        assert not re.search(r'\son\w+\s*=\s*"', h, re.I), (k, h)
+        assert "&amp;quot;" not in h, (k, h)
+    assert 'title="a&quot; onmouseover=&quot;alert(1)"' in out["title_attr_break"], out["title_attr_break"]
 
 
 def _urls(h):

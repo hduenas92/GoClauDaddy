@@ -83,17 +83,20 @@ function configureOnce() {
         // unsafe, drop the anchor and keep only the link text.
         if (url === null) return text;
         let out = '<a href="' + escapeHtml(url) + '"';
-        if (title) out += ' title="' + escapeHtml(title) + '"';
+        // marked escapes the title once already (escape$1(link.title) in
+        // outputLink); escaping it again double-encodes entities.
+        if (title) out += ' title="' + title + '"';
         return out + ">" + text + "</a>";
       },
 
       image(href, title, text) {
         const url = safeUrl(href);
-        // marked escapes the alt text once already (escape$1(text)).
+        // marked escapes the alt text and title once already (escape$1(text),
+        // escape$1(image.title) in outputLink); escaping again double-encodes.
         const alt = text === null || text === undefined ? "" : text;
         if (url === null) return alt;
         let out = '<img src="' + escapeHtml(url) + '" alt="' + alt + '"';
-        if (title) out += ' title="' + escapeHtml(title) + '"';
+        if (title) out += ' title="' + title + '"';
         return out + ">";
       },
     },

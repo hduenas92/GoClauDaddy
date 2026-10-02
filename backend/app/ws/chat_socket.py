@@ -26,7 +26,7 @@ from app.services import claude_cli
 from app.services import conversations_service as convs
 from app.services import projects_service as projects
 from app.services.process_registry import registry
-from app.services.redact import redact_secrets as redact
+from app.services.redact import redact_secrets
 
 log = get_logger("chat_socket")
 
@@ -439,7 +439,8 @@ async def _handle_send_inner(
                 # line may contain credentials), forward fixed copy to the
                 # client as a visible non-fatal notice, and deliberately do NOT
                 # append it to text_parts — it is not Claude's reply.
-                log.warning("Non-JSON CLI stdout line ignored: %s", redact(event.get("text", "")))
+                cleaned = redact_secrets(event.get("text", ""))
+                log.warning("Non-JSON CLI stdout line ignored: %s", cleaned)
                 event = {"type": "notice", "text": NON_JSON_NOTICE_TEXT}
 
             # P2-E checkpoint rules, applied BEFORE the event is forwarded so a
