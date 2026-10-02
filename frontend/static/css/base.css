@@ -2507,8 +2507,8 @@ textarea::placeholder {
    ============================================================ */
 .rsb-panel {
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.35);
-  border-radius: 6px;
-  margin: 0 10px 10px;
+  border-radius: var(--radius-6);
+  margin: 0 var(--sp-10) var(--sp-10);
   background: rgba(var(--surface-rgb) / 0.35);
   overflow: hidden;
   flex-shrink: 0;
@@ -2516,14 +2516,14 @@ textarea::placeholder {
 .rsb-panel > summary {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: var(--sp-6);
+  padding: var(--sp-6) var(--sp-10);
   cursor: pointer;
   list-style: none;
   user-select: none;
   border-bottom: 1px solid rgba(var(--accent-rgb) / 0.25);
   background: rgba(var(--panel-rgb) / 0.8);
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
   color: var(--text-secondary);
   letter-spacing: 0.08em;
@@ -2539,21 +2539,21 @@ textarea::placeholder {
 }
 .rsb-panel-badge {
   margin-left: auto;
-  font-size: 10px;
+  font-size: var(--fs-10);
   font-weight: 700;
   letter-spacing: 0.06em;
-  padding: 0 6px;
-  border-radius: 8px;
+  padding: 0 var(--sp-6);
+  border-radius: var(--radius-lg);
   background: rgba(var(--accent-rgb) / 0.15);
   color: var(--accent-hi);
   font-variant-numeric: tabular-nums;
 }
-.rsb-panel-arrow { font-size: 10px; opacity: 0.4; transition: transform 0.15s; }
+.rsb-panel-arrow { font-size: var(--fs-10); opacity: 0.4; transition: transform 0.15s; }
 .rsb-panel[open] > summary .rsb-panel-arrow { transform: rotate(90deg); }
-.rsb-panel-body { padding: 6px 10px 10px; }
+.rsb-panel-body { padding: var(--sp-6) var(--sp-10) var(--sp-10); }
 .rsb-project-dir {
   word-break: break-all;
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: var(--text-muted);
   font-family: var(--font-shell);
 }
@@ -2608,23 +2608,23 @@ textarea::placeholder {
 [data-theme="cyberpunk-console"] #sidebar-projects,
 [data-theme="cyberpunk-console"] #sidebar-conversations {
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.35);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   background: rgba(var(--surface-rgb) / 0.35);
-  padding: 8px;
-  margin-bottom: 10px;
+  padding: var(--sp-8);
+  margin-bottom: var(--sp-10);
 }
 [data-theme="cyberpunk-console"] #sidebar-projects::before,
 [data-theme="cyberpunk-console"] #sidebar-conversations::before {
   display: block;
   font-family: var(--font-hud);
-  font-size: 10px;
+  font-size: var(--fs-10);
   font-weight: 700;
   letter-spacing: 0.1em;
   color: var(--accent-hi);
   text-shadow: 0 0 8px rgba(var(--accent-hi-rgb) / 0.35);
   border-bottom: 1px solid rgba(var(--accent-rgb) / 0.3);
-  padding: 0 2px 6px;
-  margin-bottom: 8px;
+  padding: 0 var(--sp-2) var(--sp-6);
+  margin-bottom: var(--sp-8);
 }
 [data-theme="cyberpunk-console"] #sidebar-projects::before { content: "// PROJECTS"; }
 [data-theme="cyberpunk-console"] #sidebar-conversations::before { content: "// MESSAGES"; }
@@ -2637,7 +2637,7 @@ textarea::placeholder {
 }
 [data-theme="cyberpunk-console"] .conv-title-text {
   font-family: var(--font-hud);
-  font-size: 13px;
+  font-size: var(--fs-13);
   letter-spacing: 0.06em;
 }
 [data-theme="cyberpunk-console"] .conv-subtitle { font-family: var(--font-shell); }
@@ -2648,7 +2648,7 @@ textarea::placeholder {
 [data-theme="cyberpunk-console"] .msg {
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.4);
   background: rgba(var(--panel-rgb) / 0.72);
-  border-radius: 6px;
+  border-radius: var(--radius-6);
   box-shadow: 0 0 16px rgba(var(--accent-rgb) / 0.12);
   overflow: hidden;
 }
@@ -2656,14 +2656,14 @@ textarea::placeholder {
   order: 0;
   width: 100%;
   margin: 0;
-  padding: 5px 10px;
+  padding: var(--sp-5) var(--sp-10);
   border-bottom: 1px solid rgba(var(--accent-rgb) / 0.35);
   background: rgba(var(--surface-rgb) / 0.55);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-family: var(--font-shell);
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 [data-theme="cyberpunk-console"] .msg .stage-strip { order: 1; border-radius: 0; }
 [data-theme="cyberpunk-console"] .msg .msg-bubble {
@@ -2674,28 +2674,28 @@ textarea::placeholder {
   background: transparent;
   box-shadow: none;
   border-radius: 0;
-  padding: 12px 14px;
+  padding: var(--sp-12) var(--sp-14);
 }
-[data-theme="cyberpunk-console"] .msg .msg-actions { order: 3; padding: 0 10px 8px; }
+[data-theme="cyberpunk-console"] .msg .msg-actions { order: 3; padding: 0 var(--sp-10) var(--sp-8); }
 
 /* Code blocks: header bar (language + copy button) above the code body. */
 [data-theme="cyberpunk-console"] .msg-bubble pre {
   background: rgb(var(--ground-rgb));
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.8);
   box-shadow: 0 0 22px rgba(var(--accent-rgb) / 0.28), 0 0 2px rgba(var(--accent-hi-rgb) / 1);
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 0;
   overflow-x: auto;
-  margin: 8px 0;
+  margin: var(--sp-8) 0;
 }
 [data-theme="cyberpunk-console"] .msg-bubble pre code {
   display: block;
-  padding: 12px;
-  font-size: 12px;
+  padding: var(--sp-12);
+  font-size: var(--fs-12);
 }
 [data-theme="cyberpunk-console"] .code-copy-btn {
-  top: 5px;
-  right: 6px;
+  top: var(--sp-5);
+  right: var(--sp-6);
   font-family: var(--font-shell);
   text-transform: uppercase;
 }
@@ -2703,10 +2703,10 @@ textarea::placeholder {
 /* Status strip under the chat: bordered console row. */
 [data-theme="cyberpunk-console"] .chat-status {
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.4);
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: rgba(var(--ground-rgb) / 0.55);
-  padding: 6px 12px;
-  margin: 0 4px 2px;
+  padding: var(--sp-6) var(--sp-12);
+  margin: 0 var(--sp-4) var(--sp-2);
   color: var(--text-secondary);
 }
 
@@ -2718,7 +2718,7 @@ textarea::placeholder {
   color: var(--accent-hi);
   font-family: var(--font-shell);
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--fs-14);
   line-height: 40px;
   user-select: none;
   flex-shrink: 0;
@@ -2726,8 +2726,8 @@ textarea::placeholder {
 }
 [data-theme="cyberpunk-console"] #composer-footer {
   border-top: 1px solid rgba(var(--accent-hi-rgb) / 0.25);
-  margin-top: 8px;
-  padding-top: 6px;
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-6);
 }
 
 /* P2-U idle-CPU: the empty-state glyph's infinite text-shadow pulse is the
@@ -2742,7 +2742,7 @@ textarea::placeholder {
    Header content wraps instead of clipping; the composer row wraps so the input
    keeps a usable width; the right sidebar becomes an overlay at narrow widths
    (still toggleable) instead of crushing the chat pane. ---- */
-#chat-header { flex-wrap: wrap; row-gap: 4px; }
+#chat-header { flex-wrap: wrap; row-gap: var(--sp-4); }
 .header-btn { white-space: nowrap; }
 #composer-row { flex-wrap: wrap; }
 #composer-input { flex: 1 1 160px; min-width: 0; }
@@ -2911,8 +2911,8 @@ textarea::placeholder {
 .meter-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 0;
+  gap: var(--sp-8);
+  padding: var(--sp-4) 0;
 }
 .meter-left {
   display: flex;
@@ -2923,7 +2923,7 @@ textarea::placeholder {
   width: 104px;
 }
 .meter-ref {
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: var(--text-muted);
   font-family: var(--font-shell);
   white-space: nowrap;
@@ -2933,14 +2933,14 @@ textarea::placeholder {
   min-width: 36px;
   height: 6px;
   background: rgba(var(--accent-rgb) / 0.12);
-  border-radius: 3px;
+  border-radius: var(--radius-3);
   overflow: hidden;
 }
 .meter-pct {
   flex-shrink: 0;
   min-width: 40px;
   text-align: right;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-family: var(--font-shell);
   color: var(--accent-hi);
   font-variant-numeric: tabular-nums;
@@ -2951,11 +2951,11 @@ textarea::placeholder {
    below it, and the pre stays the scrollable code body. ---- */
 .code-frame {
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.8);
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: rgb(var(--ground-rgb));
   box-shadow: 0 0 22px rgba(var(--accent-rgb) / 0.28), 0 0 2px rgba(var(--accent-hi-rgb) / 1);
   overflow: hidden;
-  margin: 8px 0;
+  margin: var(--sp-8) 0;
 }
 .msg-bubble .code-frame pre {
   margin: 0;
@@ -2969,27 +2969,27 @@ textarea::placeholder {
 .code-tabbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: var(--sp-8);
+  padding: var(--sp-6) var(--sp-10);
   background: rgba(var(--surface-rgb) / 0.9);
   border-bottom: 1px solid rgba(var(--accent-rgb) / 0.55);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .code-lang-pill {
-  font-size: 10px;
+  font-size: var(--fs-10);
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--accent-hi);
   background: rgba(var(--accent-rgb) / 0.15);
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.55);
-  border-radius: 3px;
-  padding: 1px 6px;
+  border-radius: var(--radius-3);
+  padding: 1px var(--sp-6);
   font-family: var(--font-shell);
 }
 .code-status-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: rgb(var(--cta-rgb));
   box-shadow: 0 0 6px rgba(var(--cta-rgb) / 0.8);
   flex-shrink: 0;
@@ -3012,11 +3012,11 @@ textarea::placeholder {
 .code-statusline {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
-  padding: 4px 10px;
+  gap: var(--sp-8);
+  padding: var(--sp-4) var(--sp-10);
   background: rgba(var(--surface-rgb) / 0.9);
   border-top: 1px solid rgba(var(--accent-rgb) / 0.55);
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-family: var(--font-shell);
   color: var(--text-secondary);
 }
@@ -3032,13 +3032,13 @@ textarea::placeholder {
    dock shrinks with the 32px page gutter (px-4 on both sides). ---- */
 #composer {
   position: fixed;
-  bottom: 12px;
+  bottom: var(--sp-12);
   left: 50%;
   transform: translateX(-50%);
   width: min(896px, calc(100vw - 32px));
   margin: 0;
   z-index: 30;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
 }
 #chat-scroll {
   padding-bottom: 148px;
