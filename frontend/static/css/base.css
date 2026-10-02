@@ -2171,9 +2171,9 @@ kbd {
   background: rgba(var(--panel-rgb) / 0.97);
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.5);
   color: var(--text);
-  font-size: 11px;
-  padding: 3px 7px;
-  border-radius: 3px;
+  font-size: var(--fs-11);
+  padding: var(--sp-3) var(--sp-7);
+  border-radius: var(--radius-3);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s;
@@ -2202,21 +2202,21 @@ kbd {
 .budget-bar-wrap {
   height: 4px;
   background: rgba(var(--accent-rgb) / 0.1);
-  border-radius: 2px;
-  margin: 5px 0 4px;
+  border-radius: var(--radius-2);
+  margin: var(--sp-5) 0 var(--sp-4);
   overflow: hidden;
 }
 .budget-bar-fill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--radius-2);
   transition: width 0.4s ease;
 }
 .budget-normal { background: var(--teal); }
 .budget-warn   { background: var(--amber); box-shadow: 0 0 6px rgba(var(--working-rgb) / 0.5); }
 .budget-crit   { background: var(--rose);  box-shadow: 0 0 6px rgba(var(--error-rgb) / 0.5); }
-.budget-link-row { margin-top: 2px; }
+.budget-link-row { margin-top: var(--sp-2); }
 .budget-link {
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--accent-hi);
   text-decoration: none;
   transition: color 0.15s;
@@ -2232,14 +2232,14 @@ kbd {
   background: rgba(var(--ground-rgb) / 0.97);
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.6);
   box-shadow: 0 0 24px rgba(var(--accent-rgb) / 0.2);
-  border-radius: 6px;
-  padding: 12px 14px;
-  font-size: 11px;
+  border-radius: var(--radius-6);
+  padding: var(--sp-12) var(--sp-14);
+  font-size: var(--fs-11);
   color: var(--text);
   max-width: 320px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--sp-6);
   animation: toast-in 0.3s ease;
 }
 @keyframes toast-in {
@@ -2250,17 +2250,17 @@ kbd {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--sp-8);
 }
-.cost-toast-title { font-weight: 700; color: var(--teal-b); font-size: 11px; }
+.cost-toast-title { font-weight: 700; color: var(--teal-b); font-size: var(--fs-11); }
 .cost-toast-close {
   background: none; border: none; color: var(--text2);
-  cursor: pointer; font-size: 11px; padding: 0; flex-shrink: 0;
+  cursor: pointer; font-size: var(--fs-11); padding: 0; flex-shrink: 0;
 }
 .cost-toast-close:hover { color: var(--rose); }
-.cost-toast-body { color: var(--text2); font-size: 11px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.cost-toast-body { color: var(--text2); font-size: var(--fs-11); line-height: 1.5; font-variant-numeric: tabular-nums; }
 .cost-toast-link {
-  font-size: 11px; color: var(--accent-hi);
+  font-size: var(--fs-11); color: var(--accent-hi);
   text-decoration: none;
 }
 .cost-toast-link:hover { color: var(--teal-b); }
@@ -2273,9 +2273,9 @@ kbd {
   background: rgba(var(--ground-rgb) / 0.97);
   border: 1px solid rgba(var(--error-rgb) / 0.6);
   box-shadow: 0 0 24px rgba(var(--error-rgb) / 0.15);
-  border-radius: 6px;
-  padding: 12px 14px;
-  font-size: 11px;
+  border-radius: var(--radius-6);
+  padding: var(--sp-12) var(--sp-14);
+  font-size: var(--fs-11);
   color: var(--text);
   max-width: 320px;
   animation: toast-in 0.3s ease;
@@ -2283,12 +2283,12 @@ kbd {
 .error-toast-content {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--sp-8);
 }
 .error-toast-icon { color: var(--error); font-weight: 700; flex-shrink: 0; }
 .error-toast-close {
   background: none; border: none; color: var(--text2);
-  cursor: pointer; font-size: 11px; padding: 0; flex-shrink: 0; margin-left: auto;
+  cursor: pointer; font-size: var(--fs-11); padding: 0; flex-shrink: 0; margin-left: auto;
 }
 .error-toast-close:hover { color: var(--error); }
 
@@ -2302,9 +2302,9 @@ kbd {
   transform: translateX(-50%);
   background: var(--elev);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 11px;
+  border-radius: var(--radius-6);
+  padding: var(--sp-8) var(--sp-16);
+  font-size: var(--fs-11);
   color: var(--text2);
   z-index: 500;
   pointer-events: none;
@@ -2317,21 +2317,21 @@ kbd {
 }
 
 .assess-level {
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 700;
   letter-spacing: 0.08em;
-  margin: 8px 0 6px;
+  margin: var(--sp-8) 0 var(--sp-6);
 }
 .assess-summary {
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--text2);
-  margin-bottom: 8px;
+  margin-bottom: var(--sp-8);
   line-height: 1.5;
 }
 .assess-concerns {
-  margin: 0 0 10px 16px;
+  margin: 0 0 var(--sp-10) var(--sp-16);
   padding: 0;
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--text2);
   line-height: 1.6;
 }
@@ -2340,22 +2340,22 @@ kbd {
    APPROVAL MODAL
    ============================================================ */
 .approval-tool {
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--teal-b);
   background: rgba(var(--accent-hi-rgb) / 0.08);
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.2);
-  border-radius: 4px;
-  padding: 6px 10px;
+  border-radius: var(--radius);
+  padding: var(--sp-6) var(--sp-10);
 }
 .approval-action {
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--text2);
   line-height: 1.5;
   margin: 0;
   word-break: break-word;
 }
 .approval-risk-note {
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--text);
   margin: 0;
 }
@@ -2363,9 +2363,9 @@ kbd {
    deliberately NOT aria-live — the polite announcement below fires once at the
    20 s mark instead of chattering every second. */
 .approval-countdown {
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--amber);
-  margin: 6px 0 2px;
+  margin: var(--sp-6) 0 var(--sp-2);
   font-variant-numeric: tabular-nums;
 }
 /* Visually-hidden utility used for screen-reader-only text (H3 conv-dot too). */
@@ -2382,20 +2382,20 @@ kbd {
 }
 /* Settings panel approval-specific helpers */
 .drawer-badge-exp {
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
   letter-spacing: 0.06em;
   color: var(--amber, var(--working));
   border: 1px solid var(--amber, var(--working));
-  border-radius: 3px;
-  padding: 1px 4px;
+  border-radius: var(--radius-3);
+  padding: 1px var(--sp-4);
   vertical-align: middle;
-  margin-left: 4px;
+  margin-left: var(--sp-4);
   text-transform: uppercase;
 }
 .drawer-hint-risk {
   color: var(--amber, var(--working));
-  margin-top: 2px;
+  margin-top: var(--sp-2);
 }
 
 
@@ -2444,51 +2444,51 @@ textarea::placeholder {
   z-index: 1000;
   background: var(--panel);
   color: var(--accent-hi);
-  padding: 8px 14px;
+  padding: var(--sp-8) var(--sp-14);
   border: 1px solid rgba(var(--accent-hi-rgb) / 0.6);
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: var(--radius);
+  font-size: var(--fs-12);
   text-decoration: none;
 }
 .skip-link:focus {
-  left: 8px;
-  top: 8px;
+  left: var(--sp-8);
+  top: var(--sp-8);
 }
 
 /* ---- P2-B carry-over states that had NO CSS. The notice must read as an
    ERROR (Houston): rose text on a rose-tinted panel, through tokens. ---- */
 .chat-notice {
-  margin: 4px 0;
-  padding: 8px 12px;
+  margin: var(--sp-4) 0;
+  padding: var(--sp-8) var(--sp-12);
   border: 1px solid rgba(var(--error-rgb) / 0.45);
   border-left: 3px solid var(--error);
   background: rgba(var(--error-rgb) / 0.12);
   color: var(--error);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-family: var(--font-shell);
   line-height: 1.5;
-  border-radius: 4px;
+  border-radius: var(--radius);
 }
 .chat-connection-error {
-  padding: 20px 16px;
+  padding: 20px var(--sp-16);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sp-12);
   align-items: flex-start;
   border: 1px solid rgba(var(--error-rgb) / 0.5);
   background: rgba(var(--error-rgb) / 0.08);
   color: var(--text);
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: var(--radius-6);
+  font-size: var(--fs-12);
 }
 #chat-retry-btn {
   background: var(--teal);
   color: var(--ground);
   border: 1px solid var(--teal-b);
-  border-radius: 4px;
-  padding: 6px 16px;
+  border-radius: var(--radius);
+  padding: var(--sp-6) var(--sp-16);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 700;
   cursor: pointer;
 }
