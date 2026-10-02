@@ -1,8 +1,9 @@
+from app.config import DEFAULT_MODEL
 from app.services.claude_cli import build_command
 
 
 def test_minimal_command():
-    cmd = build_command(prompt="hi", model="claude-sonnet-4-6")
+    cmd = build_command(prompt="hi", model=DEFAULT_MODEL)
     assert cmd == [
         "claude",
         "-p",
@@ -10,7 +11,7 @@ def test_minimal_command():
         "stream-json",
         "--verbose",
         "--model",
-        "claude-sonnet-4-6",
+        DEFAULT_MODEL,
         "hi",
     ]
 

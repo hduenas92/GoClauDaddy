@@ -14,14 +14,15 @@ This file tests the backend data the frontend depends on, not the JS math.
 import pytest
 from fastapi.testclient import TestClient
 
+from app.config import MODELS
 from app.main import app
 from app.services import conversations_service as convs
 
 client = TestClient(app)
 
 HAIKU = "claude-haiku-4-5-20251001"
-SONNET = "claude-sonnet-4-6"
-OPUS = "claude-opus-4-5"
+SONNET = MODELS[0]["id"]
+OPUS = MODELS[1]["id"]
 
 
 def _config_windows():

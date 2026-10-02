@@ -45,6 +45,7 @@ import app.services.attachments_service as att_svc
 import app.services.claude_cli as claude_cli_mod
 import app.services.dir_picker as dir_picker_mod
 import app.startup_check as startup_mod
+from app.config import DEFAULT_MODEL
 from app.main import app
 from app.services import conversations_service as convs
 
@@ -145,7 +146,7 @@ async def test_l1_claude_streaming_exception_logs_stack(monkeypatch, caplog):
     monkeypatch.setattr(claude_cli_mod.asyncio, "create_subprocess_exec", fake_exec)
 
     events = []
-    async for ev in claude_cli_mod.run(prompt="hi", model="claude-sonnet-4-6", cwd="."):
+    async for ev in claude_cli_mod.run(prompt="hi", model=DEFAULT_MODEL, cwd="."):
         events.append(ev)
 
     assert any(e.get("type") == "error" for e in events), events

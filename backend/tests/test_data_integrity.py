@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 
 import app.services.claude_cli as claude_cli_mod
+from app.config import MODELS
 from app.db.connection import get_connection
 from app.main import app
 from app.routers import server as server_mod
@@ -32,8 +33,8 @@ from fastapi.testclient import TestClient
 client = TestClient(app)
 
 HAIKU = "claude-haiku-4-5-20251001"
-OPUS = "claude-opus-4-5"
-SONNET = "claude-sonnet-4-6"
+OPUS = MODELS[1]["id"]
+SONNET = MODELS[0]["id"]
 
 
 # ---------------------------------------------------------------------------

@@ -2,12 +2,16 @@ from dataclasses import replace as dataclasses_replace
 
 from fastapi.testclient import TestClient
 
-from app.config import DEFAULT_MODEL
+from app.config import DEFAULT_MODEL, MODELS
 from app.db.connection import get_connection
 from app.main import app
 from app.services import conversations_service as svc
 
 client = TestClient(app)
+
+# A valid model that is not the default, so the healing path proves it leaves a
+# known-good stored model alone.
+VALID_MODEL = MODELS[1]["id"]
 
 
 def test_create_get_roundtrip(temp_db):
@@ -65,11 +69,11 @@ def _set_model_directly(conv_id, model):
 
 def test_valid_model_is_untouched(temp_db):
     conv_id = client.post("/api/conversations", json={}).json()["id"]
-    _set_model_directly(conv_id, "claude-opus-4-5")
+    _set_model_directly(conv_id, VALID_MODEL)
     res = client.get(f"/api/conversations/{conv_id}")
     assert res.status_code == 200
     body = res.json()
-    assert body["conversation"]["model"] == "claude-opus-4-5"
+    assert body["conversation"]["model"] == VALID_MODEL
     assert body["model_correction"] is None
 
 

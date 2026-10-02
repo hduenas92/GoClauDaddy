@@ -7,7 +7,7 @@ is one formula. The divergence moved into its INPUTS: three call sites passed
 `m.model`, the model the message was actually generated under.
 
 So switching a conversation's model retroactively repriced every earlier
-message. Haiku -> Opus is 5x input and 5x output ($1/$5 -> $5/$25 per million):
+message. Haiku -> Opus is 4x input and 4x output ($1/$5 -> $4/$20 per million):
 the number on screen moved without a single token being spent.
 
 The invariant below is the one that catches it, and it is deliberately stated
@@ -21,13 +21,14 @@ matching case here.
 
 from fastapi.testclient import TestClient
 
+from app.config import MODELS
 from app.main import app
 from app.services import conversations_service as convs
 
 client = TestClient(app)
 
 HAIKU = "claude-haiku-4-5-20251001"   # $1 / $5 per million
-OPUS = "claude-opus-4-5"              # $5 / $25 per million
+OPUS = MODELS[1]["id"]                # Opus 5.5: $4 / $20 per million
 
 
 def _conv_with_a_haiku_turn(temp_db):

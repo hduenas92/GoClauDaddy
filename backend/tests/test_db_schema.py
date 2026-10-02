@@ -21,7 +21,7 @@ def test_v1_db_upgrades_to_latest_without_data_loss(tmp_path, monkeypatch):
     conn.executescript(_SCHEMA_SQL)
     conn.execute(
         "INSERT INTO conversations (id, project_id, name, session_id, model, permission_mode, status, created_at, updated_at)"
-        " VALUES ('c1', NULL, 'Old Chat', NULL, 'claude-sonnet-4-6', NULL, 'idle', 'now', 'now')"
+        " VALUES ('c1', NULL, 'Old Chat', NULL, 'claude-sonnet-5-5', NULL, 'idle', 'now', 'now')"
     )
     conn.execute("INSERT INTO schema_version (version) VALUES (1)")
     conn.commit()
@@ -137,7 +137,7 @@ def test_v18_db_loses_the_unconsumed_tables_on_upgrade(tmp_path, monkeypatch):
     conn.execute(
         "INSERT INTO conversations (id, project_id, name, session_id, model, permission_mode,"
         " status, created_at, updated_at)"
-        " VALUES ('keep-me', NULL, 'Real Chat', NULL, 'claude-sonnet-4-6', NULL, 'idle', 'now', 'now')"
+        " VALUES ('keep-me', NULL, 'Real Chat', NULL, 'claude-sonnet-5-5', NULL, 'idle', 'now', 'now')"
     )
     conn.execute("DELETE FROM schema_version")
     conn.execute("INSERT INTO schema_version (version) VALUES (18)")
