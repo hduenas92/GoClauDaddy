@@ -134,9 +134,7 @@
      #07070B ground · #0F0F17 panel · #141320 surface · #1A192A elevated
      #14B8A6 / #2DD4BF teal · #38BDF8 sky · #FBBF24 amber · #F43F5E rose
      #34D399 green · #A78BFA violet · #F8FAFC text · #94A3B8 muted
-   Channel triplets only — every component rule composes from these tokens,
-   and honeycomb.js re-reads --accent-rgb/--accent-hi-rgb on data-theme
-   changes (honeycomb.js:22-35), so the canvas re-tints from this block.
+   Channel triplets only — every component rule composes from these tokens.
    ============================================================ */
 [data-theme="cyberpunk-console"] {
   --ground-rgb:        7 7 11;
@@ -175,8 +173,8 @@
   --role-system:      var(--violet);
   --role-error:       rgb(var(--rose-rgb));
   --status-warn:      rgb(var(--amber-rgb));
-  /* lvl-info sits on the LOG console, whose backdrop is the honeycomb + the
-     panel glow bloom (teal-tinted, brighter than the old flat panel). The
+  /* lvl-info sits on the LOG console, whose backdrop is the panel glow
+     bloom (teal-tinted, brighter than the old flat panel). The
      mockup sky (#38BDF8) measured 2.97:1 there, and P2-W's light sky
      (#BAE6FD) cleared the old dimmer bloom but fell to 4.46:1 once P2-X
      strengthened the glow — so the info role uses an even lighter sky step
@@ -202,20 +200,7 @@ html, body {
 ::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb) / 0.35); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(var(--accent-hi-rgb) / 0.7); }
 
-/* ---- canvas & ambient ---- */
-#honeycombCanvas {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  width: 100%;
-  height: 100%;
-}
-/* P2-Y: the mockup canvas sits at z-0 BEHIND the ambient wash (both are
-   z-0, and the wash comes later in DOM order — screen.html:172,174). The
-   canvas must not paint above the wash; #app still sits above both at
-   z-index 10. */
-[data-theme="cyberpunk-console"] .honeycomb-canvas { opacity: 1; z-index: 0; }
+/* ---- ambient ---- */
 .ambient-bg {
   position: fixed;
   inset: 0;
@@ -249,19 +234,6 @@ html, body {
   background: var(--ambient-blob-violet);
   filter: blur(170px);
   pointer-events: none;
-}
-.scanline-overlay {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 200;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(var(--shadow-rgb) / 0) 0px,
-    rgba(var(--shadow-rgb) / 0) 2px,
-    rgba(var(--shadow-rgb) / 0.16) 2px,
-    rgba(var(--shadow-rgb) / 0.16) 4px
-  );
 }
 
 /* ---- layout ---- */
@@ -1287,8 +1259,7 @@ details.drawer-advanced[open] .drawer-advanced-summary::before { content: "▼";
   inset: 0;
   background: rgba(var(--shadow-rgb) / 0.75);
   backdrop-filter: blur(6px);
-  /* P2-D: was 200 — tied with .scanline-overlay (z 200), so paint order decided
-     which sat on top. The tour must outrank the always-on scanline layer. */
+  /* P2-D: the tour must outrank every full-viewport layer. */
   z-index: 300;
   display: flex;
   align-items: center;
@@ -1762,7 +1733,7 @@ pre { position: relative; }
   top: 6px;
   right: 6px;
   /* P2-X: opaque surface ground — the translucent accent tint let the
-     honeycomb/glow bleed through behind the 11px label and pulled the lit
+     ambient glow bleed through behind the 11px label and pulled the lit
      theme's COPY button to 4.44:1 (needs 4.5). text-secondary is the same
      value as text-muted in cyber, brighter in lit. */
   background: rgb(var(--surface-rgb));
@@ -2726,9 +2697,8 @@ textarea::placeholder {
 }
 
 /* P2-U idle-CPU: the empty-state glyph's infinite text-shadow pulse is the
-   one continuous CSS animation left after the honeycomb settles. The cyber
-   theme uses a static glow instead, which keeps perf-check's 6% idle gate
-   (tools/perf-check.mjs:53) with its threshold untouched. */
+   one continuous CSS animation left. The cyber theme uses a static glow
+   instead. */
 [data-theme="cyberpunk-console"] .empty-state-glyph {
   animation: none;
   text-shadow: 0 0 24px rgba(var(--accent-rgb) / 0.45);
@@ -3041,7 +3011,7 @@ textarea::placeholder {
 }
 
 /* ============================================================
-   P2-W — VISUAL FIDELITY REWORK (honeycomb / glow / color roles)
+   P2-W — VISUAL FIDELITY REWORK (glow / color roles)
    ============================================================ */
 
 /* ---- 1. Per-surface glow, scaled to the mockup's own per-surface shadows

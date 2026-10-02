@@ -3,9 +3,9 @@
  *
  * Copied unchanged from ../_wcag/contrast-check.mjs (designed by Opus,
  * 2026-09-25) except this header. Why pixels and not computed styles: this app
- * paints a honeycomb <canvas> behind content and uses translucent surfaces, so
- * walking ancestor background-color gives the wrong answer exactly where it
- * matters. Method, per UI state:
+ * composites a fixed ambient background behind content and uses translucent
+ * surfaces, so walking ancestor background-color gives the wrong answer exactly
+ * where it matters. Method, per UI state:
  *   1. Collect every visible text-bearing element (direct non-blank text node,
  *      or an input/textarea with a value or placeholder). Visible = has client
  *      rects inside the viewport AND is the hit-test target at its centre (so

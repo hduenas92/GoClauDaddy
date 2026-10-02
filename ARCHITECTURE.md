@@ -37,7 +37,7 @@ frontend/
     css/                 # base.css (app styles) + vendor/ (highlight.js theme)
     js/
       main.js             # boots the app, wires panels/settings/shortcuts together
-      honeycomb.js        # decorative animated honeycomb canvas background
+      # honeycomb background and scanline overlay removed 2026-10-02 (scrapped for the new design)
       api/http.js         # thin REST wrapper
       api/socket.js       # one WebSocket per conversation; JSON send/receive dispatch
       api/template_cache.js # in-memory flow-template cache shared by pickers

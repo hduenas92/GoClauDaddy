@@ -628,85 +628,6 @@ await trapCase('onboarding tour', { onboarded: false }, async () => {}, '.ob-ove
 }
 
 // ===========================================================================
-// 2.2.2 — honeycomb animation under prefers-reduced-motion
-// ===========================================================================
-{
-  // Normal motion: the mockup animates continuously (time += 0.008 inside an
-  // unconditional requestAnimationFrame(render) loop, screen.html:855,921), and
-  // P2-Y removed the old 5 s settle-and-freeze — so the normal-motion half now
-  // proves the loop KEEPS ticking through 5+ s idle windows. Reduced motion:
-  // the loop never starts, which is the 2.2.2 guarantee this case exists for.
-  async function measureMotion(reduced) {
-    const ctx = await browser.newContext({
-      viewport: { width: 600, height: 400 },
-      reducedMotion: reduced ? 'reduce' : 'no-preference',
-    });
-    const page = await ctx.newPage();
-    await ctx.addInitScript(() => {
-      try { localStorage.setItem('gca_onboarded', '1'); } catch {}
-      window.__rafCount = 0;
-      const orig = window.requestAnimationFrame;
-      window.requestAnimationFrame = function (cb) {
-        window.__rafCount += 1;
-        return orig.call(this, cb);
-      };
-    });
-    await page.goto(URL, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1000);
-    // Headless Chromium often reports document.hasFocus() === false; honeycomb's
-    // own focus listener flips its hasFocus flag on.
-    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await page.waitForTimeout(500);
-    const t1 = await page.evaluate(() => window.__rafCount);
-    await page.waitForTimeout(600);
-    const t2 = await page.evaluate(() => window.__rafCount);
-
-    if (reduced) {
-      await ctx.close();
-      return { grew: t2 > t1, counts: { t1, t2 }, stillAnimatingAfterIdle: null, resumed: null, stillAnimatingAfterSecondIdle: null };
-    }
-
-    // P2-Y: 5+ s idle must NOT stop the loop (the old settle is gone).
-    await page.waitForTimeout(5200);
-    const s1 = await page.evaluate(() => window.__rafCount);
-    await page.waitForTimeout(700);
-    const s2 = await page.evaluate(() => window.__rafCount);
-
-    // Activity must not be required to keep it alive either — after a synthetic
-    // pointermove and another idle window it still ticks.
-    await page.evaluate(() => {
-      window.dispatchEvent(new PointerEvent('pointermove', { clientX: 10, clientY: 10, bubbles: true }));
-    });
-    await page.waitForTimeout(500);
-    const r1 = await page.evaluate(() => window.__rafCount);
-    await page.waitForTimeout(600);
-    const r2 = await page.evaluate(() => window.__rafCount);
-
-    // And it still ticks 5+ s later.
-    await page.waitForTimeout(5200);
-    const q1 = await page.evaluate(() => window.__rafCount);
-    await page.waitForTimeout(700);
-    const q2 = await page.evaluate(() => window.__rafCount);
-
-    await ctx.close();
-    return {
-      grew: t2 > t1,
-      stillAnimatingAfterIdle: s2 > s1,
-      resumed: r2 > r1,
-      stillAnimatingAfterSecondIdle: q2 > q1,
-      counts: { t1, t2, s1, s2, r1, r2, q1, q2 },
-    };
-  }
-  const normal = await measureMotion(false);
-  const reduced = await measureMotion(true);
-  const ok = normal.grew && normal.stillAnimatingAfterIdle && normal.resumed && normal.stillAnimatingAfterSecondIdle
-             && !reduced.grew;
-  add('2.2.2 honeycomb keeps continuous low-amplitude motion; reduced motion stops it', ok ? 'PASS' : 'FAIL',
-    'normal motion: rAF keeps growing through 5+ s idle windows; reduced motion: never grows',
-    `normal grew=${normal.grew} afterIdle=${normal.stillAnimatingAfterIdle} resumed=${normal.resumed} afterSecondIdle=${normal.stillAnimatingAfterSecondIdle} counts=${JSON.stringify(normal.counts)}; reduced grew=${reduced.grew} counts=${JSON.stringify(reduced.counts)}`);
-}
-
-// ===========================================================================
 // 2.4.3 — focus returns to the trigger when each overlay closes
 // ===========================================================================
 async function focusReturnCase(label, seed, openTrigger, closeAction, triggerSel, surfaceSel) {
@@ -797,12 +718,11 @@ await focusReturnCase('settings drawer', {}, async (page, trig) => { await trig.
           return out; },
       };
     ` });
-    // Freeze CSS animations + stop the honeycomb rAF by telling it the window blurred.
+    // Freeze CSS animations before the pixel sweep.
     await page.evaluate(() => {
       const st = document.createElement('style');
       st.textContent = '*,*::before,*::after{transition:none!important;animation-play-state:paused!important;caret-color:transparent!important}';
       document.head.appendChild(st);
-      window.dispatchEvent(new Event('blur'));
     });
     const controls = await page.evaluate((foc) => {
       return [...document.querySelectorAll(foc)].filter((el) => {

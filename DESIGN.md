@@ -54,7 +54,7 @@ Exactly two edits. **Never touch component CSS.** If a theme needs a component r
    ```
 2. **One `[data-theme="..."]` block** in `base.css` declaring only the `*-rgb` channel triplets. The solid convenience colors (`--accent`, `--text`, …) derive from them automatically.
 
-Everything else follows on its own: the switcher appears (it is `hidden` while `GCA_THEMES.length <= 1`), persistence works, and `honeycomb.js` re-reads its colors via a `MutationObserver` on `data-theme`.
+Everything else follows on its own: the switcher appears (it is `hidden` while `GCA_THEMES.length <= 1`) and persistence works.
 
 **Why the registry is a `window` global rather than an ES module.** The active theme must be applied to `<html>` *before first paint* or the page flashes the default theme. ES modules are deferred, so the apply happens in an inline `<script>` in `<head>` — and both that bootstrap and `settings_panel.js` need to read the same list. The global is the deliberate bridge between them, not an oversight. Treat `window.GCA_THEMES` as a real contract: changing its shape breaks both readers.
 
@@ -99,13 +99,11 @@ Spec defines a single Signal Teal `#00A3A5`. The build uses a base/emphasis pair
 
 ### 4. Ambient effects are intentional
 
-Honeycomb canvas, scanline overlay and ambient gradient appear in no Stitch spec. **Kept by explicit user decision.** Obligations that came with keeping them:
+The honeycomb canvas and scanline overlay were removed on 2026-10-02 (scrapped for the new design). The ambient gradient appears in no Stitch spec. **Kept by explicit user decision.**
 
-- Their colors are tokens, not literals — `honeycomb.js` reads `--accent-rgb` / `--accent-hi-rgb` from computed style and re-reads on `data-theme` change
-- `prefers-reduced-motion` stops the rAF loop **entirely** (a static frame, not a slower animation), so idle CPU goes to zero
-- All three carry `pointer-events: none` while covering the viewport — verified empirically, not assumed from reading CSS
+- The ambient gradient carries `pointer-events: none` while covering the viewport — verified empirically, not assumed from reading CSS
 
-Note the spec's ban on "neon outer glows" and "card shadows" is otherwise still honored in component styling; these three layers are the scoped exception.
+Note the spec's ban on "neon outer glows" and "card shadows" is otherwise still honored in component styling; the ambient gradient is the scoped exception.
 
 ### 5. Text floor is 11px
 

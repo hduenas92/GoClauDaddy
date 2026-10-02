@@ -5,7 +5,6 @@
  *   1. 100 conversations render in the sidebar    < 200 ms
  *   2. filtering that list on a keystroke         < 200 ms
  *   3. a 10,000-message conversation opens        < 3000 ms, with a loading state
- *   4. the idle canvas costs                      < 5 % CPU
  *
  * 200 ms is roughly where interaction stops feeling direct; 3 s is where a
  * person starts wondering whether they actually clicked.
@@ -24,9 +23,6 @@
  *     rendered NOTHING. Every timing case first asserts the expected element
  *     COUNT, and reports INCONCLUSIVE rather than PASS if the fixture never
  *     landed.
- *   - "the canvas uses 0.1 % CPU" is trivially true of a canvas that is not
- *     animating. Case 4 proves the animation is LIVE — by watching the canvas
- *     pixels actually change — before it will report a CPU figure at all.
  *   - a timer started before navigation measures the network, not the render.
  *     Timing starts when the fixture response is delivered.
  *
@@ -39,18 +35,6 @@ const APP = process.env.GCA_URL ?? 'http://127.0.0.1:8765';
 const T_LIST_MS = 200;
 const T_FILTER_MS = 200;
 const T_BIGCONV_MS = 3000;
-/* THE TARGET AND THE GATE ARE DIFFERENT NUMBERS, deliberately.
-   The target is 5%. The measured figure after the fix is ~5%, and three
-   consecutive runs gave 4.65%, 4.92% and 5.42% — it straddles the line, so a
-   gate set at 5 would fail roughly a third of the time for no reason but
-   noise, and a check that cries wolf gets ignored, which costs more than the
-   0.4% it was guarding.
-   The gate is therefore 6: high enough to sit above the spread, low enough
-   that the regression it exists to catch — the loop going back to running
-   unthrottled, which measured 15.4% — trips it immediately and by a wide
-   margin. 5-6 records the measured ~5% against the 5% target; this constant
-   is the alarm, not the goal. */
-const T_CANVAS_PCT = 6;
 
 const N_CONVS = 100;
 const N_MSGS = 10_000;
@@ -270,231 +254,6 @@ try {
     } finally { await ctx.close(); }
   }
 
-  // --- 4. idle canvas CPU while the ambient loop runs --------------------------
-  {
-    const label = `4. the continuously-animating idle canvas costs < ${T_CANVAS_PCT}% CPU`;
-    // reducedMotion is forced to no-preference because the number this case owns
-    // is the cost of the LIVE ambient animation. P2-Y removed the settle-and-
-    // freeze (honeycomb.js keeps a continuous low-FPS rAF loop), so the anti-
-    // vacuity proof moves INSIDE this case: before any CPU figure is trusted,
-    // prove the canvas is actually animating — a frozen canvas would be the one
-    // state this case can no longer tell apart from a cheap one without it.
-    const { ctx, page } = await pageWith(async () => false,
-                                         { reducedMotion: 'no-preference' });
-    try {
-      await page.addInitScript(() => {
-        window.__rafCount = 0;
-        const orig = window.requestAnimationFrame;
-        window.requestAnimationFrame = function (cb) {
-          window.__rafCount += 1;
-          return orig.call(this, cb);
-        };
-      });
-      await page.goto(APP, { waitUntil: 'domcontentloaded' });
-      // The loop pauses on `document.hidden || !document.hasFocus()`, so an
-      // unfocused page measures a deliberately paused canvas and would report
-      // a cheap idle figure for a reason that has nothing to do with the
-      // animation. Focus it, then PROVE it took.
-      await page.bringToFront();
-      await page.click('body', { position: { x: 5, y: 5 } }).catch(() => {});
-      await page.waitForTimeout(1500);   // boot activity only
-      const focused = await page.evaluate(() => document.hasFocus() && !document.hidden);
-      if (!focused) {
-        add(label, 'INCONCLUSIVE',
-            'the page could not be given focus, and the animation pauses when ' +
-            'unfocused by design — so this would measure the paused state, not ' +
-            'the live one');
-        throw new Error('__handled__');
-      }
-
-      const probe = await page.evaluate(async () => {
-        const c = document.getElementById('honeycombCanvas');
-        if (!c) return { present: false };
-        const g = c.getContext('2d');
-        const grab = () => Array.from(
-          g.getImageData(0, 0, Math.min(c.width, 200), Math.min(c.height, 200)).data);
-        const a = grab();
-        await new Promise((r) => setTimeout(r, 900));
-        const b = grab();
-        let diff = 0;
-        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diff++;
-        // A canvas that never drew at all is a different bug from one that
-        // drew once and stopped; the live frame must still be painted.
-        const painted = a.some((v, i) => i % 4 === 3 && v !== 0);
-        return { present: true, diff, painted };
-      });
-
-      const r1 = await page.evaluate(() => window.__rafCount);
-      await page.waitForTimeout(700);
-      const r2 = await page.evaluate(() => window.__rafCount);
-
-      if (!probe.present || !probe.painted) {
-        add(label, 'INCONCLUSIVE',
-            `no painted canvas to measure (present=${probe.present} painted=${probe.painted})`);
-      } else if (probe.diff === 0 || r2 <= r1) {
-        add(label, 'INCONCLUSIVE',
-            `the canvas is not animating (pixels changed: ${probe.diff}, rAF ` +
-            `${r1}->${r2}) — a CPU figure here would measure a frozen canvas, ` +
-            `not the live one`);
-      } else {
-        const cdp = await page.context().newCDPSession(page);
-        await cdp.send('Performance.enable');
-        const read = async () => {
-          const { metrics } = await cdp.send('Performance.getMetrics');
-          const m = Object.fromEntries(metrics.map((x) => [x.name, x.value]));
-          return { task: m.TaskDuration, ts: m.Timestamp };
-        };
-        // Warm-up first: enabling CDP disturbs the page. Then take the MEDIAN
-        // of 3 windows so a single noisy window cannot fail it. The 6% gate
-        // (T_CANVAS_PCT) is untouched.
-        await page.waitForTimeout(2000);
-        const windows = [];
-        for (let i = 0; i < 3; i++) {
-          const a = await read();
-          await page.waitForTimeout(5000);
-          const b = await read();
-          const wall = b.ts - a.ts;
-          const busy = b.task - a.task;
-          windows.push(wall > 0 ? (busy / wall) * 100 : NaN);
-        }
-        const finite = windows.filter(Number.isFinite);
-        const sorted = [...finite].sort((x, y) => x - y);
-        const median = sorted.length === 3 ? sorted[1] : NaN;
-
-        add(label, Number.isFinite(median) && median < T_CANVAS_PCT ? 'PASS' : 'FAIL',
-            `live verified: ${probe.diff} pixels changed in 900ms, rAF ` +
-            `${r1}->${r2} (ticking) · windows: ${windows.map((w) => (Number.isFinite(w) ? w.toFixed(2) : 'NaN')).join(', ')}% ` +
-            `→ median ${Number.isFinite(median) ? median.toFixed(2) : 'NaN'}% ` +
-            `(target < ${T_CANVAS_PCT}%)`);
-      }
-    } catch (err) {
-      if (err.message !== '__handled__') add(label, 'FAIL', `threw: ${err.message}`);
-    } finally { await ctx.close(); }
-  }
-  // --- 5. continuous motion: idle does NOT settle ------------------------------
-  {
-    const label = '5. activity animates the canvas; 5 s idle does NOT settle it to a still frame';
-    const { ctx, page } = await pageWith(async () => false,
-                                         { reducedMotion: 'no-preference' });
-    try {
-      await page.addInitScript(() => {
-        window.__rafCount = 0;
-        const orig = window.requestAnimationFrame;
-        window.requestAnimationFrame = function (cb) {
-          window.__rafCount += 1;
-          return orig.call(this, cb);
-        };
-      });
-      await page.goto(APP, { waitUntil: 'domcontentloaded' });
-      await page.bringToFront();
-      await page.click('body', { position: { x: 5, y: 5 } }).catch(() => {});
-      await page.waitForTimeout(800);
-
-      const samplePixels = () => page.evaluate(async () => {
-        const c = document.getElementById('honeycombCanvas');
-        if (!c) return { present: false };
-        const g = c.getContext('2d');
-        const grab = () => Array.from(
-          g.getImageData(0, 0, Math.min(c.width, 200), Math.min(c.height, 200)).data);
-        const a = grab();
-        await new Promise((r) => setTimeout(r, 900));
-        const b = grab();
-        let diff = 0;
-        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diff++;
-        return { present: true, diff };
-      });
-
-      // Activity = pointermove (one of the hover sources wired in honeycomb.js).
-      await page.evaluate(() => {
-        window.dispatchEvent(new PointerEvent('pointermove', { clientX: 12, clientY: 12, bubbles: true }));
-      });
-      await page.waitForTimeout(300);
-      const during = await samplePixels();
-
-      // Now go idle past the old 5 s settle point and prove the P2-Y behaviour:
-      // the canvas must still be animating (pixels still changing, rAF still
-      // ticking) — the settle-and-freeze was the defect this build removes.
-      await page.waitForTimeout(5600);
-      const after = await samplePixels();
-      const r1 = await page.evaluate(() => window.__rafCount);
-      await page.waitForTimeout(700);
-      const r2 = await page.evaluate(() => window.__rafCount);
-
-      if (!during.present || !after.present) {
-        add(label, 'INCONCLUSIVE', 'no #honeycombCanvas element to observe');
-      } else {
-        const ok = during.diff > 0 && after.diff > 0 && r2 > r1;
-        add(label, ok ? 'PASS' : 'FAIL',
-            `pixels changed during activity: ${during.diff} (must be > 0) · ` +
-            `pixels changed after 5 s idle: ${after.diff} (must be > 0 — continuous motion) · ` +
-            `rAF count after idle: ${r1}->${r2} (must keep ticking)`);
-      }
-    } finally { await ctx.close(); }
-  }
-  // --- 6. reduced motion actually stops the loop -----------------------------
-  {
-    const label = '6. prefers-reduced-motion stops the canvas loop entirely';
-    // Discovered by case 4 failing honestly rather than designed up front.
-    // Two things are worth asserting here, and neither was being checked:
-    // that the accessibility preference is respected at all, and that the
-    // saving is real rather than a slower animation. It is also the control
-    // for case 4 — if BOTH report an animating canvas, case 4's forcing of
-    // no-preference is doing nothing and its CPU figure means less than it
-    // appears to.
-    const { ctx, page } = await pageWith(async () => false,
-                                         { reducedMotion: 'reduce' });
-    try {
-      await page.goto(APP, { waitUntil: 'domcontentloaded' });
-      await page.waitForTimeout(2500);
-      const r = await page.evaluate(async () => {
-        const c = document.getElementById('honeycombCanvas');
-        if (!c) return { present: false };
-        const g = c.getContext('2d');
-        const grab = () => Array.from(
-          g.getImageData(0, 0, Math.min(c.width, 200), Math.min(c.height, 200)).data);
-        const a = grab();
-        await new Promise((res) => setTimeout(res, 900));
-        const b = grab();
-        // All channels, matching case 4 — a red-only comparison cannot see a
-        // grid drawn in one hue with varying alpha.
-        let diff = 0;
-        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diff++;
-        // A canvas that never drew at all is a different bug from one that
-        // drew once and stopped; the static frame should still be painted.
-        const painted = a.some((v, i) => i % 4 === 3 && v !== 0);
-        return { present: true, diff, painted,
-                 reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches };
-      });
-      if (!r.present) {
-        add(label, 'INCONCLUSIVE', 'no #honeycombCanvas element to observe');
-      } else {
-        // Measure CPU here too, giving case 4 a BASELINE. Without it, "14.7%"
-        // is a number with nothing to compare against: it could be the canvas,
-        // or it could be the SSE stream, the pollers and the rest of the app,
-        // in which case throttling the animation would achieve nothing. The
-        // difference between the two figures is the animation's real cost, and
-        // that is the number any fix has to move.
-        const cdp = await page.context().newCDPSession(page);
-        await cdp.send('Performance.enable');
-        const read = async () => {
-          const { metrics } = await cdp.send('Performance.getMetrics');
-          const m = Object.fromEntries(metrics.map((x) => [x.name, x.value]));
-          return { task: m.TaskDuration, ts: m.Timestamp };
-        };
-        const p = await read();
-        await page.waitForTimeout(5000);
-        const q = await read();
-        const wall = q.ts - p.ts;
-        const pct = wall > 0 ? ((q.task - p.task) / wall) * 100 : NaN;
-
-        add(label, r.diff === 0 && r.painted ? 'PASS' : 'FAIL',
-            `bytes changed in 900ms: ${r.diff} (must be 0) · static frame ` +
-            `painted: ${r.painted} · prefers-reduced-motion=${r.reduceMotion} · ` +
-            `CPU with the loop stopped: ${pct.toFixed(2)}% ` +
-            `(this is the BASELINE case 4 should be read against)`);
-      }
-    } finally { await ctx.close(); }
-  }
 } finally {
   await browser.close();
 }
@@ -505,5 +264,5 @@ const meh = results.filter((r) => r.state === 'INCONCLUSIVE');
 console.log(`${results.filter((r) => r.state === 'PASS').length} passed · ${bad.length} failed · ${meh.length} inconclusive · ${results.length} case(s)`);
 if (bad.length) { console.log(`\nRESULT: FAIL — ${bad.length}`); process.exit(1); }
 if (meh.length) { console.log(`\nRESULT: INCONCLUSIVE — ${meh.length}`); process.exit(2); }
-console.log('\nRESULT: PASS — responsive at 100 conversations and 10k messages, idle canvas is cheap');
+console.log('\nRESULT: PASS — responsive at 100 conversations and 10k messages');
 process.exit(0);

@@ -110,9 +110,7 @@ const PROBES = [
   { name: 'inline-code',       selector: '.msg-bubble :not(pre) > code', synthetic: true,
     props: ['color', 'backgroundColor', 'textShadow', 'fontFamily'] },
   { name: 'msg-meta',          selector: '.msg-meta',               synthetic: true, props: ['color', 'fontSize', 'fontFamily'] },
-  { name: 'honeycomb-canvas',  selector: '#honeycombCanvas',        props: ['position', 'zIndex', 'pointerEvents', 'display'] },
   { name: 'ambient-bg',        selector: '.ambient-bg',             props: ['position', 'zIndex', 'pointerEvents', 'opacity', 'backgroundImage'] },
-  { name: 'scanline-overlay',  selector: '.scanline-overlay',       props: ['position', 'zIndex', 'pointerEvents'] },
 ];
 
 /* text whose contrast must pass WCAG AA (4.5:1 normal, 3:1 large ≥18.66px bold or ≥24px) */
@@ -583,7 +581,7 @@ if (MODE_GENERALIZE) {
 // full-viewport layer stacking — the reachability question for pointer events
 results.layers = await page.evaluate(() => {
   const out = {};
-  for (const sel of ['#honeycombCanvas', '.ambient-bg', '.scanline-overlay']) {
+  for (const sel of ['.ambient-bg']) {
     const el = document.querySelector(sel);
     if (!el) { out[sel] = null; continue; }
     const cs = getComputedStyle(el);
