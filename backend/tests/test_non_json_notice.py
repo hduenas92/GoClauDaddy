@@ -7,6 +7,7 @@ an error to surface, not Claude's reply. The stream must continue through later
 valid JSON lines.
 """
 
+import json
 import threading
 
 from fastapi.testclient import TestClient
@@ -59,7 +60,9 @@ def test_non_json_line_logged_forwarded_and_not_persisted(temp_db, monkeypatch, 
                 break
         assert gen_done.wait(timeout=2.0), "generator never exhausted"
 
-    assert {"type": "notice", "text": "BANNER-GARBAGE-42"} in frames, frames
+    notice_frames = [f for f in frames if f.get("type") == "notice"]
+    assert len(notice_frames) == 1, frames
+    assert all("BANNER-GARBAGE-42" not in json.dumps(f) for f in frames), frames
     assert {"type": "text", "text": "real reply"} in frames, frames
     assert frames[-1]["type"] == "done", f"turn did not end normally: {frames!r}"
 

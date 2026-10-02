@@ -26,6 +26,7 @@ from app.services import claude_cli
 from app.services import conversations_service as convs
 from app.services import projects_service as projects
 from app.services.process_registry import registry
+from app.services.redact import redact_secrets as redact
 
 log = get_logger("chat_socket")
 
@@ -434,10 +435,12 @@ async def _handle_send_inner(
             elif ev_type in ("error", "timeout"):
                 had_error = True
             elif ev_type == "notice":
-                # Non-JSON CLI stdout (P2-B E1): log it, forward it to the
+                # Non-JSON CLI stdout (P2-B E1): log it (redacted — the raw
+                # line may contain credentials), forward fixed copy to the
                 # client as a visible non-fatal notice, and deliberately do NOT
                 # append it to text_parts — it is not Claude's reply.
-                log.warning("Non-JSON CLI stdout line ignored: %s", event.get("text", ""))
+                log.warning("Non-JSON CLI stdout line ignored: %s", redact(event.get("text", "")))
+                event = {"type": "notice", "text": NON_JSON_NOTICE_TEXT}
 
             # P2-E checkpoint rules, applied BEFORE the event is forwarded so a
             # hard kill that lands right after the client saw the frame still
@@ -524,6 +527,11 @@ async def _handle_send_inner(
 # Defined after the streaming loop on purpose: tests pin the line number of
 # the non-JSON notice log above, so this tracking state must not shift it.
 _approval_pending: set[str] = set()
+
+# Fixed copy for the non-JSON CLI stdout notice frame (P2-B E1). The raw
+# stdout line may contain credentials, so the forwarded frame carries no part
+# of it; only the server log sees the redacted text.
+NON_JSON_NOTICE_TEXT = "GoClaudaddy ignored an unexpected line from the Claude CLI."
 
 # Which websocket started the in-flight turn for each conversation. Only that
 # socket's disconnect may stop the turn (see handle_chat_socket's
