@@ -18,8 +18,23 @@
     Exit:   0 = no unexpected failures, 1 = at least one FAIL
 #>
 
+param([string]$Base = '', [switch]$AllowLive)
+
+# PowerShell variable names are case-insensitive, so a supplied $Base and the
+# script's $base below are the SAME variable: the default assignment overwrites
+# the parameter. Remember the caller's choice first.
+$baseGiven = [bool]$Base
+
+# When -Base is given the caller owns the clone's USERPROFILE/HOME and the server
+# on that base — this script must not boot run.py itself, because that would point
+# a server at the real data dir under this process's real HOME.
+if ($baseGiven -and -not $AllowLive -and $Base.Contains(':8765')) {
+    "refusing: -Base '$Base' points at the live app port 8765; pass -AllowLive to test it anyway."
+    exit 2
+}
+
 $ErrorActionPreference = 'Continue'
-$base = 'http://127.0.0.1:8765'
+$base = if ($baseGiven) { $Base } else { 'http://127.0.0.1:8765' }
 $py = '..\.venv\Scripts\python.exe'
 $logPath = Join-Path $HOME '.goclaudaddy\logs\app.log'
 
@@ -59,8 +74,14 @@ $alreadyUp = $false
 try {
     Invoke-WebRequest -Uri "$base/api/config" -TimeoutSec 3 -UseBasicParsing | Out-Null
     $alreadyUp = $true
-    "Server already running on 8765 — testing against it (will not stop it)."
+    "Server already running $(if ($baseGiven) { "at $base" } else { 'on 8765' }) — testing against it (will not stop it)."
 } catch {
+    if ($baseGiven) {
+        # Caller-supplied -Base: the caller owns the clone's USERPROFILE/HOME and
+        # its server, so we never boot run.py here (that would use the real HOME).
+        "  FAIL  no server answering at $base (-Base was given; this script only boots the default local server)"
+        exit 1
+    }
     "No server on 8765 — starting one."
     if (-not (Test-Path $py)) { "  FAIL  venv python not found at $py"; exit 1 }
     $proc = Start-Process -FilePath $py -ArgumentList 'run.py' -PassThru -WindowStyle Hidden
