@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 import sys
 import threading
 import time
@@ -53,6 +54,28 @@ def _wait_until(predicate, timeout: float = 5.0) -> bool:
             return True
         time.sleep(0.01)
     return bool(predicate())
+
+
+def _proc_dead(proc) -> bool:
+    """True when the child is gone. proc.returncode alone is not enough: asyncio sets it from the owning event loop, which the TestClient
+    tears down on exit, so under load it can stay None although registry.stop() already killed the process (the flaky qa4_7 failure)."""
+    if proc.returncode is not None:
+        return True
+    if os.name == "nt":
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        h = k32.OpenProcess(0x1000, False, proc.pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return True
+        code = ctypes.c_ulong()
+        k32.GetExitCodeProcess(h, ctypes.byref(code))
+        k32.CloseHandle(h)
+        return code.value != 259  # STILL_ACTIVE
+    try:
+        os.kill(proc.pid, 0)
+    except OSError:
+        return True
+    return False
 
 
 def _collect_until(ws, predicate, timeout: float = 5.0, max_frames: int = 200):
@@ -231,9 +254,9 @@ def test_qa4_3_response_timeout_kills_subprocess_and_surfaces_timeout(
         assert not still_reading, f"turn never terminated: {frames!r}"
         assert any(f.get("type") == "timeout" for f in frames), frames
 
-    assert _wait_until(lambda: bool(fake_spawn), timeout=2.0), "claude was never spawned"
+    assert _wait_until(lambda: bool(fake_spawn), timeout=15.0), "claude was never spawned"
     proc = fake_spawn[0]
-    assert _wait_until(lambda: proc.returncode is not None, timeout=5.0), (
+    assert _wait_until(lambda: _proc_dead(proc), timeout=15.0), (
         "timed-out claude process was not reaped (returncode still None)"
     )
     assert _wait_until(lambda: not registry.is_busy(conv_id)), "registry still busy"
@@ -359,6 +382,8 @@ def test_qa4_7_approval_timeout_is_deny_and_notice_is_shown(temp_db, fake_spawn,
 def test_qa4_7_disconnect_while_approval_pending_stops_cli(temp_db, fake_spawn, monkeypatch):
     monkeypatch.setenv("FAKE_CLAUDE_SCENARIO", "approval_echo")
     monkeypatch.setattr(chat_socket, "APPROVAL_TIMEOUT_SECONDS", 30.0)
+    # the fake would exit by itself after its approval wait; keep it alive far longer than the reap wait
+    monkeypatch.setenv("FAKE_CLAUDE_APPROVAL_WAIT", "60")
     conv_id = _new_conversation()
 
     with client.websocket_connect(f"/ws/chat/{conv_id}") as ws:
@@ -367,9 +392,9 @@ def test_qa4_7_disconnect_while_approval_pending_stops_cli(temp_db, fake_spawn, 
         assert first.get("type") == "approval_needed", first
     # socket closed with the approval still pending
 
-    assert _wait_until(lambda: bool(fake_spawn), timeout=2.0), "claude was never spawned"
+    assert _wait_until(lambda: bool(fake_spawn), timeout=15.0), "claude was never spawned"
     proc = fake_spawn[0]
-    assert _wait_until(lambda: proc.returncode is not None, timeout=5.0), (
+    assert _wait_until(lambda: _proc_dead(proc), timeout=15.0), (
         "pending-approval CLI process was not stopped after disconnect"
     )
     assert _wait_until(lambda: not registry.is_busy(conv_id)), "registry still busy after disconnect"
@@ -413,7 +438,7 @@ def test_qa4_8_stop_mid_stream_partial_saved_process_dead_registry_cleared(
     rows = _assistant_rows(conv_id)
     assert rows[0].content == "partial-", rows[0].content
     assert _wait_until(lambda: not registry.is_busy(conv_id)), "registry not cleared after stop"
-    assert _wait_until(lambda: bool(fake_spawn) and fake_spawn[0].returncode is not None, 5.0), (
+    assert _wait_until(lambda: bool(fake_spawn) and _proc_dead(fake_spawn[0]), 15.0), (
         "stopped CLI process is still running"
     )
 
@@ -437,7 +462,7 @@ def test_qa4_9_external_kill_recovers_and_conversation_is_not_stuck_busy(
         )
         assert not still_reading, f"fake CLI never started streaming: {first!r}"
 
-        assert _wait_until(lambda: bool(fake_spawn), timeout=2.0), "claude was never spawned"
+        assert _wait_until(lambda: bool(fake_spawn), timeout=15.0), "claude was never spawned"
         fake_spawn[0].kill()
 
         rest, still_reading = _collect_until(

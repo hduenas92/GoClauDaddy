@@ -111,7 +111,7 @@ def main():
     if scenario == "approval_echo":
         sys.stdout.write("Allow Bash? [y/n]\n")
         sys.stdout.flush()
-        answer = _read_stdin_line(timeout=5.0)
+        answer = _read_stdin_line(timeout=float(os.environ.get("FAKE_CLAUDE_APPROVAL_WAIT", "5.0")))
         if answer is None:
             _stderr("FAKE_CLAUDE_NO_APPROVAL_RESPONSE")
             return 3
