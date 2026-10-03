@@ -222,6 +222,26 @@
   --panel-header:     rgb(var(--accent-hi-rgb));
 }
 
+[data-theme="calm"] {
+  --ground-rgb: 16 18 20;
+  --panel-rgb: 21 23 26;
+  --surface-rgb: 27 30 33;
+  --hover-rgb: 34 38 42;
+  --border-quiet-rgb: 44 49 54;
+  --border-strong-rgb: 66 73 80;
+  --text-primary-rgb: 226 230 233;
+  --text-secondary-rgb: 168 177 184;
+  --text-muted-rgb: 146 156 164;
+  --accent-rgb: 94 168 154;
+  --accent-hi-rgb: 132 194 180;
+  --cta-rgb: 218 145 98;
+  --working-rgb: 224 196 112;
+  --success-rgb: 132 182 124;
+  --warning-rgb: 218 172 108;
+  --error-rgb: 222 120 110;
+  --shadow-rgb: 0 0 0;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
