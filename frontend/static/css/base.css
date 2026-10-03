@@ -295,6 +295,26 @@
   --fs-48: 42px;
 }
 
+[data-theme="warm"] {
+  --ground-rgb: 20 17 15;
+  --panel-rgb: 26 22 19;
+  --surface-rgb: 33 28 24;
+  --hover-rgb: 42 36 31;
+  --border-quiet-rgb: 56 48 41;
+  --border-strong-rgb: 82 71 61;
+  --text-primary-rgb: 240 232 222;
+  --text-secondary-rgb: 190 176 160;
+  --text-muted-rgb: 165 151 136;
+  --accent-rgb: 222 150 82;
+  --accent-hi-rgb: 240 180 110;
+  --cta-rgb: 224 122 86;
+  --working-rgb: 230 196 92;
+  --success-rgb: 150 182 100;
+  --warning-rgb: 226 160 80;
+  --error-rgb: 226 104 92;
+  --shadow-rgb: 0 0 0;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
