@@ -2885,6 +2885,12 @@ textarea::placeholder {
 [data-theme="cyberpunk-console"] .chat-status {
   box-shadow: 0 0 14px -2px rgba(var(--accent-hi-rgb) / 0.3);
 }
+/* An idle status line (no text) draws nothing: the bordered box only appears with a message. */
+[data-theme="cyberpunk-console"] .chat-status:empty {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
 [data-theme="cyberpunk-console"] .msg .msg-meta.status-processing {
   box-shadow: inset 0 -1px 0 rgba(var(--working-rgb) / 0.7), 0 0 10px rgba(var(--working-rgb) / 0.18);
 }
