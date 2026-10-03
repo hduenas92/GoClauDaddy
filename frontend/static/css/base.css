@@ -242,6 +242,59 @@
   --shadow-rgb: 0 0 0;
 }
 
+[data-theme="dense"] {
+  --ground-rgb: 12 12 15;
+  --panel-rgb: 17 17 24;
+  --surface-rgb: 24 24 31;
+  --hover-rgb: 31 31 42;
+  --border-quiet-rgb: 39 39 58;
+  --border-strong-rgb: 60 60 86;
+  --text-primary-rgb: 240 240 248;
+  --text-secondary-rgb: 158 158 184;
+  --text-muted-rgb: 138 138 170;
+  --accent-rgb: 0 163 165;
+  --accent-hi-rgb: 45 212 191;
+  --cta-rgb: 240 125 40;
+  --working-rgb: 255 207 23;
+  --success-rgb: 108 184 40;
+  --warning-rgb: 229 161 63;
+  --error-rgb: 236 104 92;
+  --shadow-rgb: 0 0 0;
+  --space-1: 3px;
+  --space-2: 6px;
+  --space-3: 9px;
+  --space-4: 12px;
+  --space-6: 18px;
+  --space-8: 24px;
+  --space-12: 36px;
+  --sp-2: 2px;
+  --sp-3: 2px;
+  --sp-4: 3px;
+  --sp-5: 4px;
+  --sp-6: 5px;
+  --sp-7: 5px;
+  --sp-8: 6px;
+  --sp-10: 8px;
+  --sp-12: 9px;
+  --sp-14: 10px;
+  --sp-16: 12px;
+  --sp-24: 18px;
+  --radius: 3px;
+  --radius-lg: 6px;
+  --radius-6: 4px;
+  --radius-10: 8px;
+  --radius-12: 9px;
+  --radius-20: 16px;
+  --fs-11: 10px;
+  --fs-12: 11px;
+  --fs-13: 12px;
+  --fs-14: 13px;
+  --fs-16: 14px;
+  --fs-22: 20px;
+  --fs-36: 32px;
+  --fs-48: 42px;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
