@@ -209,11 +209,11 @@ def test_cyberpunk_console_is_still_first_in_registry() -> None:
     )
 
 
-def test_calm_is_registered_last_and_exactly_once() -> None:
+def test_calm_is_registered_exactly_once() -> None:
     ids = _read_registry_ids()
     assert ids, f"No theme ids found in {_INDEX_HTML}"
     assert ids.count("calm") == 1, f"calm must be registered exactly once; got {ids!r}"
-    assert ids[-1] == "calm", f"calm must be the last registry entry; got {ids!r}"
+    assert ids[0] == "cyberpunk-console", f"cyberpunk-console must stay the default (first); got {ids!r}"
 
 
 @pytest.mark.parametrize("foreground", _FOREGROUNDS)

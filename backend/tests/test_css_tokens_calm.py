@@ -113,10 +113,32 @@ def test_calm_token_declared_once_in_root_with_exact_value(name, value):
     )
 
 
+_THEME_OPEN = re.compile(r'(?m)^\[data-theme="[^"]+"\]\s*\{')
+
+
+def _theme_blocks(text: str) -> str:
+    """Bodies of the top-level [data-theme="..."] variable blocks: themes may override tokens there (DESIGN.md)."""
+    bodies = []
+    for m in _THEME_OPEN.finditer(text):
+        i, depth = m.end(), 1
+        while depth and i < len(text):
+            depth += {"{": 1, "}": -1}.get(text[i], 0)
+            i += 1
+        bodies.append(text[m.end():i - 1])
+    return "\n".join(bodies)
+
+
+_THEME_VALUES = _group_by_name(
+    (name, value.strip()) for name, value in _DECLARATION.findall(_theme_blocks(_CSS_TEXT))
+)
+
+
 @pytest.mark.parametrize("name,value", CALM_TOKENS)
 def test_calm_token_not_declared_outside_root(name, value):
-    outside = len(_ALL_VALUES.get(name, [])) - len(_ROOT_VALUES.get(name, []))
-    assert outside == 0, f"{name} is declared {outside} time(s) outside :root"
+    """Declared in :root; a theme block may override it; a component rule may not."""
+    outside = (len(_ALL_VALUES.get(name, [])) - len(_ROOT_VALUES.get(name, []))
+               - len(_THEME_VALUES.get(name, [])))
+    assert outside == 0, f"{name} is declared {outside} time(s) in component rules (outside :root and theme blocks)"
 
 
 @pytest.mark.parametrize("name,value", LEGACY_TOKENS)
