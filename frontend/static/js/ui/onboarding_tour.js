@@ -25,7 +25,7 @@ const STEPS = [
   {
     icon: "◎",
     title: "Memory",
-    body: "Claude can remember context across conversations automatically. No setup needed.",
+    body: "Each chat is separate: Claude won't remember other conversations. Your project's CLAUDE.md is shared by its chats.",
   },
 ];
 
