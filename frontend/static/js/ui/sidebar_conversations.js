@@ -135,9 +135,17 @@ export function mountSidebarConversations(root, onSelect, onEmpty) {
         e.stopPropagation();
         const ok = await showConfirm({ message: `Delete "${c.name}"? This can't be undone.` });
         if (ok) {
+          // Read the active id BEFORE deleting: deleteConversation clears it when
+          // the deleted chat was the active one, so afterwards the two cases look
+          // identical. Deleting a chat that is NOT active must leave the view
+          // alone — onSelect would GET that conversation and its messages and
+          // move the user off the chat they were reading.
+          const wasActive = getState().activeConversationId === c.id;
           const remaining = await deleteConversation(c.id);
-          if (remaining.length > 0) onSelect(remaining[0].id);
-          else onEmpty?.();
+          if (wasActive) {
+            if (remaining.length > 0) onSelect(remaining[0].id);
+            else onEmpty?.();
+          }
         }
       });
       listEl.appendChild(li);
