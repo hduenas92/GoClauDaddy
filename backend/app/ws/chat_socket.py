@@ -553,8 +553,15 @@ async def _receive_json_or_sentinel(websocket: WebSocket) -> dict:
 
     Returning an unrecognized `type` lets the main loop's existing
     unknown-message branch answer with a defined error frame and keep reading.
+    Valid JSON that is not an object (a list, string, number, bool or null)
+    is treated the same way: `receive_json()` hands it back as-is, and the
+    loop's `payload.get(...)` would raise AttributeError out of
+    handle_chat_socket and kill the socket.
     """
     try:
-        return await websocket.receive_json()
+        payload = await websocket.receive_json()
     except json.JSONDecodeError:
         return {"type": "__invalid_json__"}
+    if not isinstance(payload, dict):
+        return {"type": "__invalid_json__"}
+    return payload
