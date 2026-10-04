@@ -27,6 +27,19 @@ def _sse_event(line: str) -> str:
     return "".join(f"data: {part}\n" for part in parts) + "\n"
 
 
+def _offer(q: asyncio.Queue[str], line: str) -> None:
+    """Deliver to a subscriber queue; drop the line if that queue is full.
+
+    Runs on the subscriber's event loop, so QueueFull must be swallowed here:
+    letting it escape means the loop logs "Exception in callback" for every
+    line while the client stays stalled.
+    """
+    try:
+        q.put_nowait(line)
+    except asyncio.QueueFull:
+        pass
+
+
 class _FrontendHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         line = self.format(record)
@@ -34,7 +47,7 @@ class _FrontendHandler(logging.Handler):
         dead: set[tuple[asyncio.AbstractEventLoop, asyncio.Queue[str]]] = set()
         for loop, q in list(_subscribers):
             try:
-                loop.call_soon_threadsafe(q.put_nowait, line)
+                loop.call_soon_threadsafe(_offer, q, line)
             except Exception:
                 dead.add((loop, q))
         _subscribers.difference_update(dead)
