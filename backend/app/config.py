@@ -36,7 +36,7 @@ RESPONSE_TIMEOUT_SECONDS = 600  # 10 min — force-kill a hung `claude` subproce
 # a real --help output, and do not remove this verification step later).
 # Env vars the org's CaaS-backed `claude` CLI setup requires to be set
 # persistently (via `setx`, not a one-off `$env:` in a single terminal) —
-# ClaudioUI only ever checks these are *present*, never reads or logs the
+# GoClaudaddy only ever checks these are *present*, never reads or logs the
 # values. Auth itself is entirely the CLI's own responsibility.
 REQUIRED_AUTH_ENV_VARS = ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL")
 

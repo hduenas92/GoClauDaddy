@@ -397,7 +397,7 @@ def _human_size(size_bytes: int) -> str:
     size = float(size_bytes)
     if size < 1024:
         return f"{int(size)} B"
-    for unit in ("KB", "MB", "GB", "TB"):
+    for unit in ("KB", "MB", "GB", "TB", "PB"):
         size /= 1024
         if size < 1024:
             return f"{size:.1f} {unit}"

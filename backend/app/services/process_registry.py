@@ -19,12 +19,6 @@ class ProcessRegistry:
     def __init__(self) -> None:
         self._procs: dict[str, asyncio.subprocess.Process] = {}
         self._tasks: dict[str, asyncio.Task] = {}
-        self._locks: dict[str, asyncio.Lock] = {}
-
-    def _lock_for(self, conversation_id: str) -> asyncio.Lock:
-        if conversation_id not in self._locks:
-            self._locks[conversation_id] = asyncio.Lock()
-        return self._locks[conversation_id]
 
     def is_busy(self, conversation_id: str) -> bool:
         # A task can be registered well before its subprocess actually spawns
