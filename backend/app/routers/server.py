@@ -18,19 +18,25 @@ router = APIRouter(prefix="/api/server", tags=["server"])
 log = get_logger("server")
 
 _log_buffer: deque[str] = deque(maxlen=300)
-_subscribers: set[asyncio.Queue] = set()
+_subscribers: set[tuple[asyncio.AbstractEventLoop, asyncio.Queue[str]]] = set()
+
+
+def _sse_event(line: str) -> str:
+    """Frame one formatted log line as a single SSE event."""
+    parts = line.splitlines() or [""]
+    return "".join(f"data: {part}\n" for part in parts) + "\n"
 
 
 class _FrontendHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         line = self.format(record)
         _log_buffer.append(line)
-        dead: set = set()
-        for q in _subscribers:
+        dead: set[tuple[asyncio.AbstractEventLoop, asyncio.Queue[str]]] = set()
+        for loop, q in list(_subscribers):
             try:
-                q.put_nowait(line)
+                loop.call_soon_threadsafe(q.put_nowait, line)
             except Exception:
-                dead.add(q)
+                dead.add((loop, q))
         _subscribers.difference_update(dead)
 
 
@@ -106,20 +112,21 @@ def server_stats():
 @router.get("/logs")
 async def stream_logs():
     q: asyncio.Queue[str] = asyncio.Queue(maxsize=200)
-    _subscribers.add(q)
+    subscriber = (asyncio.get_running_loop(), q)
+    _subscribers.add(subscriber)
 
     async def _generate():
         for line in list(_log_buffer):
-            yield f"data: {line}\n\n"
+            yield _sse_event(line)
         try:
             while True:
                 try:
                     line = await asyncio.wait_for(q.get(), timeout=25)
-                    yield f"data: {line}\n\n"
+                    yield _sse_event(line)
                 except asyncio.TimeoutError:
                     yield "data: \n\n"
         finally:
-            _subscribers.discard(q)
+            _subscribers.discard(subscriber)
 
     return StreamingResponse(
         _generate(),
