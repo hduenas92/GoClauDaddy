@@ -202,8 +202,13 @@ async def _handle_send_inner(
 ) -> None:
     regenerate = bool(payload.get("regenerate"))
     prompt = (payload.get("message") or "").strip()
-    if not regenerate and not prompt:
-        await websocket.send_json({"type": "error", "error": "Your message has an attachment but no text. Add a sentence and send again."})
+    attachment_ids = payload.get("attachment_ids") or []
+    # Resolve attachments before the empty-prompt guard: an attachment-only send
+    # is valid, but an empty send with no existing attachment must still fail
+    # before anything is persisted.
+    atts = attachments.get_attachments(attachment_ids) if not regenerate else []
+    if not regenerate and not prompt and not atts:
+        await websocket.send_json({"type": "error", "error": "Your message has no text. Add a sentence and send again."})
         await websocket.send_json({"type": "done"})
         return
 
@@ -238,26 +243,28 @@ async def _handle_send_inner(
     prior_user_message = None
     if regenerate:
         prior_user_message = convs.last_live_user_message(conversation_id)
-        if prior_user_message is None or not (prior_user_message.content or "").strip():
+        if prior_user_message is None:
             await websocket.send_json(
                 {"type": "error", "error": "There's no previous question here to regenerate. Send a message first."}
             )
             await websocket.send_json({"type": "done"})
             return
-        prompt = prior_user_message.content.strip()
+        prompt = (prior_user_message.content or "").strip()
+        # The files belong to the stored question, so rebuild the refs from its row.
+        atts = attachments.attachments_for_message(prior_user_message.id)
+        if not prompt and not atts:
+            await websocket.send_json(
+                {"type": "error", "error": "There's no previous question here to regenerate. Send a message first."}
+            )
+            await websocket.send_json({"type": "done"})
+            return
 
     # Attachments were uploaded separately (POST /api/attachments) and are
     # referenced here by id. The CLI is text-in/text-out, so the file's path
     # (not its bytes) is what actually reaches the model.
-    if regenerate:
-        # The files belong to the stored question, so rebuild the refs from its row.
-        atts = attachments.attachments_for_message(prior_user_message.id)
-    else:
-        attachment_ids = payload.get("attachment_ids") or []
-        atts = attachments.get_attachments(attachment_ids)
     if atts:
         refs = "\n".join(f"[Attached file: {a.stored_path}]" for a in atts)
-        prompt_for_cli = f"{prompt}\n\n{refs}"
+        prompt_for_cli = f"{prompt}\n\n{refs}" if prompt else refs
     else:
         prompt_for_cli = prompt
 
