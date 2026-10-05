@@ -15,7 +15,7 @@ def get_cli_info():
 
 
 @router.get("/agents/status")
-def get_agents_status():
+async def get_agents_status():
     turns = []
     for turn in registry.list_turns():
         conversation = conversations_service.get_conversation(turn["conversation_id"])

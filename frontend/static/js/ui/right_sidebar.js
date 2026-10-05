@@ -598,6 +598,7 @@ export function mountRightSidebar(root) {
   // Running agents change quickly and are not tied to a turn ending, so poll
   // them on a short fixed cadence.
   setInterval(() => {
+    if (root.classList.contains("sb-collapsed")) return;
     _fetchAgentsStatus();
   }, 5_000);
 
