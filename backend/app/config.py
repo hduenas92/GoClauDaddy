@@ -1,5 +1,6 @@
 """Central paths and settings — the one place that knows where things live on disk."""
 
+import json
 from pathlib import Path
 
 HOST = "127.0.0.1"
@@ -52,6 +53,33 @@ MODELS = [
     {"id": "claude-opus-5-5",           "label": "Opus 5.5",   "description": "Highly capable — advanced reasoning and analysis", "context_window": 1_000_000, "input_rate":  4.00, "output_rate": 20.00},
     {"id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5",  "description": "Fastest — quick tasks, high throughput", "context_window":   200_000, "input_rate":  1.00, "output_rate":  5.00},
 ]
+
+
+def cli_default_model() -> str:
+    """The catalog id the CLI's own ~/.claude/settings.json selects.
+
+    Read on every call — including Path.home(), which is resolved per call and
+    never cached — so a settings edit applies without a restart. Read-only: it
+    never writes the file. Anything missing, unreadable, malformed, non-string,
+    empty or not a known id/alias falls back to DEFAULT_MODEL.
+    """
+    try:
+        settings = json.loads(
+            (Path.home() / ".claude" / "settings.json").read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        return DEFAULT_MODEL
+    model = settings.get("model") if isinstance(settings, dict) else None
+    if not isinstance(model, str) or not model:
+        return DEFAULT_MODEL
+    ids = [m["id"] for m in MODELS]
+    if model in ids:
+        return model
+    lowered = model.lower()
+    for model_id in ids:
+        if lowered in model_id.lower():
+            return model_id
+    return DEFAULT_MODEL
 
 
 def ensure_dirs() -> None:

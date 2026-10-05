@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.config import DEFAULT_MODEL, MODELS, PERMISSION_MODES
+from app.config import MODELS, PERMISSION_MODES, cli_default_model
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 
@@ -19,6 +19,6 @@ def get_config():
             }
             for m in MODELS
         ],
-        "default_model": DEFAULT_MODEL,
+        "default_model": cli_default_model(),
         "permission_modes": list(PERMISSION_MODES),
     }

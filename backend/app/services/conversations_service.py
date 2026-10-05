@@ -9,7 +9,7 @@ import re
 import shutil
 import uuid
 
-from app.config import ATTACHMENTS_DIR, DEFAULT_MODEL, MODELS
+from app.config import ATTACHMENTS_DIR, MODELS, cli_default_model
 from app.db.connection import get_connection
 from app.logging_setup import get_logger
 from app.models.attachment import Attachment
@@ -28,11 +28,14 @@ def _now() -> str:
 
 
 def create_conversation(
-    name: str | None = None, project_id: str | None = None, model: str = DEFAULT_MODEL
+    name: str | None = None, project_id: str | None = None, model: str | None = None
 ) -> Conversation:
+    # Resolved per call, not as a default argument (which binds once at import):
+    # a chat created with no model follows the CLI's current settings.json.
     conv_id = str(uuid.uuid4())
     now = _now()
     name = name or f"Chat {datetime.datetime.now().strftime('%b %d %H:%M')}"
+    model = model or cli_default_model()
     with get_connection() as conn:
         if project_id is not None:
             project = conn.execute(
@@ -69,7 +72,7 @@ def get_conversation_healed(conversation_id: str) -> tuple[Conversation | None, 
         return None, None
     if conv.model is not None and conv.model not in _VALID_MODEL_IDS:
         invalid_model = conv.model
-        update_conversation_settings(conversation_id, model=DEFAULT_MODEL)
+        update_conversation_settings(conversation_id, model=cli_default_model())
         return get_conversation(conversation_id), invalid_model
     return conv, None
 
