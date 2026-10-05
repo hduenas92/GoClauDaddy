@@ -512,13 +512,19 @@ async function run() {
                 check('11 clicking Export downloads a file', true, `${md.length} chars`);
                 check('11 the export contains the question that was asked', md.includes(MARK),
                     `mark ${MARK} ${md.includes(MARK) ? 'present' : 'ABSENT'}`);
-                const ans = (evidence.firstAnswer ?? '').slice(0, 12);
+                // Compare against the answers the server holds NOW. Step 5 regenerated the step-4 answer, so the
+                // export carries the regenerated text. Corrected 2026-10-05: this used evidence.firstAnswer (the
+                // pre-regenerate reply) and failed whenever the CLI worded its two replies differently (gate on
+                // 3894513: looked for "Heads up: cl", the claude-mem outage preamble of the superseded reply).
+                const { messages: m11 } = await api(`/api/conversations/${convId}`);
+                const answers = m11.filter((m) => m.role === 'assistant')
+                    .map((m) => (m.content ?? '').trim().slice(0, 12)).filter(Boolean);
                 const srv = (await api(`/api/conversations/${convId}/export`)).markdown ?? '';
                 check('11 the downloaded file matches what the endpoint serves',
                     md.trim() === srv.trim(),
                     `download=${md.length} chars endpoint=${srv.length} chars`);
-                check('11 an assistant answer is in the export', ans.length === 0 || md.includes(ans),
-                    ans.length === 0 ? 'no answer text was recorded to look for' : `looked for ${JSON.stringify(ans)}`);
+                check('11 every assistant answer is in the export', answers.length > 0 && answers.every((a) => md.includes(a)),
+                    `looked for ${JSON.stringify(answers)}`);
             }
         }
 
