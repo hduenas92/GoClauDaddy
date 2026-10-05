@@ -56,6 +56,11 @@ APPROVAL_TIMEOUT_SECONDS: float = 60
 # rule must be testable without sleeping 2 real seconds in a unit test.
 CHECKPOINT_INTERVAL_SECONDS: float = 2.0
 
+# One copy of the "gone" text, shared by the pre-send guard and the mid-reply
+# guard: a conversation deleted from another tab must read the same as one that
+# never existed.
+CONVERSATION_GONE_ERROR = "This conversation no longer exists. Start a new chat."
+
 
 def _monotonic_now() -> float:
     """One-line indirection so checkpoint-throttle tests can install a fake clock."""
@@ -215,7 +220,7 @@ async def _handle_send_inner(
     conv = convs.get_conversation(conversation_id)
     if not conv:
         await websocket.send_json(
-            {"type": "error", "error": "This conversation no longer exists. Start a new chat."}
+            {"type": "error", "error": CONVERSATION_GONE_ERROR}
         )
         await websocket.send_json({"type": "done"})
         return
@@ -290,6 +295,7 @@ async def _handle_send_inner(
     had_error = False
     sent_done = False
     cancelled = False
+    conversation_deleted = False  # set when a checkpoint finds the row is gone
     assistant_message_id: str | None = None
     last_checkpoint_at: float | None = None
 
@@ -299,7 +305,13 @@ async def _handle_send_inner(
         While streaming the row is marked `stopped=1` (incomplete) regardless of
         how the turn will end; the final persistence below sets the true value.
         """
-        nonlocal assistant_message_id, last_checkpoint_at
+        nonlocal assistant_message_id, last_checkpoint_at, conversation_deleted
+        # The conversation can be deleted from another tab while this one streams
+        # (B101_N5). Writing anyway is a FOREIGN KEY failure for the first INSERT
+        # and a 0-row no-op after, so stop the turn instead of writing anything.
+        if convs.get_conversation(conversation_id) is None:
+            conversation_deleted = True
+            return
         tool_calls_json = json.dumps(list(tool_calls_map.values())) if tool_calls_map else None
         content = "".join(text_parts)
         thinking = "".join(thinking_parts) or None
@@ -461,6 +473,10 @@ async def _handle_send_inner(
             elif ev_type in ("text", "thinking", "usage"):
                 if last_checkpoint_at is None or now - last_checkpoint_at >= CHECKPOINT_INTERVAL_SECONDS:
                     _checkpoint(now)
+            if conversation_deleted:
+                # The row vanished mid-reply: stop the turn here rather than
+                # forwarding more of a reply the conversation cannot hold.
+                break
 
             # Socket already closed (client navigated away)? Keep draining the
             # generator so the subprocess still finishes and persists.
@@ -486,6 +502,11 @@ async def _handle_send_inner(
         # The turn is over; it no longer has an owner that may stop it.
         _release_owner(conversation_id, websocket)
         convs.set_status(conversation_id, "error" if had_error else "idle")
+        # B101_N5: the conversation was deleted mid-reply. Tell the client before
+        # the closing `done`, so it gets exactly one error frame then the usual one.
+        if conversation_deleted:
+            with contextlib.suppress(RuntimeError):
+                await websocket.send_json({"type": "error", "error": CONVERSATION_GONE_ERROR})
         if not sent_done:
             with contextlib.suppress(RuntimeError):
                 await websocket.send_json({"type": "done"})
@@ -500,7 +521,10 @@ async def _handle_send_inner(
         # UPDATEs it in place - never a second assistant row for one turn. If no
         # checkpoint ever fired (e.g. a turn that produced nothing until the
         # very end), the old INSERT path still applies.
-        if assistant_message_id is not None:
+        # B101_N5: when the conversation was deleted mid-reply there is nowhere to
+        # write (the INSERT would fail its foreign key, the UPDATE would hit zero
+        # rows), so neither path runs.
+        if assistant_message_id is not None and not conversation_deleted:
             convs.update_message_content(
                 assistant_message_id,
                 content=full_text,
@@ -513,7 +537,7 @@ async def _handle_send_inner(
                 cache_creation_tokens=usage.get("cache_creation_input_tokens") or 0,
                 stopped=cancelled,
             )
-        elif has_content:
+        elif has_content and not conversation_deleted:
             # `content` is what the model said, nothing more. Cancellation is a
             # column (v15), not an HTML comment smuggled into the text — see the
             # note on STOPPED_MARKER above.
