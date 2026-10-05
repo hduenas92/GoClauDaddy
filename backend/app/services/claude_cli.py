@@ -231,6 +231,18 @@ async def run(
         proc.kill()
         stderr_task.cancel()
         raise
+    except GeneratorExit:
+        # The consumer stopped iterating early — aclose(), or a `break` out of an
+        # `async for` that asyncio finalizes with aclose(). GeneratorExit derives
+        # from BaseException, so neither CancelledError nor Exception above sees
+        # it: without this branch the child kept running with nobody reading its
+        # stdout, and the stderr drain task was left pending. Kill and reap the
+        # child, cancel the drain, then let GeneratorExit propagate — never yield
+        # from here.
+        proc.kill()
+        await proc.wait()
+        stderr_task.cancel()
+        raise
     except Exception as exc:  # noqa: BLE001 — genuinely must not crash the socket loop
         log.exception("Error while streaming claude output")
         stderr_task.cancel()
