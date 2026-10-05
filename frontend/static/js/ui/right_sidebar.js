@@ -146,6 +146,66 @@ export function mountRightSidebar(root) {
         <div class="console-log" id="rsb-console">No log lines yet. Server activity will appear here.</div>
       </div>
     </details>
+    <details class="rsb-panel glow" id="rsb-panel-tools">
+      <summary>
+        <span class="rsb-panel-title">TOOLS</span>
+        <span class="rsb-panel-badge" id="rsb-tools-badge">—</span>
+        <span class="rsb-panel-arrow">▶</span>
+      </summary>
+      <div class="rsb-panel-body" id="rsb-tools-body">
+        <div class="sb-empty">Send a message to load what the CLI reports.</div>
+      </div>
+    </details>
+    <details class="rsb-panel glow" id="rsb-panel-mcp">
+      <summary>
+        <span class="rsb-panel-title">MCP SERVERS</span>
+        <span class="rsb-panel-badge" id="rsb-mcp-badge">—</span>
+        <span class="rsb-panel-arrow">▶</span>
+      </summary>
+      <div class="rsb-panel-body" id="rsb-mcp-body">
+        <div class="sb-empty">Send a message to load what the CLI reports.</div>
+      </div>
+    </details>
+    <details class="rsb-panel glow" id="rsb-panel-plugins">
+      <summary>
+        <span class="rsb-panel-title">PLUGINS</span>
+        <span class="rsb-panel-badge" id="rsb-plugins-badge">—</span>
+        <span class="rsb-panel-arrow">▶</span>
+      </summary>
+      <div class="rsb-panel-body" id="rsb-plugins-body">
+        <div class="sb-empty">Send a message to load what the CLI reports.</div>
+      </div>
+    </details>
+    <details class="rsb-panel glow" id="rsb-panel-skills">
+      <summary>
+        <span class="rsb-panel-title">SKILLS</span>
+        <span class="rsb-panel-badge" id="rsb-skills-badge">—</span>
+        <span class="rsb-panel-arrow">▶</span>
+      </summary>
+      <div class="rsb-panel-body" id="rsb-skills-body">
+        <div class="sb-empty">Send a message to load what the CLI reports.</div>
+      </div>
+    </details>
+    <details class="rsb-panel glow" id="rsb-panel-slash">
+      <summary>
+        <span class="rsb-panel-title">SLASH COMMANDS</span>
+        <span class="rsb-panel-badge" id="rsb-slash-badge">—</span>
+        <span class="rsb-panel-arrow">▶</span>
+      </summary>
+      <div class="rsb-panel-body" id="rsb-slash-body">
+        <div class="sb-empty">Send a message to load what the CLI reports.</div>
+      </div>
+    </details>
+    <details class="rsb-panel glow" id="rsb-panel-agents" open>
+      <summary>
+        <span class="rsb-panel-title">AGENTS</span>
+        <span class="rsb-panel-badge" id="rsb-agents-badge">0</span>
+        <span class="rsb-panel-arrow">▶</span>
+      </summary>
+      <div class="rsb-panel-body" id="rsb-agents-body">
+        <div class="sb-empty">No running turns.</div>
+      </div>
+    </details>
   `;
 
   // Persist <details> open/closed state per panel.
@@ -315,6 +375,98 @@ export function mountRightSidebar(root) {
       });
   }
 
+  // --- CLI tools / MCP servers / plugins / skills / slash commands panels ---
+  const CLI_EMPTY = "Send a message to load what the CLI reports.";
+  const CLI_PANELS = [
+    { bodyId: "rsb-tools-body", badgeId: "rsb-tools-badge", key: "tools" },
+    { bodyId: "rsb-mcp-body", badgeId: "rsb-mcp-badge", key: "mcp_servers" },
+    { bodyId: "rsb-plugins-body", badgeId: "rsb-plugins-badge", key: "plugins" },
+    { bodyId: "rsb-skills-body", badgeId: "rsb-skills-badge", key: "skills" },
+    { bodyId: "rsb-slash-body", badgeId: "rsb-slash-badge", key: "slash_commands" },
+  ];
+
+  function _renderCliInfo(info) {
+    if (!info || info.captured_at == null) {
+      for (const def of CLI_PANELS) {
+        const badge = root.querySelector(`#${def.badgeId}`);
+        const body = root.querySelector(`#${def.bodyId}`);
+        if (badge) badge.textContent = "—";
+        if (body) {
+          body.textContent = "";
+          const empty = document.createElement("div");
+          empty.className = "sb-empty";
+          empty.textContent = CLI_EMPTY;
+          body.appendChild(empty);
+        }
+      }
+      return;
+    }
+    for (const def of CLI_PANELS) {
+      const items = Array.isArray(info[def.key]) ? info[def.key] : [];
+      const badge = root.querySelector(`#${def.badgeId}`);
+      const body = root.querySelector(`#${def.bodyId}`);
+      if (badge) badge.textContent = String(items.length);
+      if (!body) continue;
+      body.textContent = "";
+      for (const item of items) {
+        const row = document.createElement("div");
+        row.className = "metric-row";
+        const name = document.createElement("span");
+        name.className = "rsb-item-name";
+        const isMcp = def.key === "mcp_servers";
+        name.textContent = isMcp && item && typeof item === "object" ? (item.name ?? "") : String(item ?? "");
+        row.appendChild(name);
+        if (isMcp) {
+          const status = document.createElement("span");
+          status.className = "rsb-item-status";
+          status.textContent = item && typeof item === "object" ? (item.status ?? "") : "";
+          row.appendChild(status);
+        }
+        body.appendChild(row);
+      }
+    }
+  }
+
+  function _fetchCliInfo() {
+    _getJSON("/api/cli/info").then(_renderCliInfo).catch(() => {});
+  }
+
+  // --- Running agents panel ---
+  const agentsBadgeEl = root.querySelector("#rsb-agents-badge");
+  const agentsBodyEl = root.querySelector("#rsb-agents-body");
+  const AGENTS_EMPTY = "No running turns.";
+
+  function _renderAgentsStatus(agents) {
+    const list = Array.isArray(agents) ? agents : [];
+    if (agentsBadgeEl) agentsBadgeEl.textContent = String(list.length);
+    if (!agentsBodyEl) return;
+    agentsBodyEl.textContent = "";
+    if (list.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "sb-empty";
+      empty.textContent = AGENTS_EMPTY;
+      agentsBodyEl.appendChild(empty);
+      return;
+    }
+    for (const agent of list) {
+      const row = document.createElement("div");
+      row.className = "metric-row";
+      const name = document.createElement("span");
+      name.className = "rsb-item-name";
+      name.textContent = agent && typeof agent === "object" ? (agent.name ?? "") : String(agent ?? "");
+      const elapsed = document.createElement("span");
+      elapsed.className = "rsb-item-status";
+      const seconds = Number(agent && typeof agent === "object" ? agent.elapsed_s : NaN);
+      elapsed.textContent = Number.isFinite(seconds) ? `${Math.floor(seconds)}s` : "—";
+      row.append(name, elapsed);
+      agentsBodyEl.appendChild(row);
+    }
+  }
+
+  function _fetchAgentsStatus() {
+    _getJSON("/api/agents/status").then(_renderAgentsStatus).catch(() => {});
+  }
+
   // --- Month panel: all-chat stats ---
   function _fetchStats() {
     _getJSON("/api/server/stats")
@@ -417,9 +569,10 @@ export function mountRightSidebar(root) {
       // Turn started: nothing has been billed yet, so no fetch.
     } else if (!state.streaming && prevStreaming) {
       // A turn just ended: refresh conversation + server stats now rather than
-      // waiting out the 60s poll.
+      // waiting out the 60s poll, and reload what the CLI reports.
       _fetchStats();
       _fetchConvStats();
+      _fetchCliInfo();
     }
     prevStreaming = state.streaming;
     _renderMessages();
@@ -429,6 +582,8 @@ export function mountRightSidebar(root) {
   _fetchConfig();
   _fetchServerInfo();
   _fetchStats();
+  _fetchCliInfo();
+  _fetchAgentsStatus();
   // 60s fallback poll in case a turn-end is missed; guarded like the other
   // pollers below. It carries config and server info so their failure states
   // recover on the next successful poll (P2-B).
@@ -439,6 +594,12 @@ export function mountRightSidebar(root) {
     _fetchServerInfo();
     if (_activeConvId) _fetchConvStats();
   }, 60_000);
+
+  // Running agents change quickly and are not tied to a turn ending, so poll
+  // them on a short fixed cadence.
+  setInterval(() => {
+    _fetchAgentsStatus();
+  }, 5_000);
 
   // Budget changed in the settings drawer. Without this the new allowance
   // would not show until the next 60s poll or the next finished turn, and a

@@ -2649,6 +2649,21 @@ textarea::placeholder {
 .rsb-panel-arrow { font-size: var(--fs-10); opacity: 0.4; transition: transform 0.15s; }
 .rsb-panel[open] > summary .rsb-panel-arrow { transform: rotate(90deg); }
 .rsb-panel-body { padding: var(--sp-6) var(--sp-10) var(--sp-10); }
+.rsb-item-name {
+  min-width: 0;
+  font-size: var(--fs-11);
+  font-family: var(--font-shell);
+  color: var(--text2);
+  overflow-wrap: anywhere;
+}
+.rsb-item-status {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: var(--fs-11);
+  font-family: var(--font-shell);
+  color: var(--accent-hi);
+  font-variant-numeric: tabular-nums;
+}
 .rsb-project-dir {
   word-break: break-all;
   font-size: var(--fs-10);
