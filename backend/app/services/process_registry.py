@@ -5,6 +5,7 @@ something concrete to kill.
 """
 
 import asyncio
+import time
 
 from app.logging_setup import get_logger
 
@@ -19,6 +20,7 @@ class ProcessRegistry:
     def __init__(self) -> None:
         self._procs: dict[str, asyncio.subprocess.Process] = {}
         self._tasks: dict[str, asyncio.Task] = {}
+        self._starts: dict[str, float] = {}
 
     def is_busy(self, conversation_id: str) -> bool:
         # A task can be registered well before its subprocess actually spawns
@@ -35,10 +37,26 @@ class ProcessRegistry:
 
     def register_task(self, conversation_id: str, task: asyncio.Task) -> None:
         self._tasks[conversation_id] = task
+        self._starts[conversation_id] = time.monotonic()
+
+    def list_turns(self) -> list[dict[str, object]]:
+        """In-flight turns: a registered, not-done task counts even before its subprocess spawns."""
+        now = time.monotonic()
+        turns: list[dict[str, object]] = []
+        for conversation_id in set(self._tasks) | set(self._procs):
+            task = self._tasks.get(conversation_id)
+            if task is not None and task.done():
+                continue
+            turns.append({
+                "conversation_id": conversation_id,
+                "elapsed_s": max(0.0, now - self._starts.get(conversation_id, now)),
+            })
+        return turns
 
     def clear(self, conversation_id: str) -> None:
         self._procs.pop(conversation_id, None)
         self._tasks.pop(conversation_id, None)
+        self._starts.pop(conversation_id, None)
 
     def stop(self, conversation_id: str) -> bool:
         """Kills the running subprocess/task for a conversation, if any. Returns True if something was stopped."""

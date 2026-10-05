@@ -10,6 +10,7 @@ import re
 from typing import Any
 
 from app.logging_setup import get_logger
+from app.services import cli_info
 from app.services.redact import redact_secrets
 
 log = get_logger("stream_parser")
@@ -49,6 +50,7 @@ def parse_line(raw_line: str) -> list[dict[str, Any]]:
     if ev_type == "system":
         subtype = ev.get("subtype", "")
         if subtype == "init":
+            cli_info.record_init(ev)
             session_id = ev.get("session_id")
             return [{"type": "session", "session_id": session_id}] if session_id else []
         # Claude CLI emits permission requests as system events in stream-json format

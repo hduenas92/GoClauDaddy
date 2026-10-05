@@ -13,6 +13,7 @@ from app.logging_setup import get_logger, setup_logging
 from app.db.seed import seed_builtin_templates
 from app.routers import assess as assess_router
 from app.routers import attachments as attachments_router
+from app.routers import cli as cli_router
 from app.routers import config as config_router
 from app.routers import conversation_stats as conversation_stats_router
 from app.routers import conversations as conversations_router
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     app.include_router(projects_router.router)
     app.include_router(search_router.router)
     app.include_router(attachments_router.router)
+    app.include_router(cli_router.router)
     app.include_router(server_router.router)
 
     @app.exception_handler(Exception)
