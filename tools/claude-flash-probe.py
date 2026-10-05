@@ -16,6 +16,7 @@ Also honours GCA_SPAWN_LEGACY for the post-fix comparison:
 
 Exit codes:
   0  every run finished and no INCONCLUSIVE desktop/session situation
+  1  the fix variant (the shipped spawn kwargs) showed a visible window (K9 gate)
   2  session 0 / non-interactive desktop (window checks meaningless here)
   3  a run failed to produce a stream-json result line
 """
@@ -216,6 +217,11 @@ def _descendants_verified(
                     cur_created = _create_time(parent)
                     if cur_created != stored_created:
                         continue
+            # A child older than its parent kept a stale ppid that now belongs to one of ours
+            # (2026-10-04: OUTLOOK.EXE from 10-03 pulled in via a fresh conhost.exe).
+            parent_created, child_created = _create_time(parent), _create_time(child)
+            if "?" not in (parent_created, child_created) and child_created < parent_created:
+                continue
             result.add(child)
             frontier.append(child)
     return result
@@ -479,6 +485,8 @@ def run_probe(variant: str, run_index: int) -> int:
     print(f"CHECK result_received={1 if result_received else 0} rc={rc} timed_out={1 if timed_out else 0}")
     if not result_received:
         return 3
+    if tree_windows_acc and label == "fix":
+        return 1  # K9 gate: the shipped spawn path showed a window, i.e. a console flash
     return 0
 
 
