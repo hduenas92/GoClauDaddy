@@ -1143,6 +1143,13 @@ html, body {
 
 /* C4: an empty composer shows Send as unavailable without disabling it. */
 #composer-send[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+/* Keyboard focus: opacity would also halve the focus ring (1.4.11; a11y gate
+   2026-10-13 measured 2.94:1), so a focused empty Send dims its fill instead. */
+#composer-row button#composer-send[aria-disabled="true"]:focus-visible {
+  opacity: 1;
+  background: rgba(var(--working-rgb) / 0.5);
+  box-shadow: none;
+}
 
 #composer-stop {
   background: var(--rose) !important;

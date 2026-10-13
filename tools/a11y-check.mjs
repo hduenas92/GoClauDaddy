@@ -846,6 +846,9 @@ await focusReturnCase('settings drawer', {}, async (page, trig) => { await trig.
         if (!own) continue;
         const r = el.getBoundingClientRect();
         if (r.width <= 0 || r.height <= 0) continue;
+        // sr-only technique (1x1 box + clip rect(0 0 0 0)): visually hidden by design, not clipped text.
+        // Measured from the rendered box, not the class name, so a visible element still counts.
+        if (r.width <= 1 && r.height <= 1 && cs.clip === 'rect(0px, 0px, 0px, 0px)') continue;
         if (el.scrollWidth > el.clientWidth + 2 || el.scrollHeight > el.clientHeight + 2) {
           clipped.push((el.id ? '#' + el.id : el.tagName.toLowerCase() + '.' + String(el.className).split(' ')[0]) +
             ` (scroll ${el.scrollWidth}x${el.scrollHeight} vs client ${el.clientWidth}x${el.clientHeight})`);
@@ -937,6 +940,9 @@ await focusReturnCase('settings drawer', {}, async (page, trig) => { await trig.
         if (!own) continue;
         const r = el.getBoundingClientRect();
         if (r.width <= 0 || r.height <= 0) continue;
+        // sr-only technique (1x1 box + clip rect(0 0 0 0)): visually hidden by design, not clipped text.
+        // Measured from the rendered box, not the class name, so a visible element still counts.
+        if (r.width <= 1 && r.height <= 1 && cs.clip === 'rect(0px, 0px, 0px, 0px)') continue;
         if (el.scrollHeight > el.clientHeight + 3 || el.scrollWidth > el.clientWidth + 3) {
           clipped.push((el.id ? '#' + el.id : el.tagName.toLowerCase() + '.' + String(el.className).split(' ')[0]) +
             ` (scroll ${el.scrollWidth}x${el.scrollHeight} vs client ${el.clientWidth}x${el.clientHeight})`);
