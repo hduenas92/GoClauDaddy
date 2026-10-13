@@ -192,45 +192,45 @@ def test_qa4_1_claude_absent_friendly_error_no_orphan(temp_db, no_claude_spawn):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("mode", ["missing", "empty"])
-def test_qa4_2_auth_env_missing_or_empty_reports_clear_error(monkeypatch, mode):
+def test_qa4_2_auth_env_missing_or_empty_reports_clear_error(monkeypatch, caplog, mode):
     for name in REQUIRED_AUTH_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
     if mode == "empty":
         monkeypatch.setenv(REQUIRED_AUTH_ENV_VARS[0], "")
 
-    with pytest.raises(startup_check.StartupCheckError) as exc:
+    with caplog.at_level(logging.WARNING):
         startup_check._check_auth_env_vars()
 
-    message = str(exc.value)
+    message = caplog.text
     assert "Missing required environment variable" in message
     for name in REQUIRED_AUTH_ENV_VARS:
         assert name in message, f"message does not name {name}: {message}"
     assert "persistent" in message.lower(), message
 
 
-def test_qa4_2_auth_env_malformed_reports_distinct_comprehensible_error(monkeypatch):
+def test_qa4_2_auth_env_malformed_reports_distinct_comprehensible_error(monkeypatch, caplog):
     # A token with whitespace and a syntactically invalid base URL are malformed
     # by any reasonable definition, but startup_check._check_auth_env_vars()
     # only tests truthiness.
     monkeypatch.setenv(REQUIRED_AUTH_ENV_VARS[0], "token with spaces and no sk- prefix")
     monkeypatch.setenv(REQUIRED_AUTH_ENV_VARS[1], "http://[::1")
 
-    with pytest.raises(startup_check.StartupCheckError) as exc:
+    with caplog.at_level(logging.WARNING):
         startup_check._check_auth_env_vars()
 
-    message = str(exc.value).lower()
+    message = caplog.text.lower()
     assert "malformed" in message or "invalid" in message or "valid url" in message, message
 
 
-def test_qa4_2_auth_env_malformed_error_does_not_include_token_value(monkeypatch):
+def test_qa4_2_auth_env_malformed_error_does_not_include_token_value(monkeypatch, caplog):
     token_value = "sk-LIVE-SECRET-TOKEN-0123456789"
     monkeypatch.setenv(REQUIRED_AUTH_ENV_VARS[0], token_value + "\n")
     monkeypatch.setenv(REQUIRED_AUTH_ENV_VARS[1], "https://example.invalid")
 
-    with pytest.raises(startup_check.StartupCheckError) as exc:
+    with caplog.at_level(logging.WARNING):
         startup_check._check_auth_env_vars()
 
-    message = str(exc.value)
+    message = caplog.text
     assert REQUIRED_AUTH_ENV_VARS[0] in message, message
     assert token_value not in message, f"token value leaked into: {message!r}"
 

@@ -68,12 +68,18 @@ def test_assistant_with_usage_emits_usage_event_too():
 
 def test_result_event_with_usage():
     line = json.dumps({"type": "result", "usage": {"input_tokens": 100, "output_tokens": 50}})
-    assert parse_line(line) == [{"type": "result", "usage": {"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}}]
+    assert parse_line(line) == [
+        {"type": "result", "usage": {"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}},
+        {"type": "conn_state", "state": "connected"},
+    ]
 
 
 def test_result_event_without_usage():
     line = json.dumps({"type": "result"})
-    assert parse_line(line) == [{"type": "result", "usage": None}]
+    assert parse_line(line) == [
+        {"type": "result", "usage": None},
+        {"type": "conn_state", "state": "connected"},
+    ]
 
 
 def test_unknown_event_type_yields_nothing():

@@ -27,6 +27,7 @@ failure path names variables rather than values, and that the environment is
 still only ever tested for presence.
 """
 import ast
+import logging
 import os
 import pathlib
 import re
@@ -55,12 +56,13 @@ def _py_files():
     return sorted(APP_DIR.rglob("*.py"))
 
 
-def test_startup_failure_names_the_variable_never_its_value(monkeypatch):
+def test_startup_failure_names_the_variable_never_its_value(monkeypatch, caplog):
     """The one place a missing credential produces a user-facing message.
 
     A message that helpfully echoed what it found would put the token in a
     console, a screenshot, and a bug report. So: the NAME must be present (or
-    the message is useless) and no VALUE may be.
+    the message is useless) and no VALUE may be. Missing vars are a warning, not
+    a startup failure (Houston ruling D2) — the app still starts.
     """
     var = REQUIRED_AUTH_ENV_VARS[0]
     sentinel = "sk-THIS-IS-THE-SECRET-VALUE-0123456789"
@@ -72,10 +74,10 @@ def test_startup_failure_names_the_variable_never_its_value(monkeypatch):
     for other in REQUIRED_AUTH_ENV_VARS[1:]:
         monkeypatch.delenv(other, raising=False)
 
-    with pytest.raises(startup_check.StartupCheckError) as exc:
+    with caplog.at_level(logging.WARNING):
         startup_check._check_auth_env_vars()
 
-    msg = str(exc.value)
+    msg = caplog.text
     assert REQUIRED_AUTH_ENV_VARS[1] in msg, "the message must name the missing variable"
     assert sentinel not in msg, "a credential VALUE reached the startup error message"
 

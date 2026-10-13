@@ -46,16 +46,19 @@ def _check_claude_on_path() -> None:
 
 def _check_auth_env_vars() -> None:
     # Name-only messages for present values: never read a value into a log line
-    # or exception message.
+    # or exception message. Missing/empty/malformed vars are WARNINGS, not startup
+    # failures (Houston ruling D2) — the app must still start so the UI can show
+    # the guidance; the CLI is what actually needs the credentials.
     missing = [name for name in REQUIRED_AUTH_ENV_VARS if not os.environ.get(name)]
     if missing:
-        raise StartupCheckError(
+        log.warning(
             "Missing required environment variable(s): "
             + ", ".join(missing)
             + ". These must be set as PERSISTENT user environment variables "
             + "(e.g. via `setx`, not a one-off `$env:` in a single PowerShell window) — "
             + "see the 'One-time setup' section at the top of README.md for the exact commands."
         )
+        return
 
     problems = []
 
@@ -70,7 +73,7 @@ def _check_auth_env_vars() -> None:
 
     if "ANTHROPIC_BASE_URL" in REQUIRED_AUTH_ENV_VARS:
         try:
-            parsed = urllib.parse.urlparse(os.environ["ANTHROPIC_BASE_URL"])
+            parsed = urllib.parse.urlparse(os.environ.get("ANTHROPIC_BASE_URL", ""))
             base_url_is_valid = parsed.scheme in ("http", "https") and bool(parsed.netloc)
         except ValueError:
             base_url_is_valid = False
@@ -81,7 +84,8 @@ def _check_auth_env_vars() -> None:
             )
 
     if problems:
-        raise StartupCheckError("\n".join(problems))
+        log.warning("\n".join(problems))
+        return
 
 
 def run_startup_checks() -> None:

@@ -17,9 +17,32 @@ log = get_logger("stream_parser")
 
 _ANSI = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
+# User-facing copy for the connection states the CLI's own error fields imply.
+_CONN_COPY = {
+    "key_missing": "No API key was found, so Claude isn't set up on this computer yet. "
+                   "Follow your CaaS setup steps to add the key, then restart GoClaudaddy.",
+    "url_missing": "The CaaS gateway address is missing, so Claude isn't set up on this computer yet. "
+                   "Follow your CaaS setup steps, then restart GoClaudaddy.",
+    "key_invalid": "The CaaS gateway rejected your API key. "
+                   "Check the key in your CaaS account, then restart GoClaudaddy.",
+    "gateway_unreachable": "Can't reach the CaaS gateway. CaaS is meant to be used on the company VPN, "
+                           "so check that you're connected, then try again.",
+}
+
 
 def strip_ansi(s: str) -> str:
     return _ANSI.sub("", s)
+
+
+def _classify_result_error(result_text: str, api_error_status: Any) -> str | None:
+    """Map the CLI's own result fields to a connection state, first match wins."""
+    if result_text.startswith("Not logged in"):
+        return "key_missing" if api_error_status is None else "url_missing"
+    if api_error_status == 401:
+        return "key_invalid"
+    if api_error_status is None and result_text.startswith("API Error"):
+        return "gateway_unreachable"
+    return None
 
 
 def parse_line(raw_line: str) -> list[dict[str, Any]]:
@@ -53,6 +76,10 @@ def parse_line(raw_line: str) -> list[dict[str, Any]]:
             cli_info.record_init(ev)
             session_id = ev.get("session_id")
             return [{"type": "session", "session_id": session_id}] if session_id else []
+        if subtype == "api_retry":
+            state = "key_invalid" if ev.get("error_status") == 401 else "retrying"
+            return [{"type": "conn_state", "state": state,
+                     "attempt": ev.get("attempt"), "max_retries": ev.get("max_retries")}]
         # Claude CLI emits permission requests as system events in stream-json format
         if "permission" in subtype or subtype in ("tool_permission", "approval_request", "tool_use_confirm"):
             return [{"type": "approval_needed",
@@ -62,15 +89,29 @@ def parse_line(raw_line: str) -> list[dict[str, Any]]:
         return []
 
     if ev_type == "assistant":
+        # The CLI's synthetic auth error is its own text, not Claude's reply:
+        # never a text event, never stored.
+        if ev.get("is_api_error_message"):
+            return []
         return _parse_assistant_blocks(ev)
 
     if ev_type == "result":
         if ev.get("is_error"):
-            cleaned = redact_secrets(str(ev.get("result") or ""))
+            result_text = str(ev.get("result") or "")
+            cleaned = redact_secrets(result_text)
             log.warning("claude reported an error: %s", cleaned)
+            code = _classify_result_error(result_text, ev.get("api_error_status"))
+            if code:
+                return [
+                    {"type": "conn_state", "state": code},
+                    {"type": "error", "code": code, "error": _CONN_COPY[code]},
+                ]
             return [{"type": "error", "error": "Claude reported an error. Try again; if it keeps failing, open the LOG panel."}]
         usage = ev.get("usage", {})
-        return [{"type": "result", "usage": _usage(usage) if usage else None}]
+        return [
+            {"type": "result", "usage": _usage(usage) if usage else None},
+            {"type": "conn_state", "state": "connected"},
+        ]
 
     if ev_type == "user":
         return _parse_user_blocks(ev)

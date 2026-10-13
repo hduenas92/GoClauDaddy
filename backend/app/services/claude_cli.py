@@ -214,10 +214,14 @@ async def run(
 
     stderr_task = asyncio.create_task(drain_stderr(proc.stderr, stderr_lines))
 
+    stream_error = False
+
     try:
         async with asyncio.timeout(RESPONSE_TIMEOUT_SECONDS):
             assert proc.stdout is not None
             async for event in decode_and_parse_lines(proc.stdout):
+                if event.get("type") == "error":
+                    stream_error = True
                 yield event
             await proc.wait()
     except TimeoutError:
@@ -251,7 +255,9 @@ async def run(
         await stderr_task
         rc = proc.returncode
         log.info("claude exited rc=%s", rc)
-        if rc not in (0, None):
+        # A stream error already told the user what happened; a non-zero exit
+        # must not file a second, generic error on top of it.
+        if rc not in (0, None) and not stream_error:
             stderr_text = " ".join(stderr_lines).lower()
             # BUDGET IS CHECKED BEFORE AUTH, and the order is load-bearing.
             # The auth list contains the bare substring "auth", which appears
