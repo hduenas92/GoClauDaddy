@@ -174,6 +174,37 @@ END""",
     ]),
 
     (20, "drop team tables if empty", _drop_team_tables_if_empty),
+
+    # --- v21: permission rules and decision log (WP-AP J1) ------------------
+    # permission_rules is the "Always allow this command here" store. v1 is Bash
+    # only and holds the command VERBATIM plus the exact folder, so a rule is
+    # never interpreted as a pattern. permission_log is the append-only record of
+    # every request and its decision; fail-closed behaviour reads `status`.
+    (21, "permission rules and decision log", [
+        """CREATE TABLE IF NOT EXISTS permission_rules (
+  id         TEXT PRIMARY KEY,
+  tool_name  TEXT NOT NULL,
+  pattern    TEXT NOT NULL,
+  cwd        TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  revoked_at TEXT
+)""",
+        """CREATE TABLE IF NOT EXISTS permission_log (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts              TEXT NOT NULL,
+  conversation_id TEXT,
+  request_id      TEXT,
+  tool_use_id     TEXT,
+  tool_name       TEXT,
+  input_json      TEXT,
+  cwd             TEXT,
+  status          TEXT NOT NULL,
+  source          TEXT,
+  rule_id         TEXT,
+  reason          TEXT,
+  resolved_at     TEXT
+)""",
+    ]),
 ]
 
 

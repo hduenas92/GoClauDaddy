@@ -231,19 +231,21 @@ def _seed_v19_team_db(db_path):
 
 
 def test_fresh_db_ends_at_v20_without_team_tables(temp_db):
+    from app.db.migrations import MIGRATIONS
+
     with get_connection() as conn:
         version = conn.execute("SELECT version FROM schema_version").fetchone()["version"]
         tables = {
             r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
-    assert version == 20
+    assert version == MIGRATIONS[-1][0]
     assert "team_sessions" not in tables
     assert "team_members" not in tables
 
 
 def test_v19_db_with_a_team_row_keeps_team_tables_at_v20(tmp_path, monkeypatch):
     from app.db import connection as cm
-    from app.db.migrations import apply_migrations
+    from app.db.migrations import apply_migrations, MIGRATIONS
 
     db_path = tmp_path / "v19-team.db"
     monkeypatch.setattr(cm, "DB_PATH", db_path)
@@ -258,6 +260,6 @@ def test_v19_db_with_a_team_row_keeps_team_tables_at_v20(tmp_path, monkeypatch):
             r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
 
-    assert version == 20
+    assert version == MIGRATIONS[-1][0]
     assert team["name"] == "Keep Me"
     assert {"team_sessions", "team_members"} <= tables
