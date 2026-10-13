@@ -8,8 +8,16 @@ import { showErrorToast, showDialog } from "./modal.js";
 import { attachmentDownloadUrl, isImageName } from "./attachment_view.js";
 import * as storage from "../state/storage.js";
 import { escapeHtml } from "../render/escape.js";
+import { setConnState } from "./conn_state.js";
 
 const STATUS_LABEL = { done: "Done", error: "Error", stopped: "Stopped", timeout: "Timed out" };
+// The four error codes the backend's WP-ST error frames can carry. A frame with
+// any of them names its own connection state; every other error is generic.
+const CONN_ERROR_CODES = new Set(["key_missing", "url_missing", "key_invalid", "gateway_unreachable"]);
+// Of those, the key/address problems are the ones the user fixes on the CaaS
+// keys page, so only they get the link appended to #chat-status.
+const KEY_LINK_CODES = new Set(["key_missing", "url_missing", "key_invalid"]);
+const CAAS_KEYS_URL = "https://caas.open-webui.godaddy.com/apiKeys";
 const TOOL_LABELS = {
   Read: "Read file",
   Write: "Write file",
@@ -49,6 +57,15 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
   const _toolStartTimes = new Map(); // tool_use_id → Date.now()
   let _stripStartTime = 0;
   let _approvalModal = null; // live approval modal handle (countdown resync target)
+  // WP-ST: the header pill moves to `streaming` on the FIRST text/thinking/
+  // tool_call frame of a turn, not on every frame. Reset at both ends of a turn.
+  let _firstFrameOfTurn = true;
+
+  function _markStreaming() {
+    if (!_firstFrameOfTurn) return;
+    _firstFrameOfTurn = false;
+    setConnState("streaming");
+  }
 
   function setConversationId(id) { conversationId = id; }
 
@@ -444,6 +461,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
 
   function startAssistantMessage() {
     _clearResyncMarker();
+    _firstFrameOfTurn = true;
     currentText = "";
     currentThinking = "";
     currentStripEl = null;
@@ -609,6 +627,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
   }
 
   function finishAssistantMessage(status, usage) {
+    _firstFrameOfTurn = true;
     if (!currentMetaEl) {
       setStreaming(false);
       return;
@@ -852,18 +871,26 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     lastUsage = null;
     unbindFns = [
       socket.on("thinking", (ev) => {
+        _markStreaming();
         statusEl.textContent = "";
         appendThinkingText(ev.thinking || "");
       }),
       socket.on("text", (ev) => {
+        _markStreaming();
         statusEl.textContent = "";
         appendAssistantText(ev.text || "");
+      }),
+      // WP-ST: the backend's own connection-state frames (retrying/key_invalid
+      // carry the CLI's attempt/max_retries).
+      socket.on("conn_state", (ev) => {
+        setConnState(ev.state, { attempt: ev.attempt, max_retries: ev.max_retries });
       }),
       socket.on("usage", (ev) => { lastUsage = ev.usage; }),
       socket.on("result", (ev) => { if (ev.usage) lastUsage = ev.usage; }),
       socket.on("timeout", () => {
         statusEl.textContent = "Response timed out. Send the message again to retry.";
         finishAssistantMessage("timeout", lastUsage);
+        setConnState("error");
       }),
       // P2-B E1: a non-fatal notice (non-JSON CLI stdout). It must be visible
       // WITHOUT ending the turn — an `error` frame is terminal here (it calls
@@ -898,14 +925,26 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
           msg = ev.error || "Claude reported an error. Try again; if it keeps failing, open the LOG panel for details.";
         }
         statusEl.textContent = msg;
+        // C3: a key/address problem is fixable on the CaaS keys page, so give
+        // the status line a link there. DOM-built — no innerHTML with data.
+        if (KEY_LINK_CODES.has(ev.code)) {
+          const link = document.createElement("a");
+          link.href = CAAS_KEYS_URL;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "Open CaaS API keys";
+          statusEl.append(" ", link);
+        }
         showErrorToast(msg);
         finishAssistantMessage("error", lastUsage);
+        setConnState(CONN_ERROR_CODES.has(ev.code) ? ev.code : "error");
       }),
       socket.on("stopped", () => {
         statusEl.textContent = "Stopped.";
         finishAssistantMessage("stopped", lastUsage);
+        setConnState("ready");
       }),
-      socket.on("tool_call", (ev) => appendToolCall(ev.name, ev.input ?? {}, ev.id)),
+      socket.on("tool_call", (ev) => { _markStreaming(); appendToolCall(ev.name, ev.input ?? {}, ev.id); }),
       socket.on("tool_result", (ev) => appendToolResult(ev.tool_use_id, ev.content || "", ev.is_error)),
       socket.on("done", () => {
         if (currentAssistantEl) {

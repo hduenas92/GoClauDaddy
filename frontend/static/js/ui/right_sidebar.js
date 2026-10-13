@@ -348,15 +348,18 @@ export function mountRightSidebar(root) {
   }
 
   // --- Server panel ---
+  // C5: the URL/port moved to Settings > Advanced. This panel keeps only the
+  // Online/Offline status and the button (which still opens info.url). Every
+  // string interpolated into the innerHTML below goes through escapeHtml.
   function _fetchServerInfo() {
     _getJSON("/api/server/info")
       .then((info) => {
         const body = root.querySelector("#rsb-server-body");
         if (serverBadgeEl) serverBadgeEl.textContent = "ONLINE";
         if (!body) return;
+        const statusText = "Online";
         body.innerHTML = `
-          <div class="server-status" role="status"><span class="server-dot"></span><span>Online</span></div>
-          <div class="server-url">${escapeHtml(info.url)}</div>
+          <div class="server-status" role="status"><span class="server-dot"></span><span>${escapeHtml(statusText)}</span></div>
           <button class="server-btn" id="rsb-open-browser">⎋ Open in Browser</button>
         `;
         body.querySelector("#rsb-open-browser")?.addEventListener("click", () => {
@@ -369,8 +372,9 @@ export function mountRightSidebar(root) {
         if (serverBadgeEl) serverBadgeEl.textContent = "OFFLINE";
         const body = root.querySelector("#rsb-server-body");
         if (!body) return;
+        const statusText = "Offline — server unreachable. Restart GoClaudaddy, then refresh.";
         body.innerHTML = `
-          <div class="server-status" role="status"><span class="server-dot offline"></span><span>Offline — server unreachable. Restart GoClaudaddy, then refresh.</span></div>
+          <div class="server-status" role="status"><span class="server-dot offline"></span><span>${escapeHtml(statusText)}</span></div>
         `;
       });
   }

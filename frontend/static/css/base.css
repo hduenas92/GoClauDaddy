@@ -1008,6 +1008,8 @@ html, body {
   min-height: 20px;
   flex-shrink: 0;
 }
+/* C3: the "Open CaaS API keys" link appended to a key/address error. */
+#chat-status a { color: var(--accent-hi); margin-left: var(--sp-4); }
 
 /* ============================================================
    COMPOSER — floating dock
@@ -1139,6 +1141,9 @@ html, body {
 }
 #composer-row button:not(#composer-attach):active { transform: translateY(1px); }
 
+/* C4: an empty composer shows Send as unavailable without disabling it. */
+#composer-send[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+
 #composer-stop {
   background: var(--rose) !important;
   box-shadow: 0 0 14px rgba(var(--error-rgb) / 0.4) !important;
@@ -1193,6 +1198,29 @@ html, body {
   color: var(--text);
   box-shadow: 0 0 8px rgba(var(--accent-hi-rgb) / 0.2);
 }
+
+/* WP-ST: the single connection-state pill in the header. data-state is the
+   state id; its text is the label, both set by ui/conn_state.js. */
+#conn-state {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--sp-2) var(--sp-8);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-11);
+  font-family: inherit;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+#conn-state[data-state="connected"] { color: var(--success); }
+#conn-state[data-state="sending"],
+#conn-state[data-state="streaming"],
+#conn-state[data-state="retrying"] { color: var(--working); }
+#conn-state[data-state="key_invalid"],
+#conn-state[data-state="key_missing"],
+#conn-state[data-state="url_missing"],
+#conn-state[data-state="gateway_unreachable"],
+#conn-state[data-state="error"] { color: var(--error); }
 
 /* ---- header title group ---- */
 .header-title-group {

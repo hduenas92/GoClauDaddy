@@ -9,6 +9,7 @@ import { attachmentDownloadUrl, isImageName } from "./attachment_view.js";
 import { endSentence } from "./sentence.js";
 import * as storage from "../state/storage.js";
 import { escapeHtml } from "../render/escape.js";
+import { setConnState } from "./conn_state.js";
 
 const _RISKY = /\b(delete|drop|remove|wipe|destroy|format|truncate|uninstall|overwrite|migrate|deploy|execute|rm\s+-rf)\b/i;
 
@@ -82,7 +83,8 @@ export function mountComposer(root, socket, chatPane) {
       <button id="composer-attach" title="Attach file">📎</button>
       <span class="composer-prompt" aria-hidden="true">&gt;</span>
       <textarea id="composer-input" rows="2" placeholder="Message GoClaudaddy… (drag files, paste image, Enter to send)" aria-label="Message GoClaudaddy"></textarea>
-      <button id="composer-send">Send</button>
+      <button id="composer-send" aria-disabled="true" aria-describedby="composer-empty-hint">Send</button>
+      <span id="composer-empty-hint" class="sr-only">Type a message to send.</span>
       <button id="composer-stop" hidden>■ Stop</button>
     </div>
     <div id="composer-footer">
@@ -218,12 +220,21 @@ export function mountComposer(root, socket, chatPane) {
       chip.appendChild(rm);
       strip.appendChild(chip);
     });
+    _syncSendDisabled();
   }
 
   function updateCharCounter() {
     const len = input.value.length;
     charCounter.textContent = len > 50 ? `${len} chars` : "";
     charCounter.classList.toggle("char-warn", len > 4000);
+  }
+
+  // C4: Send is "disabled" to assistive tech whenever there is nothing to send.
+  // aria-disabled (not `disabled`) keeps the button focusable and Enter working;
+  // send()'s own guard still refuses an empty send.
+  function _syncSendDisabled() {
+    const empty = input.value.trim() === "" && pending.length === 0;
+    sendBtn.setAttribute("aria-disabled", empty ? "true" : "false");
   }
 
   // F1: restore the per-conversation draft this composer was remounted for.
@@ -239,6 +250,7 @@ export function mountComposer(root, socket, chatPane) {
     input.style.height = Math.min(input.scrollHeight, 200) + "px";
     updateCharCounter();
   }
+  _syncSendDisabled();
 
   async function uploadFile(file) {
     const conversationId = getState().activeConversationId;
@@ -277,6 +289,7 @@ export function mountComposer(root, socket, chatPane) {
   });
   input.addEventListener("input", () => {
     updateCharCounter();
+    _syncSendDisabled();
     // F1: autosave the draft for the conversation this composer belongs to.
     // Synchronous on purpose — a debounce would lose the last keystrokes when
     // the user clicks another conversation immediately after typing.
@@ -363,10 +376,12 @@ export function mountComposer(root, socket, chatPane) {
         _undoFailedSend(err, null, text);
         return false;
       }
+      setConnState("sending");
       input.value = "";
       charCounter.textContent = "";
       input.style.height = "";
       clearDraft(getState().activeConversationId);
+      _syncSendDisabled();
       return true;
     }
 
@@ -403,6 +418,7 @@ export function mountComposer(root, socket, chatPane) {
       _undoFailedSend(err, optimisticBubble, text);
       return false;
     }
+    setConnState("sending");
     input.value = "";
     charCounter.textContent = "";
     input.style.height = "";

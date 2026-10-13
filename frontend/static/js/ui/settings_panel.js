@@ -118,6 +118,8 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
       <details class="drawer-section drawer-advanced" id="advanced-settings-section">
         <summary class="drawer-advanced-summary">Advanced</summary>
         <div class="drawer-advanced-body">
+          <p class="drawer-hint">Server address: <span id="adv-server-address">—</span></p>
+          <p class="drawer-hint">Claude CLI version: <span id="adv-cli-version">—</span></p>
           <p class="drawer-hint">Feature toggles apply immediately.</p>
           <label class="drawer-toggle-row">
             <input type="checkbox" id="feat-assess" class="drawer-toggle-check">
@@ -344,10 +346,35 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
   };
 }
 
+// C5: Advanced is where the server address and the Claude CLI version live now
+// (the header and the SERVER panel no longer show them). Both are read-only and
+// "—" until their endpoint answers; refreshed on every drawer open.
+function _fillText(el, value) {
+  if (el) el.textContent = value || "—";
+}
+
+function _refreshAdvancedInfo(drawerEl) {
+  const serverEl = drawerEl.querySelector("#adv-server-address");
+  if (serverEl) {
+    fetch("/api/server/info")
+      .then((r) => { if (!r.ok) throw new Error(`GET /api/server/info ${r.status}`); return r.json(); })
+      .then((info) => _fillText(serverEl, info?.url))
+      .catch(() => _fillText(serverEl, null));
+  }
+  const cliEl = drawerEl.querySelector("#adv-cli-version");
+  if (cliEl) {
+    fetch("/api/cli/info")
+      .then((r) => { if (!r.ok) throw new Error(`GET /api/cli/info ${r.status}`); return r.json(); })
+      .then((info) => _fillText(cliEl, info?.claude_code_version))
+      .catch(() => _fillText(cliEl, null));
+  }
+}
+
 export function openDrawer(el) {
   el.classList.add("drawer-open");
   el.setAttribute("aria-hidden", "false");
   el.removeAttribute("inert");
+  _refreshAdvancedInfo(el);
 }
 
 export function closeDrawer(el) {

@@ -56,6 +56,7 @@ import { endSentence } from "./ui/sentence.js";
 import { mountSidebarProjects } from "./ui/sidebar_projects.js";
 import { mountSettingsPanel, openDrawer, closeDrawer } from "./ui/settings_panel.js";
 import { mountRightSidebar } from "./ui/right_sidebar.js";
+import { initConnState } from "./ui/conn_state.js";
 import { maybeShowOnboarding } from "./ui/onboarding_tour.js";
 import { openTemplatePicker } from "./ui/template_picker.js";
 import { trapFocus } from "./ui/modal.js";
@@ -161,6 +162,7 @@ async function boot() {
           <div id="conv-subtitle" class="conv-subtitle"></div>
         </div>
         <div id="header-actions">
+          <span id="conn-state" role="status" aria-live="polite" data-state="ready">Ready</span>
           <button id="export-btn" title="Export conversation (Ctrl+E)" class="header-btn" data-tooltip="Export (Ctrl+E)">⬇ Export</button>
           <button id="shortcuts-btn" title="Keyboard shortcuts (?)" class="header-btn" data-tooltip="Shortcuts (?)">⌨</button>
           <button id="settings-btn" title="Settings (Ctrl+,)" class="header-btn" data-tooltip="Settings (Ctrl+,)">⚙</button>
@@ -197,6 +199,9 @@ async function boot() {
       </div>
     </div>
   `;
+
+  // The header pill exists now, so paint the current (global) connection state.
+  initConnState();
 
   const rightSidebarEl = document.getElementById("right-sidebar");
   const sbToggleBtn = document.getElementById("sb-toggle-btn");
