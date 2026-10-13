@@ -18,6 +18,7 @@ from app.routers import config as config_router
 from app.routers import conversation_stats as conversation_stats_router
 from app.routers import conversations as conversations_router
 from app.routers import flow_templates as flow_templates_router
+from app.routers import permission_mcp as permission_mcp_router
 from app.routers import projects as projects_router
 from app.routers import search as search_router
 from app.routers import server as server_router
@@ -64,6 +65,7 @@ def create_app() -> FastAPI:
     app.include_router(conversations_router.router)
     app.include_router(config_router.router)
     app.include_router(flow_templates_router.router)
+    app.include_router(permission_mcp_router.router)
     app.include_router(projects_router.router)
     app.include_router(search_router.router)
     app.include_router(attachments_router.router)
