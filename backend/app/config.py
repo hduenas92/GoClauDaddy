@@ -43,6 +43,45 @@ REQUIRED_AUTH_ENV_VARS = ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL")
 
 PERMISSION_MODES = ("acceptEdits", "auto", "bypassPermissions", "manual", "dontAsk", "plan")
 
+# The four modes the approval UI offers. ``expected_echo`` is the value the CLI
+# echoes back in stream-json system/init permissionMode for that mode (verified
+# against the installed CLI --help output).
+PERMISSION_MODE_OPTIONS = [
+    {
+        "value": "manual",
+        "label": "Ask before acting",
+        "description": "Claude asks before every tool use.",
+        "expected_echo": "default",
+    },
+    {
+        "value": "acceptEdits",
+        "label": "Auto-approve edits",
+        "description": "Claude can make file edits without asking each time, but still checks before anything riskier.",
+        "expected_echo": "acceptEdits",
+    },
+    {
+        "value": "plan",
+        "label": "Plan only",
+        "description": "Claude plans before acting and doesn't run tools.",
+        "expected_echo": "plan",
+    },
+    {
+        "value": "bypassPermissions",
+        "label": "Bypass all prompts",
+        "description": "Claude runs tools and edits files without asking.",
+        "expected_echo": "bypassPermissions",
+    },
+]
+
+
+def expected_permission_echo(mode: str) -> str | None:
+    """The stream-json permissionMode echo for ``mode``, or None if unknown."""
+    for option in PERMISSION_MODE_OPTIONS:
+        if option["value"] == mode:
+            return option["expected_echo"]
+    return None
+
+
 DEFAULT_WORKING_DIR = str(Path.home())
 
 DEFAULT_MODEL = "claude-sonnet-5-5"

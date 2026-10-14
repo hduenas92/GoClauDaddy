@@ -19,11 +19,12 @@ import time
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from app.config import DEFAULT_WORKING_DIR
+from app.config import DEFAULT_WORKING_DIR, PORT, expected_permission_echo
 from app.logging_setup import get_logger
 from app.services import attachments_service as attachments
 from app.services import claude_cli
 from app.services import conversations_service as convs
+from app.services import permission_broker
 from app.services import projects_service as projects
 from app.services.process_registry import registry
 from app.services.redact import redact_secrets
@@ -46,14 +47,9 @@ log = get_logger("chat_socket")
 # precisely the stopped turns. Pass `stopped=` to add_message() instead.
 _RETIRED_STOPPED_MARKER = "\n\n<!-- claudioui:stopped -->"
 
-# How long to wait for the user's approve/deny before DENYING. A module-level
-# constant rather than a literal so the timeout path is reachable in a test
-# without that test taking a minute — which is why it had no coverage at all.
-APPROVAL_TIMEOUT_SECONDS: float = 60
-
 # How often a text/thinking/usage checkpoint may write while streaming (P2-E).
-# Module-level for the same reason as APPROVAL_TIMEOUT_SECONDS: the throttle
-# rule must be testable without sleeping 2 real seconds in a unit test.
+# Module-level so the throttle rule is testable without sleeping 2 real seconds
+# in a unit test.
 CHECKPOINT_INTERVAL_SECONDS: float = 2.0
 
 # One copy of the "gone" text, shared by the pre-send guard and the mid-reply
@@ -71,24 +67,26 @@ async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None
     await websocket.accept()
     log.info("WS connected for conversation %s", conversation_id)
 
-    # Shared queue for approval responses (approve/deny WS messages from frontend).
-    # maxsize=1: only one approval can be pending at a time (the subprocess blocks on stdin).
-    approval_queue: asyncio.Queue[bool] = asyncio.Queue(maxsize=1)
-
     try:
         while True:
             payload = await _receive_json_or_sentinel(websocket)
             msg_type = payload.get("type")
 
-            if msg_type in ("approve", "deny", "approval_extend"):
-                # Drain stale entries (safety) then signal the waiting send-task.
-                # "approval_extend" is carried as a string sentinel so the waiter
-                # can tell it apart from the True/False approve/deny payloads.
-                while not approval_queue.empty():
-                    approval_queue.get_nowait()
-                approval_queue.put_nowait(
-                    "approval_extend" if msg_type == "approval_extend" else (msg_type == "approve")
-                )
+            if msg_type in ("approve", "approve_always", "deny", "approval_extend"):
+                # Approval decisions go straight to the broker, which wakes the
+                # CLI's pending MCP tools/call request. An unknown request_id is
+                # harmless: the broker returns False and the CLI's own timeout
+                # still denies (fail closed).
+                request_id = payload.get("request_id")
+                if msg_type == "approval_extend":
+                    permission_broker.broker.extend(conversation_id, request_id)
+                else:
+                    decision = {
+                        "approve": "allow_once",
+                        "approve_always": "allow_always",
+                        "deny": "deny",
+                    }[msg_type]
+                    permission_broker.broker.resolve(conversation_id, request_id, decision)
                 continue
 
             if msg_type == "stop":
@@ -114,19 +112,23 @@ async def handle_chat_socket(websocket: WebSocket, conversation_id: str) -> None
             # slip past registry.is_busy() before this one is tracked.
             #
             # Record the owner at the same instant as the task: the disconnect
-            # path above may stop this turn for THIS socket only.
+            # path below may stop this turn for THIS socket only.
             _turn_owner[conversation_id] = websocket
-            task = asyncio.ensure_future(_handle_send(websocket, conversation_id, payload, approval_queue))
+            task = asyncio.ensure_future(_handle_send(websocket, conversation_id, payload))
             registry.register_task(conversation_id, task)
 
     except WebSocketDisconnect:
         log.info("WS disconnected for conversation %s", conversation_id)
         # Only the socket that started the in-flight turn may stop it by
-        # disconnecting. Two browser tabs share a conversation_id but are
-        # separate sockets, so closing the second tab must not kill the first
-        # tab's approval-blocked turn. An explicit `stop` frame from ANY socket
-        # still stops it -- that is the branch above and is unchanged.
-        if conversation_id in _approval_pending and _turn_owner.get(conversation_id) is websocket:
+        # disconnecting, and only while a permission prompt is pending (a turn
+        # that is streaming can finish headless). Two browser tabs share a
+        # conversation_id but are separate sockets, so closing the second tab
+        # must not kill the first tab's pending prompt. An explicit `stop`
+        # frame from ANY socket still stops it -- that is the branch above and
+        # is unchanged.
+        if _turn_owner.get(conversation_id) is websocket and permission_broker.broker.has_pending(
+            conversation_id
+        ):
             registry.stop(conversation_id)
 
 
@@ -134,7 +136,6 @@ async def _handle_send(
     websocket: WebSocket,
     conversation_id: str,
     payload: dict,
-    approval_queue: asyncio.Queue,
 ) -> None:
     """N11 guard around the real handler.
 
@@ -158,7 +159,7 @@ async def _handle_send(
     which is a BaseException in modern Python — a `/stop` must keep cancelling.
     """
     try:
-        await _handle_send_inner(websocket, conversation_id, payload, approval_queue)
+        await _handle_send_inner(websocket, conversation_id, payload)
     except Exception:
         log.exception("Unhandled error in send setup for conversation %s", conversation_id)
         # Honour the done-always contract the composer relies on
@@ -203,7 +204,6 @@ async def _handle_send_inner(
     websocket: WebSocket,
     conversation_id: str,
     payload: dict,
-    approval_queue: asyncio.Queue,
 ) -> None:
     regenerate = bool(payload.get("regenerate"))
     prompt = (payload.get("message") or "").strip()
@@ -228,7 +228,10 @@ async def _handle_send_inner(
     project = projects.get_project(conv.project_id) if conv.project_id else None
 
     model = conv.model
-    permission_mode = conv.permission_mode
+    # A conversation with no stored mode is a manual-approval chat (ruling Q2):
+    # the CLI must receive an explicit --permission-mode so its echo can be
+    # checked against the requested mode.
+    permission_mode = conv.permission_mode or "manual"
     # Conversation-level prompt overrides project-level; payload is not a source
     # of truth for system_prompt (the settings panel PATCHes the DB directly).
     system_prompt = conv.system_prompt or (project.system_prompt if project else None)
@@ -282,11 +285,23 @@ async def _handle_send_inner(
         attachments.attach_to_message(attachment_ids, user_message.id)
     convs.set_status(conversation_id, "busy")
 
-    proc_stdin: list = [None]  # mutable container captured by closure below
+    async def _notify_permission_frame(frame: dict) -> None:
+        """Deliver one broker frame to the UI that owns this turn."""
+        await websocket.send_json(frame)
+
+    permission_token = permission_broker.broker.open_turn(
+        conversation_id, cwd, _notify_permission_frame
+    )
+    # The CLI reaches the in-app MCP server on the same socket/port that
+    # accepted this websocket. Fall back to config.PORT for direct handler
+    # tests whose fake websocket has no ASGI scope.
+    scope = getattr(websocket, "scope", None) or {}
+    server = scope.get("server") or (None, None)
+    port = server[1] if isinstance(server, (list, tuple)) and len(server) > 1 and server[1] else PORT
+    prompt_tool_url = f"http://127.0.0.1:{port}/mcp/permission/{permission_token}"
 
     def _on_started(proc):
         registry.register_process(conversation_id, proc)
-        proc_stdin[0] = proc.stdin  # capture for approval responses
 
     text_parts: list[str] = []
     thinking_parts: list[str] = []
@@ -356,76 +371,27 @@ async def _handle_send_inner(
             max_tokens=max_tokens,
             session_id=conv.session_id,
             on_process_started=_on_started,
+            prompt_tool_url=prompt_tool_url,
         ):
             ev_type = event.get("type")
-            if ev_type == "approval_needed":
-                _approval_pending.add(conversation_id)  # waiting for approve/deny
-                # The subprocess is blocked on stdin at this point, so stdout is quiet
-                # until we write y/n — no events are missed during the await.
-                # The deadline is OWNED HERE: the client's countdown is a display of
-                # this deadline, and an approval_extend message pushes it out by
-                # APPROVAL_TIMEOUT_SECONDS each time (WCAG 2.2.1, no fixed time limit
-                # without an extension mechanism).
-                deadline = _monotonic_now() + APPROVAL_TIMEOUT_SECONDS
-                approval_event = dict(event)
-                approval_event["timeout"] = APPROVAL_TIMEOUT_SECONDS
-                approval_event["remaining"] = APPROVAL_TIMEOUT_SECONDS
-                with contextlib.suppress(RuntimeError):
-                    await websocket.send_json(approval_event)
-                approved = None
-                timed_out = False
-                while approved is None:
-                    remaining = deadline - _monotonic_now()
-                    if remaining <= 0:
-                        timed_out = True
-                        break
-                    try:
-                        item = await asyncio.wait_for(approval_queue.get(), timeout=remaining)
-                    except TimeoutError:
-                        timed_out = True
-                        break
-                    if item == "approval_extend":
-                        deadline = _monotonic_now() + APPROVAL_TIMEOUT_SECONDS
-                        with contextlib.suppress(RuntimeError):
-                            await websocket.send_json({
-                                "type": "approval_extended",
-                                "timeout": APPROVAL_TIMEOUT_SECONDS,
-                                "remaining": deadline - _monotonic_now(),
-                            })
-                        continue
-                    approved = item
-                _approval_pending.discard(conversation_id)
-                if timed_out:
-                    # FAIL CLOSED. This used to be `approved = True` with the
-                    # comment "timeout = auto-approve, keep stream alive", and
-                    # nothing was emitted — so a user who stepped away, or whose
-                    # socket had already closed (the send above is wrapped in
-                    # suppress(RuntimeError), so the prompt may never have been
-                    # rendered at all), had the tool run on their behalf with no
-                    # record of it. A gate that exists to withhold consent must
-                    # not grant it by default. Decided with Houston 2026-09-19.
-                    approved = False
-                    notice = (
-                        f"\n\n_No answer within {APPROVAL_TIMEOUT_SECONDS:g}s, so this tool "
-                        f"was **not** run. Send the message again to retry it._\n\n"
+            if ev_type == "permission_mode_echo":
+                actual = event.get("mode")
+                ok = expected_permission_echo(permission_mode) == actual
+                if not ok:
+                    log.warning(
+                        "Permission mode mismatch for conversation %s: requested %r, CLI echoed %r",
+                        conversation_id,
+                        permission_mode,
+                        actual,
                     )
-                    text_parts.append(notice)
-                    with contextlib.suppress(RuntimeError):
-                        await websocket.send_json({"type": "text", "text": notice})
-                stdin = proc_stdin[0]
-                if stdin and not stdin.is_closing():
-                    stdin.write(b"y\n" if approved else b"n\n")
-                    try:
-                        await stdin.drain()
-                    except (ConnectionError, BrokenPipeError, OSError):
-                        pass
-                    except Exception:
-                        log.warning(
-                            "Failed to drain approval response to claude stdin for conversation %s",
-                            conversation_id,
-                            exc_info=True,
-                        )
-                continue  # not a content event; skip all downstream accumulation
+                with contextlib.suppress(RuntimeError):
+                    await websocket.send_json({
+                        "type": "permission_mode",
+                        "requested": permission_mode,
+                        "actual": actual,
+                        "ok": ok,
+                    })
+                continue  # mode handshake is not content; never stored or forwarded
             if ev_type == "session":
                 convs.set_session_id(conversation_id, event["session_id"])
             elif ev_type == "text":
@@ -498,7 +464,11 @@ async def _handle_send_inner(
                 {"type": "error", "error": "Something went wrong during the reply. Try again; if it keeps failing, open the LOG panel."}
             )
     finally:
-        _approval_pending.discard(conversation_id); registry.clear(conversation_id)
+        # The turn is over for ANY reason (done, error, stop, owner window
+        # closed): close the permission turn so its token dies and any still
+        # pending prompt is denied (fail closed).
+        permission_broker.broker.close_turn(permission_token)
+        registry.clear(conversation_id)
         # The turn is over; it no longer has an owner that may stop it.
         _release_owner(conversation_id, websocket)
         convs.set_status(conversation_id, "error" if had_error else "idle")
@@ -555,10 +525,6 @@ async def _handle_send_inner(
                 cache_creation_tokens=usage.get("cache_creation_input_tokens") or 0,
             )
 
-
-# Defined after the streaming loop on purpose: tests pin the line number of
-# the non-JSON notice log above, so this tracking state must not shift it.
-_approval_pending: set[str] = set()
 
 # Fixed copy for the non-JSON CLI stdout notice frame (P2-B E1). The raw
 # stdout line may contain credentials, so the forwarded frame carries no part

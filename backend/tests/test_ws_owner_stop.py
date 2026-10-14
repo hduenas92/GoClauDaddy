@@ -1,16 +1,13 @@
 """Owner-scoped stop on WebSocket disconnect (app/ws/chat_socket.py).
 
 Regression: the disconnect path used to call registry.stop() for ANY socket
-connected to a conversation with an approval pending:
-
-    if conversation_id in _approval_pending:  # only an approval-blocked turn can't finish headless
-        registry.stop(conversation_id)
-
-Two browser tabs share a conversation_id but are separate sockets, so closing
-the second tab killed the first tab's pending turn. The fix records the
+connected to a conversation with a permission prompt pending. Two browser
+tabs share a conversation_id but are separate sockets, so closing the second
+tab must not kill the first tab's pending prompt. The fix records the
 websocket that STARTED the turn (`_turn_owner[conversation_id]`) and lets only
-that socket stop the turn by disconnecting. An explicit `stop` frame from any
-socket is deliberately unchanged and still stops the turn.
+that socket stop the turn by disconnecting while a prompt is pending. An
+explicit `stop` frame from any socket is deliberately unchanged and still
+stops the turn.
 
 Driven through fastapi.testclient.TestClient -- the same pattern as
 test_ws_edge_cases.py -- with claude_cli.run monkeypatched by an async
@@ -91,12 +88,10 @@ class _FakeProc:
 
 
 def _patch_pending_approval(monkeypatch, procs: list) -> None:
-    """A fake CLI turn that asks for approval and stays blocked on it.
+    """A fake CLI turn that emits an approval_needed frame and stays blocked.
 
-    The handler adds the conversation to `_approval_pending`, sends the
-    `approval_needed` frame and awaits the approval queue; the async generator
-    is suspended at its yield. That is exactly the in-flight shape the
-    disconnect path is about.
+    The async generator is suspended at its yield well past the test's
+    lifetime, so the only way the turn ends is the stop frame under test.
     """
 
     async def fake_run(**kwargs):
@@ -115,42 +110,7 @@ def _patch_pending_approval(monkeypatch, procs: list) -> None:
 
 
 # --------------------------------------------------------------------------
-# 1. the non-owning socket's disconnect must NOT stop the turn; the owner's must
-# --------------------------------------------------------------------------
-
-def test_non_owner_disconnect_does_not_stop_then_owner_disconnect_does(temp_db, monkeypatch):
-    procs: list = []
-    _patch_pending_approval(monkeypatch, procs)
-    conv_id = _conv(temp_db)
-
-    with client.websocket_connect(f"/ws/chat/{conv_id}") as owner:
-        owner.send_json({"type": "send", "message": "do something"})
-        first, _ = _read_n(owner, 1, timeout=5.0)
-        assert first and first[0].get("type") == "approval_needed", first
-        assert _wait_until(lambda: bool(procs)), "the CLI process was never started"
-
-        # A second browser tab connects to the same conversation, then closes
-        # without sending a `send`. It owns no turn.
-        with client.websocket_connect(f"/ws/chat/{conv_id}") as second:
-            pass
-
-        # Its disconnect handler has had time to run. It must not have stopped
-        # the owner's approval-blocked turn.
-        time.sleep(0.3)
-        assert procs[0].killed is False, (
-            "closing the non-owning socket killed the owner's approval-blocked "
-            "CLI process"
-        )
-
-    # Leaving the owner's context disconnects the owning socket: now the turn
-    # cannot finish headless and the CLI must be stopped.
-    assert _wait_until(lambda: procs[0].killed, timeout=3.0), (
-        "the owning socket's disconnect did NOT stop the pending CLI process"
-    )
-
-
-# --------------------------------------------------------------------------
-# 2. an explicit `stop` from a non-owning socket still stops the turn
+# 1. an explicit `stop` from a non-owning socket still stops the turn
 # --------------------------------------------------------------------------
 
 def test_stop_from_second_socket_still_stops_the_turn(temp_db, monkeypatch):

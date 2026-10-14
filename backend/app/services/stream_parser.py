@@ -58,14 +58,10 @@ def parse_line(raw_line: str) -> list[dict[str, Any]]:
     try:
         ev = json.loads(line)
     except ValueError:
-        # Check for interactive permission prompt text (non-interactive --print mode may still emit these)
-        if re.search(r'\[y/n\]|\(y/n\)|allow\s+\S.*\?', line, re.I):
-            tool_m = re.search(r'(?:allow|run|execute)\s+(\w+)', line, re.I)
-            tool = tool_m.group(1) if tool_m else "tool"
-            return [{"type": "approval_needed", "tool": tool, "action": line.strip(), "id": ""}]
-        # Not JSON (e.g. a stray CLI banner line). Houston 2026-09-25: this is
-        # an error to surface, NOT Claude's reply — emit a non-fatal `notice`
-        # that the WS handler logs/forwards, never assistant text.
+        # Not JSON (e.g. a stray CLI banner line or an old-style interactive
+        # approval prompt). Houston 2026-09-25: this is an error to surface,
+        # NOT Claude's reply — emit a non-fatal `notice` that the WS handler
+        # logs/forwards, never assistant text.
         return [{"type": "notice", "text": line}]
 
     ev_type = ev.get("type", "")
@@ -74,18 +70,17 @@ def parse_line(raw_line: str) -> list[dict[str, Any]]:
         subtype = ev.get("subtype", "")
         if subtype == "init":
             cli_info.record_init(ev)
+            events = []
             session_id = ev.get("session_id")
-            return [{"type": "session", "session_id": session_id}] if session_id else []
+            if session_id:
+                events.append({"type": "session", "session_id": session_id})
+            if isinstance(ev.get("permissionMode"), str):
+                events.append({"type": "permission_mode_echo", "mode": ev["permissionMode"]})
+            return events
         if subtype == "api_retry":
             state = "key_invalid" if ev.get("error_status") == 401 else "retrying"
             return [{"type": "conn_state", "state": state,
                      "attempt": ev.get("attempt"), "max_retries": ev.get("max_retries")}]
-        # Claude CLI emits permission requests as system events in stream-json format
-        if "permission" in subtype or subtype in ("tool_permission", "approval_request", "tool_use_confirm"):
-            return [{"type": "approval_needed",
-                     "tool": ev.get("tool", ev.get("toolName", "")),
-                     "action": str(ev.get("action", ev.get("description", ev.get("input", "")))),
-                     "id": ev.get("id", "")}]
         return []
 
     if ev_type == "assistant":

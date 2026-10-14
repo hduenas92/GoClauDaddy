@@ -7,18 +7,28 @@ on the command line — never pass a raw client string straight to argv.
 
 import asyncio
 import codecs
+import json
 import os
+import re
 import shutil
 import sys
 from collections.abc import AsyncIterator
 from typing import Any
 
+import app.services.permission_broker as permission_broker
 from app.config import PERMISSION_MODES, RESPONSE_TIMEOUT_SECONDS
 from app.logging_setup import get_logger
 from app.services.redact import redact_secrets
 from app.services.stream_parser import parse_line
 
 log = get_logger("claude_cli")
+
+PERMISSION_MCP_SERVER = "gca-permission"
+
+# prompt_tool_url must point at THIS app on a loopback address. The port is
+# validated separately as a non-empty digit run; anything after the port must
+# start with a slash (the MCP route /mcp/permission/{token}).
+_PROMPT_TOOL_URL_RE = re.compile(r"^http://(?:127\.0\.0\.1|localhost|\[::1\]):\d+/")
 
 CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 
@@ -61,6 +71,7 @@ def build_command(
     session_id: str | None = None,
     thinking_budget: int | None = None,
     max_tokens: int | None = None,
+    prompt_tool_url: str | None = None,
 ) -> list[str]:
     # --verbose is required by the CLI when combining --print with
     # --output-format stream-json (it refuses to start otherwise).
@@ -68,6 +79,22 @@ def build_command(
 
     if permission_mode and permission_mode in PERMISSION_MODES:
         cmd += ["--permission-mode", permission_mode]
+
+    if prompt_tool_url is not None:
+        if not isinstance(prompt_tool_url, str) or not _PROMPT_TOOL_URL_RE.match(prompt_tool_url):
+            raise ValueError(
+                "prompt_tool_url must be a loopback http URL like http://127.0.0.1:<port>/..."
+            )
+        mcp_config = json.dumps(
+            {"mcpServers": {PERMISSION_MCP_SERVER: {"type": "http", "url": prompt_tool_url}}},
+            separators=(",", ":"),
+        )
+        cmd += [
+            "--mcp-config",
+            mcp_config,
+            "--permission-prompt-tool",
+            f"mcp__{PERMISSION_MCP_SERVER}__approve",
+        ]
 
     if system_prompt:
         cmd += ["--system-prompt", system_prompt]
@@ -83,6 +110,7 @@ def build_env(
     *,
     thinking_budget: int | None,
     max_tokens: int | None,
+    permission_prompt: bool = False,
 ) -> dict[str, str]:
     """Return ONLY the env overrides for the documented CLI controls.
 
@@ -90,13 +118,18 @@ def build_env(
     2.1.286), so the token controls are passed as environment variables
     instead. max_tokens must be a positive int to be included;
     thinking_budget is included whenever it is not None, because 0 is
-    meaningful (it disables thinking).
+    meaningful (it disables thinking). When the CLI is talking to the
+    in-app permission MCP server, MCP_TOOL_TIMEOUT gives it enough time
+    for the user to answer; the value is read at call time so tests can
+    monkeypatch the broker's APPROVAL_MAX_SECONDS.
     """
     env: dict[str, str] = {}
     if max_tokens is not None and max_tokens > 0:
         env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(max_tokens)
     if thinking_budget is not None:
         env["MAX_THINKING_TOKENS"] = str(thinking_budget)
+    if permission_prompt:
+        env["MCP_TOOL_TIMEOUT"] = str(int((permission_broker.APPROVAL_MAX_SECONDS + 30) * 1000))
     return env
 
 
@@ -148,6 +181,7 @@ async def run(
     thinking_budget: int | None = None,
     max_tokens: int | None = None,
     on_process_started: Any = None,
+    prompt_tool_url: str | None = None,
 ) -> AsyncIterator[dict]:
     """Runs the CLI and yields normalized events as they arrive.
 
@@ -163,6 +197,7 @@ async def run(
         session_id=session_id,
         thinking_budget=thinking_budget,
         max_tokens=max_tokens,
+        prompt_tool_url=prompt_tool_url,
     )
 
     # Resolve to a full path rather than spawning the bare "claude" name.
@@ -193,7 +228,14 @@ async def run(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
-            env={**os.environ, **build_env(thinking_budget=thinking_budget, max_tokens=max_tokens)},
+            env={
+                **os.environ,
+                **build_env(
+                    thinking_budget=thinking_budget,
+                    max_tokens=max_tokens,
+                    permission_prompt=prompt_tool_url is not None,
+                ),
+            },
             creationflags=CREATE_NO_WINDOW,
         )
     except FileNotFoundError:

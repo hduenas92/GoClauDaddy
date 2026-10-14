@@ -412,47 +412,6 @@ def test_reply_larger_than_1mb_persisted_and_delivered_without_truncation(temp_d
 
 
 # --------------------------------------------------------------------------
-# 5. socket closed while an approval_needed is pending
-# --------------------------------------------------------------------------
-
-def test_socket_closed_during_pending_approval_terminates_the_subprocess(temp_db, monkeypatch):
-    """Closing the socket with an approval pending must not leave the CLI running.
-
-    The turn cannot proceed without an answer the client can no longer give, so
-    the subprocess must be terminated. This asserts the process registered via
-    on_process_started receives kill() -- i.e. chat_socket actually stops it.
-    """
-    procs: list[_FakeProc] = []
-
-    async def fake_run(**kwargs):
-        on_started = kwargs.get("on_process_started")
-        proc = _FakeProc()
-        procs.append(proc)
-        if on_started:
-            on_started(proc)
-        yield {"type": "approval_needed", "tool": "Bash", "action": "rm -rf ."}
-        await asyncio.sleep(60)  # blocked on stdin, as the real CLI would be
-        yield {"type": "text", "text": "after"}
-
-    monkeypatch.setattr(claude_cli_mod, "run", fake_run)
-    conv_id = _conv(temp_db)
-
-    with client.websocket_connect(f"/ws/chat/{conv_id}") as ws:
-        ws.send_json({"type": "send", "message": "do something"})
-        first = ws.receive_json()
-        assert first["type"] == "approval_needed", first
-    # socket closed here, approval still unanswered
-
-    assert _wait_until(lambda: bool(procs)), "the CLI process was never started"
-    assert _wait_until(lambda: procs[0].killed, timeout=2.0), (
-        "the CLI subprocess was NOT terminated after the socket closed; it is left "
-        "blocked on stdin until the approval timeout (and a task cancellation does "
-        "not reach the generator suspended at its yield, so the real subprocess "
-        "would be orphaned)"
-    )
-
-
-# --------------------------------------------------------------------------
 # 6. malformed client frames
 # --------------------------------------------------------------------------
 

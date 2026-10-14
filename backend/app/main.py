@@ -19,11 +19,13 @@ from app.routers import conversation_stats as conversation_stats_router
 from app.routers import conversations as conversations_router
 from app.routers import flow_templates as flow_templates_router
 from app.routers import permission_mcp as permission_mcp_router
+from app.routers import permissions as permissions_router
 from app.routers import projects as projects_router
 from app.routers import search as search_router
 from app.routers import server as server_router
 from app.services import attachments_service
 from app.services import conversations_service
+from app.services import permissions
 from app.services.process_registry import registry
 from app.ws.chat_socket import handle_chat_socket
 
@@ -38,6 +40,8 @@ async def lifespan(app: FastAPI):
     healed = conversations_service.heal_stale_busy()
     if healed:
         log.info("Startup cleanup marked %d stale busy conversation(s) as error", healed)
+    abandoned = permissions.abandon_open_entries()
+    log.info("Startup cleanup abandoned %d pending permission request(s)", abandoned)
     log.info("GoClaudaddy backend started")
     yield
     registry.shutdown_all()
@@ -66,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(config_router.router)
     app.include_router(flow_templates_router.router)
     app.include_router(permission_mcp_router.router)
+    app.include_router(permissions_router.router)
     app.include_router(projects_router.router)
     app.include_router(search_router.router)
     app.include_router(attachments_router.router)

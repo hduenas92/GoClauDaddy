@@ -6,9 +6,7 @@ script with `sys.executable`; the app still runs its real subprocess handling
 (stdout parsing, stderr drain, timeout kill, registry) against it.
 
 The scenario is selected by FAKE_CLAUDE_SCENARIO. Every stdout line is a JSON
-stream-json event the production stream_parser already knows how to parse,
-except the approval prompt line, which mimics the real CLI's non-JSON prompt
-and is parsed into an approval_needed event by stream_parser.
+stream-json event the production stream_parser already knows how to parse.
 """
 
 import json
@@ -107,20 +105,6 @@ def main():
         _text("partial-external")
         while True:
             time.sleep(0.2)
-
-    if scenario == "approval_echo":
-        sys.stdout.write("Allow Bash? [y/n]\n")
-        sys.stdout.flush()
-        answer = _read_stdin_line(timeout=float(os.environ.get("FAKE_CLAUDE_APPROVAL_WAIT", "5.0")))
-        if answer is None:
-            _stderr("FAKE_CLAUDE_NO_APPROVAL_RESPONSE")
-            return 3
-        if answer.strip().lower().startswith("y"):
-            _text("approved")
-        else:
-            _text("denied")
-        _result()
-        return 0
 
     if scenario == "concurrent_echo":
         _text(f"reply:{prompt}")

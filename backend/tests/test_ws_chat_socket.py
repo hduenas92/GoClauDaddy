@@ -657,13 +657,13 @@ def test_setup_guard_is_what_converts_a_raise_into_error_then_done(temp_db, monk
     # the client is told nothing at all.
     with pytest.raises(RuntimeError):
         asyncio.run(
-            chat_socket._handle_send_inner(_FakeWS(), conv_id, {"message": "x"}, asyncio.Queue())
+            chat_socket._handle_send_inner(_FakeWS(), conv_id, {"message": "x"})
         )
     assert sent == [], "the unguarded path must send nothing - that is the defect"
 
     # Guarded: same failure, but the done-always contract holds.
     asyncio.run(
-        chat_socket._handle_send(_FakeWS(), conv_id, {"message": "x"}, asyncio.Queue())
+        chat_socket._handle_send(_FakeWS(), conv_id, {"message": "x"})
     )
     assert [f["type"] for f in sent] == ["error", "done"], (
         f"expected error then done from the guard, got {[f.get('type') for f in sent]!r}"
@@ -700,7 +700,7 @@ def test_setup_guard_logs_warning_when_status_reset_fails_but_flow_unchanged(tem
 
     with caplog.at_level(logging.WARNING, logger="goclaudaddy.chat_socket"):
         asyncio.run(
-            chat_socket._handle_send(_FakeWS(), conv_id, {"message": "x"}, asyncio.Queue())
+            chat_socket._handle_send(_FakeWS(), conv_id, {"message": "x"})
         )
 
     assert [f["type"] for f in sent] == ["error", "done"], (

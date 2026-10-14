@@ -69,7 +69,7 @@ def test_unexpected_ws_error_frame_failure_is_logged_and_flow_continues(
     ws = _FakeWebSocket(ValueError("simulated unexpected send_json failure"))
     with caplog.at_level(logging.WARNING, logger="goclaudaddy.chat_socket"):
         asyncio.run(
-            chat_socket._handle_send(ws, "conv-exception-test", {"message": "x"}, asyncio.Queue())
+            chat_socket._handle_send(ws, "conv-exception-test", {"message": "x"})
         )
 
     records = _chat_socket_records(caplog, "send error frame")
@@ -97,7 +97,7 @@ def test_expected_closed_ws_error_frame_failure_is_silent(
     ws = _FakeWebSocket(expected_exc)
     with caplog.at_level(logging.WARNING, logger="goclaudaddy.chat_socket"):
         asyncio.run(
-            chat_socket._handle_send(ws, "conv-exception-test", {"message": "x"}, asyncio.Queue())
+            chat_socket._handle_send(ws, "conv-exception-test", {"message": "x"})
         )
 
     assert not _chat_socket_records(caplog, "send error frame"), (
