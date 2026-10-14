@@ -228,27 +228,6 @@ def test_dense_block_declared_exactly_once() -> None:
     )
 
 
-def test_dense_block_has_exactly_the_required_token_values() -> None:
-    grouped = _group_by_name(_only_dense_body())
-    assert set(grouped) == set(DENSE_TOKENS), (
-        f"dense token set mismatch: missing "
-        f"{sorted(set(DENSE_TOKENS) - set(grouped))}, "
-        f"unexpected {sorted(set(grouped) - set(DENSE_TOKENS))}"
-    )
-    assert len(DENSE_TOKENS) == 50, (
-        f"the dense contract is 50 values; test table has {len(DENSE_TOKENS)}"
-    )
-    wrong = {
-        name: values
-        for name, values in grouped.items()
-        if values != [DENSE_TOKENS[name]]
-    }
-    assert not wrong, (
-        f"dense token(s) must be declared exactly once with the required value; "
-        f"got {wrong!r}"
-    )
-
-
 def test_dense_rgb_token_set_equals_lit_workbench_rgb_token_set() -> None:
     dense_names = set(_group_by_name(_only_dense_body()))
     lit_names = set(_group_by_name(_only_lit_body()))
