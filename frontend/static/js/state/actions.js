@@ -5,6 +5,10 @@ export function setStreaming(v) {
   setState({ streaming: v });
 }
 
+export function setPermissionMode(info) {
+  setState({ permissionMode: info });
+}
+
 export async function loadProjects() {
   const projects = await api.listProjects();
   setState({ projects });
@@ -40,13 +44,13 @@ export async function createConversation() {
   const { activeProjectId } = getState();
   const conv = await api.createConversation({ project_id: activeProjectId || null });
   const conversations = await loadConversations();
-  setState({ conversations, activeConversationId: conv.id, messages: [] });
+  setState({ conversations, activeConversationId: conv.id, messages: [], permissionMode: null });
   return conv;
 }
 
 export async function selectConversation(conversationId) {
   const { conversation, messages } = await api.getConversation(conversationId);
-  setState({ activeConversationId: conversation.id, messages });
+  setState({ activeConversationId: conversation.id, messages, permissionMode: null });
   return conversation;
 }
 

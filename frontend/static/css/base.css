@@ -2487,6 +2487,14 @@ kbd {
   margin: 0;
   word-break: break-word;
 }
+.approval-cwd {
+  font-size: var(--fs-11);
+  color: var(--text-muted);
+  font-family: var(--font-shell);
+  line-height: 1.5;
+  margin: 0;
+  word-break: break-word;
+}
 .approval-risk-note {
   font-size: var(--fs-12);
   color: var(--text);
@@ -2513,22 +2521,30 @@ kbd {
   white-space: nowrap;
   border: 0;
 }
-/* Settings panel approval-specific helpers */
-.drawer-badge-exp {
-  font-size: var(--fs-11);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--amber, var(--working));
-  border: 1px solid var(--amber, var(--working));
-  border-radius: var(--radius-3);
-  padding: 1px var(--sp-4);
-  vertical-align: middle;
-  margin-left: var(--sp-4);
-  text-transform: uppercase;
+/* Always-allow rules list (settings drawer). */
+.always-rule {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-8) var(--sp-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
 }
-.drawer-hint-risk {
-  color: var(--amber, var(--working));
-  margin-top: var(--sp-2);
+.always-rule-pattern {
+  font-family: var(--font-shell);
+  font-size: var(--fs-11);
+  color: var(--text);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.always-rule-cwd {
+  font-size: var(--fs-11);
+  color: var(--text-muted);
+  word-break: break-word;
+}
+.always-rule-revoke {
+  align-self: flex-start;
 }
 
 

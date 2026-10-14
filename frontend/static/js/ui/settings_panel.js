@@ -1,4 +1,6 @@
 import { api } from "../api/http.js";
+import { getState, subscribe } from "../state/store.js";
+import { setPermissionMode } from "../state/actions.js";
 import { showOnboarding } from "./onboarding_tour.js";
 import { showErrorToast } from "./modal.js";
 // One definition of the key and of what counts as a usable budget. The panel
@@ -6,16 +8,6 @@ import { showErrorToast } from "./modal.js";
 // in sync by hand is how a setting silently stops taking effect.
 import { BUDGET_KEY } from "./right_sidebar.js";
 import * as storage from "../state/storage.js";
-
-// Keep in sync with PERM_LABELS in main.js
-const PERM_LABELS = {
-  acceptEdits: "Auto-approve edits",
-  auto: "Full auto",
-  bypassPermissions: "Bypass all prompts",
-  manual: "Manual approval",
-  dontAsk: "Never ask",
-  plan: "Plan mode",
-};
 
 const THINKING_OPTIONS = [
   { value: "", label: "Off" },
@@ -49,6 +41,8 @@ function getThemes() {
     : [{ id: "lit-workbench", label: "Lit Workbench" }];
 }
 
+let _unsubscribeSettings = null;
+
 export async function mountSettingsPanel(drawerEl, conversation, { onChange } = {}) {
   const config = await api.getConfig();
   const themes = getThemes();
@@ -72,10 +66,9 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
       </div>
       <div class="drawer-section">
         <label class="drawer-label">Permission mode — how much Claude may do without asking. "Bypass all prompts" allows everything; "Manual approval" asks first.
-          <select id="permission-select" class="drawer-select">
-            <option value="">(default)</option>
-          </select>
+          <select id="permission-select" class="drawer-select"></select>
         </label>
+        <p id="permission-effective" class="drawer-hint" aria-live="polite"></p>
       </div>
       <div class="drawer-section">
         <label class="drawer-label">Extended thinking
@@ -96,6 +89,10 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
         <div class="drawer-hint-row">
           <button id="clear-system-prompt" class="drawer-link-btn">Clear</button>
         </div>
+      </div>
+      <h2 class="drawer-section-heading">Always-allow rules</h2>
+      <div class="drawer-section" data-testid="always-rules">
+        <p class="drawer-hint" data-testid="always-rules-empty">No always-allow rules yet.</p>
       </div>
       <h2 class="drawer-section-heading">App</h2>
       <div class="drawer-section" id="theme-section" ${themeSectionHidden}>
@@ -125,11 +122,6 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
             <input type="checkbox" id="feat-assess" class="drawer-toggle-check">
             <span class="drawer-toggle-label">Ask a fast model to rate long or risky messages before sending, and warn you if they look dangerous.</span>
           </label>
-          <label class="drawer-toggle-row">
-            <input type="checkbox" id="feat-approval" class="drawer-toggle-check" aria-label="Prompt for tool approval">
-            <span class="drawer-toggle-label">Prompt for tool approval <span class="drawer-badge-exp">experimental</span></span>
-          </label>
-          <p class="drawer-hint drawer-hint-risk">⚠ Depends on Claude CLI output format and may not work reliably.</p>
           <button class="drawer-link-btn" id="replay-onboarding-btn">Replay onboarding tour</button>
         </div>
       </details>
@@ -199,21 +191,47 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
   });
 
   const permissionSelect = drawerEl.querySelector("#permission-select");
-  config.permission_modes.forEach((mode) => {
+  (config.permission_mode_options || []).forEach((mode) => {
     const opt = document.createElement("option");
-    opt.value = mode;
-    opt.textContent = PERM_LABELS[mode] ?? "Custom mode";
+    opt.value = mode.value;
+    opt.textContent = mode.label;
     permissionSelect.appendChild(opt);
   });
-  permissionSelect.value = conversation.permission_mode || "";
+  const hasStoredMode = (config.permission_mode_options || []).some(
+    (mode) => mode.value === conversation.permission_mode,
+  );
+  permissionSelect.value = hasStoredMode ? conversation.permission_mode : "manual";
+
+  function _permissionLabel(mode) {
+    return (config.permission_mode_options || []).find((o) => o.value === mode)?.label ?? mode;
+  }
+
+  function renderPermissionEffective() {
+    const el = drawerEl.querySelector("#permission-effective");
+    if (!el) return;
+    const info = getState().permissionMode;
+    if (!info?.requested) {
+      el.textContent = "takes effect on your next message";
+      return;
+    }
+    const requestedLabel = _permissionLabel(info.requested);
+    if (info.ok) {
+      el.textContent = `Claude is using ${requestedLabel}.`;
+    } else {
+      el.textContent = `Warning: Claude is using ${info.actual ?? "unknown"} instead of ${requestedLabel}.`;
+    }
+  }
+
+  if (_unsubscribeSettings) _unsubscribeSettings();
+  _unsubscribeSettings = subscribe(renderPermissionEffective);
+  renderPermissionEffective();
+
   permissionSelect.addEventListener("change", async () => {
     const mode = permissionSelect.value;
     try {
-      await api.updateConversationSettings(
-        conversation.id,
-        mode ? { permission_mode: mode } : { clear_permission_mode: true },
-      );
-      onChange?.({ permission_mode: mode || null });
+      await api.updateConversationSettings(conversation.id, { permission_mode: mode });
+      setPermissionMode(null);
+      onChange?.({ permission_mode: mode });
     } catch { _flashError(permissionSelect, "Couldn't change the permission mode — your change wasn't saved. Try again."); }
   });
 
@@ -332,14 +350,6 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
     });
   }
 
-  const approvalCheck = drawerEl.querySelector("#feat-approval");
-  if (approvalCheck) {
-    approvalCheck.checked = storage.getItem("gca_feat_approval") === "1";
-    approvalCheck.addEventListener("change", () => {
-      storage.setItem("gca_feat_approval", approvalCheck.checked ? "1" : "0");
-    });
-  }
-
   return {
     open: () => openDrawer(drawerEl),
     close: () => closeDrawer(drawerEl),
@@ -370,11 +380,64 @@ function _refreshAdvancedInfo(drawerEl) {
   }
 }
 
+function _renderAlwaysRules(listEl, rules) {
+  const emptyEl = listEl.querySelector("[data-testid=always-rules-empty]");
+  listEl.querySelectorAll("[data-testid=always-rule]").forEach((el) => el.remove());
+  if (!Array.isArray(rules) || rules.length === 0) {
+    if (emptyEl) emptyEl.hidden = false;
+    return;
+  }
+  if (emptyEl) emptyEl.hidden = true;
+  rules.forEach((rule) => {
+    const row = document.createElement("div");
+    row.className = "always-rule";
+    row.setAttribute("data-testid", "always-rule");
+
+    const pattern = document.createElement("code");
+    pattern.className = "always-rule-pattern";
+    pattern.setAttribute("data-testid", "always-rule-pattern");
+    pattern.textContent = rule.pattern ?? "";
+
+    const cwd = document.createElement("span");
+    cwd.className = "always-rule-cwd";
+    cwd.setAttribute("data-testid", "always-rule-cwd");
+    cwd.textContent = rule.cwd ?? "";
+
+    const revoke = document.createElement("button");
+    revoke.type = "button";
+    revoke.className = "drawer-link-btn always-rule-revoke";
+    revoke.setAttribute("data-testid", "always-rule-revoke");
+    revoke.textContent = "Revoke";
+    revoke.addEventListener("click", async () => {
+      try {
+        await api.revokePermissionRule(rule.id);
+        await _refreshAlwaysRules(listEl.closest(".settings-drawer"));
+      } catch {
+        showErrorToast("Couldn't revoke that rule — try again.");
+      }
+    });
+
+    row.append(pattern, cwd, revoke);
+    listEl.appendChild(row);
+  });
+}
+
+async function _refreshAlwaysRules(drawerEl) {
+  const listEl = drawerEl?.querySelector("[data-testid=always-rules]");
+  if (!listEl) return;
+  try {
+    _renderAlwaysRules(listEl, await api.listPermissionRules());
+  } catch {
+    // Keep whatever is currently rendered; a failed reload must not blank the list.
+  }
+}
+
 export function openDrawer(el) {
   el.classList.add("drawer-open");
   el.setAttribute("aria-hidden", "false");
   el.removeAttribute("inert");
   _refreshAdvancedInfo(el);
+  _refreshAlwaysRules(el);
 }
 
 export function closeDrawer(el) {

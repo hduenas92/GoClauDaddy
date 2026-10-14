@@ -64,6 +64,10 @@ export const api = {
   assessMessage: (conversationId, message) =>
     req("POST", "/api/conversations/assess", { conversation_id: conversationId, message }),
 
+  listPermissionRules: () => req("GET", "/api/permissions/rules"),
+  revokePermissionRule: (id) =>
+    req("DELETE", `/api/permissions/rules/${encodeURIComponent(id)}`),
+
   listFlowTemplates: () => req("GET", "/api/flow-templates"),
   createFlowTemplate: (body) => req("POST", "/api/flow-templates", body),
   updateFlowTemplate: (id, body) => req("PUT", `/api/flow-templates/${id}`, body),

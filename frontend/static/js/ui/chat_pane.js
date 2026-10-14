@@ -1,12 +1,11 @@
 import { render } from "../render/content_registry.js";
 import { highlightCodeBlocks } from "../render/markdown.js";
-import { setStreaming } from "../state/actions.js";
+import { setStreaming, setPermissionMode } from "../state/actions.js";
 import { api } from "../api/http.js";
 import { getTemplates } from "../api/template_cache.js";
 import { interpolateTemplate, CAT_LABELS } from "./template_picker.js";
 import { showErrorToast, showDialog } from "./modal.js";
 import { attachmentDownloadUrl, isImageName } from "./attachment_view.js";
-import * as storage from "../state/storage.js";
 import { escapeHtml } from "../render/escape.js";
 import { setConnState } from "./conn_state.js";
 
@@ -727,8 +726,13 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
   }
 
   function _showApprovalModal(tool, action, socket, ev = {}) {
+    // One decision card at a time: an older request is no longer the one the
+    // server is waiting on, so drop its card before showing the new one.
+    _approvalModal?.dismiss?.();
+
     let dialog = null;
     let timer = null;
+    const requestId = ev.request_id;
 
     function clearTimer() {
       if (timer !== null) {
@@ -737,50 +741,63 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       }
     }
 
-    function close(approved) {
-      clearTimer();
-      dialog?.close({ restore: false });
-      _approvalModal = null;
-      if (approved) socket.approve(); else socket.deny();
-    }
-
     function dismiss() {
       clearTimer();
       dialog?.close({ restore: false });
       _approvalModal = null;
     }
 
+    const decisionActions = [
+      {
+        className: "modal-btn modal-confirm",
+        id: "approval-allow-once-btn",
+        label: "Allow once",
+        onClick: () => {
+          socket.approve(requestId);
+          dismiss();
+        },
+      },
+    ];
+    if (ev.can_always) {
+      decisionActions.push({
+        className: "modal-btn modal-confirm",
+        id: "approval-allow-always-btn",
+        label: "Always allow this command here",
+        onClick: () => {
+          socket.approveAlways(requestId);
+          dismiss();
+        },
+      });
+    }
+    decisionActions.push({
+      className: "modal-btn modal-confirm danger",
+      id: "approval-deny-btn",
+      label: "Deny",
+      onClick: () => {
+        socket.deny(requestId);
+        dismiss();
+      },
+    });
+
     dialog = showDialog({
       title: "Tool Permission Request",
       body: `
-        <div class="approval-tool">⚡ <strong>${escapeHtml(tool || "tool")}</strong></div>
-        ${action ? `<p class="approval-action">${escapeHtml(action)}</p>` : ""}
+        <div class="approval-tool" data-testid="approval-tool"><strong>${escapeHtml(tool || "tool")}</strong></div>
+        <p class="approval-action" data-testid="approval-command">${escapeHtml(action ?? "")}</p>
+        ${ev.cwd ? `<p class="approval-cwd" data-testid="approval-cwd">${escapeHtml(ev.cwd)}</p>` : ""}
         <p class="approval-risk-note">Allow Claude to use this tool?</p>
         <p class="approval-countdown" id="approval-countdown"></p>
         <p class="sr-only" id="approval-announce" aria-live="polite"></p>
       `,
       actions: [
-        [
-          {
-            className: "modal-btn modal-confirm danger",
-            id: "approval-deny-btn",
-            label: "✕ Deny",
-            onClick: () => close(false),
-          },
-          {
-            className: "modal-btn modal-confirm",
-            id: "approval-approve-btn",
-            label: "✓ Approve",
-            onClick: () => close(true),
-          },
-        ],
+        decisionActions,
         [
           {
             className: "modal-btn",
             id: "approval-need-time-btn",
             label: "Need more time",
             hidden: true,
-            onClick: () => socket.extendApproval(),
+            onClick: () => socket.extendApproval(requestId),
           },
         ],
       ],
@@ -829,6 +846,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     }, 1000);
 
     _approvalModal = {
+      requestId,
       onExtended(ext) {
         const next = Number(ext?.remaining);
         if (!Number.isFinite(next) || next <= 0) return;
@@ -980,14 +998,19 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       // 2.2.1: the server owns the deadline. Its reply re-syncs the live
       // countdown in the modal; the modal handle is set by _showApprovalModal.
       socket.on("approval_extended", (ev) => _approvalModal?.onExtended?.(ev)),
+      socket.on("approval_resolved", (ev) => {
+        // The decision was already sent (or the server resolved it itself);
+        // only close the card this request belongs to. Any other request keeps
+        // its card open.
+        if (_approvalModal && _approvalModal.requestId === ev.request_id) _approvalModal.dismiss();
+      }),
+      socket.on("permission_auto_allowed", () => {
+        statusEl.textContent = "Allowed by a saved rule.";
+      }),
+      socket.on("permission_mode", (ev) => {
+        setPermissionMode({ requested: ev.requested, actual: ev.actual, ok: ev.ok });
+      }),
       socket.on("approval_needed", (ev) => {
-        if (storage.getItem("gca_feat_approval") !== "1") {
-          // Feature flag off — deny by default so no tool runs without the user's
-          // decision; deny() still answers the subprocess, so nothing is left hanging.
-          socket.deny();
-          statusEl.textContent = "A tool asked for approval and was denied. Turn on 'Prompt for tool approval' in Settings to decide yourself.";
-          return;
-        }
         _showApprovalModal(ev.tool, ev.action, socket, ev);
       }),
     ];
