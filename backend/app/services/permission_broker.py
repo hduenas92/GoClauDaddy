@@ -409,6 +409,8 @@ class PermissionBroker:
 
         decision = req.decision
         if decision == "allow_once":
+            if req.tool_name == "ExitPlanMode":
+                return await self._finish_plan_approval(req)
             return await self._user_outcome(req, status="allow", source="user_once", decision="allow")
         if decision == "allow_always":
             return await self._finish_allow_always(req)
@@ -427,6 +429,30 @@ class PermissionBroker:
         # Should not be reached, but fail closed.
         self._log_resolve_once(req, status="deny", source="error", reason="unknown broker outcome")
         return _deny(_MSG_BROKER_ERROR)
+
+    async def _finish_plan_approval(self, req: _PendingRequest) -> dict:
+        """Allow one ExitPlanMode request and switch THIS turn to acceptEdits.
+
+        The plan is approved for the turn only: the CLI gets a session-scoped
+        ``setMode`` so the edits the plan describes run without a second card,
+        and no saved rule is ever written for ExitPlanMode.
+        """
+        outcome = await self._user_outcome(req, status="allow", source="user_once", decision="allow")
+        if outcome.get("behavior") != "allow":
+            return outcome
+        if req.notify is not None:
+            try:
+                await _send_frame(
+                    req.notify,
+                    {"type": "turn_mode", "mode": "acceptEdits", "source": "plan_approved"},
+                )
+            except Exception:
+                log.warning("turn_mode notify failed for %s", req.request_id, exc_info=True)
+        return {
+            "behavior": "allow",
+            "updatedInput": req.tool_input,
+            "updatedPermissions": [{"type": "setMode", "mode": "acceptEdits", "destination": "session"}],
+        }
 
     async def _finish_allow_always(self, req: _PendingRequest) -> dict:
         try:

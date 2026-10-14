@@ -25,8 +25,8 @@ _CONN_COPY = {
                    "Follow your CaaS setup steps, then restart GoClaudaddy.",
     "key_invalid": "The CaaS gateway rejected your API key. "
                    "Check the key in your CaaS account, then restart GoClaudaddy.",
-    "gateway_unreachable": "Can't reach the CaaS gateway. CaaS is meant to be used on the company VPN, "
-                           "so check that you're connected, then try again.",
+    "gateway_unreachable": "Can't reach Claude. Check your internet connection. "
+                           "If your company requires the VPN, connect to it and try again.",
 }
 
 

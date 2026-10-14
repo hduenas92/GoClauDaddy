@@ -56,6 +56,8 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
   const _toolStartTimes = new Map(); // tool_use_id → Date.now()
   let _stripStartTime = 0;
   let _approvalModal = null; // live approval modal handle (countdown resync target)
+  let _turnModeNoticeEl = null; // "Auto-approving file edits for this turn." banner
+  let _ruleNoticePending = false; // a saved rule auto-allowed a tool in this turn
   // WP-ST: the header pill moves to `streaming` on the FIRST text/thinking/
   // tool_call frame of a turn, not on every frame. Reset at both ends of a turn.
   let _firstFrameOfTurn = true;
@@ -73,10 +75,31 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     resyncMarkerEl = null;
   }
 
+  // The plan approval switches edits on for THIS turn only; the notice is not
+  // part of the reply, so it is a transient banner, never persisted.
+  function _clearTurnModeNotice() {
+    _turnModeNoticeEl?.remove();
+    _turnModeNoticeEl = null;
+  }
+
+  function _showTurnModeNotice() {
+    _clearTurnModeNotice();
+    const el = document.createElement("div");
+    el.className = "turn-mode-notice";
+    el.dataset.testid = "turn-mode-notice";
+    el.setAttribute("role", "status");
+    el.textContent = "Auto-approving file edits for this turn.";
+    messagesEl.appendChild(el);
+    _turnModeNoticeEl = el;
+    scrollDown();
+  }
+
   function clear() {
     messagesEl.innerHTML = "";
     statusEl.textContent = "";
     resyncMarkerEl = null; // wiped along with messagesEl above
+    _turnModeNoticeEl = null;
+    _ruleNoticePending = false;
     currentAssistantEl = null;
     currentBubbleEl = null;
     currentThinkingEl = null;
@@ -356,7 +379,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         bubble.appendChild(thinkEl);
       }
       tcs.forEach((tc) => {
-        bubble.appendChild(_buildToolCallEl(tc.name, tc.input || {}, tc.id || "", tc.output, tc.is_error));
+        bubble.appendChild(_buildToolCallEl(tc.name, tc.input || {}, tc.id || "", tc.output, tc.is_error, true));
       });
 
       // F2: attachments are persisted against the user message server-side
@@ -446,6 +469,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     currentText = "";
     currentThinking = "";
     msgStartTime = null;
+    _ruleNoticePending = false;
   }
 
   function _ensureStageStrip() {
@@ -527,7 +551,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     setTimeout(() => { replyAnnounceEl.textContent = msg; }, 0);
   }
 
-  function _buildToolCallEl(name, inputObj, id, output, isError) {
+  function _buildToolCallEl(name, inputObj, id, output, isError, fromHistory = false) {
     const details = document.createElement("details");
     details.className = "tool-call-block";
     if (id) details.dataset.toolId = id;
@@ -545,6 +569,11 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     if (output !== undefined) {
       statusSpan.textContent = isError ? "Error" : "Done";
       statusSpan.classList.add(isError ? "error" : "done");
+    } else if (fromHistory) {
+      // A persisted turn that was cut off (crash or /stop) has tool calls with
+      // no stored output. Nothing is running any more, so never claim it is.
+      statusSpan.textContent = "Interrupted";
+      statusSpan.classList.add("interrupted");
     } else {
       statusSpan.textContent = "Running…";
     }
@@ -627,6 +656,10 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
 
   function finishAssistantMessage(status, usage) {
     _firstFrameOfTurn = true;
+    // Consume the saved-rule note once: it belongs to the message the current
+    // turn produced, not to whatever frame happens to clear the status line.
+    const ruleNotice = _ruleNoticePending;
+    _ruleNoticePending = false;
     if (!currentMetaEl) {
       setStreaming(false);
       return;
@@ -646,6 +679,12 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     _addCodeCopyButtons(currentBubbleEl);
     currentMetaEl.className = `msg-meta status-badge status-${status}`;
     currentMetaEl.innerHTML = `${fmtTime()} · ${STATUS_LABEL[status] || "Unknown"}${tokMeta(usage?.input_tokens, usage?.output_tokens)}`;
+    if (ruleNotice) {
+      const note = document.createElement("span");
+      note.className = "saved-rule-note";
+      note.textContent = "Allowed by a saved rule.";
+      currentMetaEl.appendChild(note);
+    }
 
     const captured = currentText;
     if (currentAssistantEl._actionsEl) {
@@ -733,6 +772,10 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     let dialog = null;
     let timer = null;
     const requestId = ev.request_id;
+    // ExitPlanMode is not a risk to describe: its "input" IS the plan, so the
+    // card shows that text instead of the raw tool name (which must never be
+    // visible) and never offers an Always rule.
+    const isPlan = tool === "ExitPlanMode";
 
     function clearTimer() {
       if (timer !== null) {
@@ -758,7 +801,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         },
       },
     ];
-    if (ev.can_always) {
+    if (ev.can_always && !isPlan) {
       decisionActions.push({
         className: "modal-btn modal-confirm",
         id: "approval-allow-always-btn",
@@ -779,16 +822,25 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       },
     });
 
-    dialog = showDialog({
-      title: "Tool Permission Request",
-      body: `
+    const body = isPlan
+      ? `
+        <div class="approval-plan" data-testid="approval-plan">${escapeHtml(String(ev.input?.plan ?? ""))}</div>
+        <p class="approval-risk-note">Allow Claude to carry out this plan?</p>
+        <p class="approval-countdown" id="approval-countdown"></p>
+        <p class="sr-only" id="approval-announce" aria-live="polite"></p>
+      `
+      : `
         <div class="approval-tool" data-testid="approval-tool"><strong>${escapeHtml(tool || "tool")}</strong></div>
         <p class="approval-action" data-testid="approval-command">${escapeHtml(action ?? "")}</p>
         ${ev.cwd ? `<p class="approval-cwd" data-testid="approval-cwd">${escapeHtml(ev.cwd)}</p>` : ""}
         <p class="approval-risk-note">Allow Claude to use this tool?</p>
         <p class="approval-countdown" id="approval-countdown"></p>
         <p class="sr-only" id="approval-announce" aria-live="polite"></p>
-      `,
+      `;
+
+    dialog = showDialog({
+      title: isPlan ? "Approve the plan" : "Tool Permission Request",
+      body,
       actions: [
         decisionActions,
         [
@@ -926,6 +978,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         scrollDown();
       }),
       socket.on("error", (ev) => {
+        _clearTurnModeNotice();
         let msg = "Error";
         if (ev.code === "claude_not_found") {
           msg = "Claude CLI isn't installed. Run the setup script and refresh.";
@@ -958,6 +1011,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         setConnState(CONN_ERROR_CODES.has(ev.code) ? ev.code : "error");
       }),
       socket.on("stopped", () => {
+        _clearTurnModeNotice();
         statusEl.textContent = "Stopped.";
         finishAssistantMessage("stopped", lastUsage);
         setConnState("ready");
@@ -965,6 +1019,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       socket.on("tool_call", (ev) => { _markStreaming(); appendToolCall(ev.name, ev.input ?? {}, ev.id); }),
       socket.on("tool_result", (ev) => appendToolResult(ev.tool_use_id, ev.content || "", ev.is_error)),
       socket.on("done", () => {
+        _clearTurnModeNotice();
         if (currentAssistantEl) {
           announceReply(currentText);
           finishAssistantMessage("done", lastUsage);
@@ -976,6 +1031,7 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
       // the user to ignore the message that matters.
       socket.on("_close", () => {
         _approvalModal?.dismiss?.();
+        _clearTurnModeNotice();
         if (currentAssistantEl) {
           finishAssistantMessage("error", lastUsage);
           setStreaming(false);
@@ -1005,7 +1061,13 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
         if (_approvalModal && _approvalModal.requestId === ev.request_id) _approvalModal.dismiss();
       }),
       socket.on("permission_auto_allowed", () => {
+        // Keep the transient line for the moment, but mark the message: once the
+        // turn lands the fact that a saved rule allowed a tool must survive.
+        _ruleNoticePending = true;
         statusEl.textContent = "Allowed by a saved rule.";
+      }),
+      socket.on("turn_mode", (ev) => {
+        if (ev.mode === "acceptEdits") _showTurnModeNotice();
       }),
       socket.on("permission_mode", (ev) => {
         setPermissionMode({ requested: ev.requested, actual: ev.actual, ok: ev.ok });

@@ -18,6 +18,14 @@ async function loadModelLabels() {
     MODEL_LABELS = Object.fromEntries(
       (config.models || []).map((m) => [m.value, m.label])
     );
+    // The picker (#permission-select) is built from permission_mode_options, so
+    // the header subtitle must read the same labels instead of its own copy.
+    if (Array.isArray(config.permission_mode_options)) {
+      PERM_LABELS = {
+        ...PERM_LABELS,
+        ...Object.fromEntries(config.permission_mode_options.map((o) => [o.value, o.label])),
+      };
+    }
   } catch {
     MODEL_LABELS = {};
   }
@@ -27,14 +35,16 @@ function fmtTok(n) {
   return n >= 1000 ? `${(n / 1000).toFixed(0)}k` : `${n}`;
 }
 
-// Keep in sync with PERM_LABELS in settings_panel.js
-const PERM_LABELS = {
+// Fallback only: the one source is /api/config permission_mode_options, loaded
+// by loadModelLabels() before the first conversation is shown. The manual and
+// plan values below match that source.
+let PERM_LABELS = {
   acceptEdits: "Auto-approve edits",
   auto: "Full auto",
   bypassPermissions: "Bypass all prompts",
-  manual: "Manual approval",
+  manual: "Ask before acting",
   dontAsk: "Never ask",
-  plan: "Plan mode",
+  plan: "Plan only",
 };
 
 function updateTelemetry(conv) {

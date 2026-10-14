@@ -978,6 +978,8 @@ html, body {
 .tool-call-status { margin-left: auto; font-size: 0.75em; color: var(--amber); }
 .tool-call-status.done { color: var(--emerald); }
 .tool-call-status.error { color: var(--rose); }
+/* J1: a persisted tool call with no output was cut off; not running any more. */
+.tool-call-status.interrupted { color: var(--text2); }
 .tool-call-input {
   margin: 0;
   padding: var(--sp-8) var(--sp-10);
@@ -2487,6 +2489,19 @@ kbd {
   margin: 0;
   word-break: break-word;
 }
+/* J1: ExitPlanMode's input is the plan itself, shown as readable text. */
+.approval-plan {
+  font-size: var(--fs-12);
+  color: var(--text);
+  line-height: 1.5;
+  margin: 0;
+  padding: var(--sp-8) var(--sp-10);
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.2);
+  border-radius: var(--radius);
+  background: rgba(var(--accent-hi-rgb) / 0.06);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .approval-cwd {
   font-size: var(--fs-11);
   color: var(--text-muted);
@@ -2617,6 +2632,32 @@ textarea::placeholder {
   font-family: var(--font-shell);
   line-height: 1.5;
   border-radius: var(--radius);
+}
+/* J1: the plan approval auto-approves file edits for THIS turn only. */
+.turn-mode-notice {
+  margin: var(--sp-4) 0;
+  padding: var(--sp-6) var(--sp-12);
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.35);
+  border-left: 3px solid var(--accent-hi);
+  background: rgba(var(--accent-hi-rgb) / 0.08);
+  color: var(--text2);
+  font-size: var(--fs-12);
+  font-family: var(--font-shell);
+  line-height: 1.5;
+  border-radius: var(--radius);
+}
+/* J1: a saved rule auto-allowed a tool in this turn; the note stays on the
+   finished message instead of vanishing with the status line. */
+.saved-rule-note {
+  display: inline-block;
+  margin-left: var(--sp-6);
+  padding: 0 var(--sp-5);
+  border: 1px solid rgba(var(--accent-hi-rgb) / 0.4);
+  border-radius: var(--radius-3);
+  background: rgba(var(--accent-hi-rgb) / 0.1);
+  color: var(--accent-hi);
+  font-size: var(--fs-10);
+  letter-spacing: 0.05em;
 }
 .chat-connection-error {
   padding: 20px var(--sp-16);
