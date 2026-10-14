@@ -3761,3 +3761,63 @@ textarea::placeholder {
 [data-mode="light"] :is(.copy-btn, .msg-action-btn):focus-visible:not(:hover) { background: rgba(var(--accent-rgb) / 0.07); border-color: rgba(var(--accent-rgb) / 0.25); color: var(--text-muted); }
 [data-mode="light"] #conv-search:focus { border-color: rgba(var(--accent-rgb) / 0.3); box-shadow: none; }
 [data-mode="light"] #composer-row button#composer-send[aria-disabled="true"]:focus-visible { opacity: 1; background: color-mix(in srgb, rgb(var(--working-rgb)) 50%, var(--ground)); color: color-mix(in srgb, var(--ground) 50%, rgb(var(--working-rgb))); box-shadow: 0 0 14px rgba(var(--working-rgb) / 0.2); }
+
+/* J4a: glow strip for every look except the two legacy ones (generated from the box-shadow/text-shadow rules above; layers with a 0/0 offset and a blur are dropped, offset/ring layers are kept). Legacy looks keep their glow. */
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .metric-value.streaming { text-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #sidebar-logo span { text-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #new-project-btn,
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #new-conv-btn { text-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #new-project-btn:hover,
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #new-conv-btn:hover { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .project-item.active,
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .conv-item.active { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .project-edit-form input:focus { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .pef-save { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .conv-dot-busy { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .conv-dot-error { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #system-prompt-input:focus { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .msg-user .msg-bubble { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .msg-bubble pre { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .msg-bubble :not(pre) > code { text-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .msg-bubble a { text-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .status-badge.status-processing { text-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .status-badge.status-done { text-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .status-badge.status-error { text-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #composer { box-shadow: 0 10px 40px -5px rgba(var(--shadow-rgb) / 0.95) !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #composer-input { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #composer-input:focus { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #composer-row button:not(#composer-attach) { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #composer-row button:not(#composer-attach):hover { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #composer-stop { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #composer-stop:hover { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .conv-title-text { text-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .header-btn:hover { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .header-dot-streaming { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .drawer-select:focus,
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .drawer-textarea:focus { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .drawer-select-error { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .ob-box { box-shadow: 0 8px 32px rgba(var(--shadow-rgb) / 0.5) !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .tp-box { box-shadow: 0 12px 48px rgba(var(--shadow-rgb) / 0.6) !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .modal-box { box-shadow: 0 20px 60px rgba(var(--shadow-rgb) / 0.9) !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .modal-title { text-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .modal-input:focus { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .modal-confirm:hover { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .modal-confirm.danger:hover { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .empty-state-glyph { text-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .empty-state-title { text-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .quick-chip:hover { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) #conv-search:focus { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .project-edit-form textarea:focus { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .shortcuts-box { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .budget-warn { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .budget-crit { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .cost-toast { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .error-toast { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .server-dot.offline { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .code-frame { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .code-status-dot { box-shadow: none !important; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"])[data-mode="light"] #composer-row button#composer-send[aria-disabled="true"]:focus-visible { box-shadow: none !important; }
+
+/* J4a: no dashed borders and no idle infinite animation for every look except the two legacy ones. Live-state spinners stay: they only run while a turn is in flight. */
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) :is(#new-project-btn, #new-conv-btn, .tp-new-btn) { border-style: solid; }
+html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .empty-state-glyph { animation: none; }

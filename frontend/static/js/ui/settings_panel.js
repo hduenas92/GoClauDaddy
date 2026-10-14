@@ -37,7 +37,7 @@ const FONT_SIZE_OPTIONS = [
 ];
 function getThemes() {
   return Array.isArray(window.GCA_THEMES) && window.GCA_THEMES.length
-    ? window.GCA_THEMES
+    ? window.GCA_THEMES.filter((t) => !t.special && !t.legacy)
     : [{ id: "lit-workbench", label: "Lit Workbench" }];
 }
 
