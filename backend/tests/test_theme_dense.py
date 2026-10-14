@@ -280,14 +280,6 @@ def test_dense_is_registered() -> None:
     )
 
 
-def test_cyberpunk_console_is_still_first_in_registry() -> None:
-    ids = _read_registry_ids()
-    assert ids, f"No theme ids found in {_INDEX_HTML}"
-    assert ids[0] == "cyberpunk-console", (
-        f"cyberpunk-console must stay the first (default) registry entry; got {ids!r}"
-    )
-
-
 @pytest.mark.parametrize("foreground", _FOREGROUNDS)
 @pytest.mark.parametrize("background", _BACKGROUNDS)
 def test_dense_colour_contrast_meets_aa_on_every_background(

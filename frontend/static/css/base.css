@@ -1,3 +1,16 @@
+/* Vendored fonts (SIL OFL): DM Sans, Inter, JetBrains Mono, Silkscreen; latin + latin-ext subsets from Google Fonts, served locally so the app makes no runtime requests to fonts.googleapis.com / fonts.gstatic.com. */
+@font-face { font-family: 'DM Sans'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('../fonts/dm-sans-normal-latin-ext-400-700.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'DM Sans'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('../fonts/dm-sans-normal-latin-400-700.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 300 700; font-display: swap; src: url('../fonts/inter-normal-latin-ext-300-700.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 300 700; font-display: swap; src: url('../fonts/inter-normal-latin-300-700.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'JetBrains Mono'; font-style: italic; font-weight: 400; font-display: swap; src: url('../fonts/jetbrains-mono-italic-latin-ext-400.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'JetBrains Mono'; font-style: italic; font-weight: 400; font-display: swap; src: url('../fonts/jetbrains-mono-italic-latin-400.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('../fonts/jetbrains-mono-normal-latin-ext-400-700.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('../fonts/jetbrains-mono-normal-latin-400-700.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Silkscreen'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/silkscreen-normal-latin-ext-400.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Silkscreen'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/silkscreen-normal-latin-400.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Silkscreen'; font-style: normal; font-weight: 700; font-display: swap; src: url('../fonts/silkscreen-normal-latin-ext-700.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Silkscreen'; font-style: normal; font-weight: 700; font-display: swap; src: url('../fonts/silkscreen-normal-latin-700.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 /* ============================================================
    GoClaudaddy — Cyberpunk Console Theme
    ============================================================ */
@@ -313,6 +326,325 @@
   --warning-rgb: 226 160 80;
   --error-rgb: 226 104 92;
   --shadow-rgb: 0 0 0;
+}
+
+/* J3 theme contract: every look supplies every required token, per mode. Dark colours of calm/dense/warm come from their existing [data-theme] blocks;
+   bold and barry-simpson (placeholder until J8) get theirs here. [data-mode] adds the light variant and the shared extras. */
+[data-theme="bold"] {
+  --ground-rgb: 12 8 24;
+  --panel-rgb: 20 14 36;
+  --surface-rgb: 28 20 50;
+  --hover-rgb: 40 30 68;
+  --border-quiet-rgb: 60 46 98;
+  --border-strong-rgb: 96 76 150;
+  --text-primary-rgb: 248 244 255;
+  --text-secondary-rgb: 205 196 232;
+  --text-muted-rgb: 176 166 208;
+  --accent-rgb: 255 110 190;
+  --accent-hi-rgb: 255 160 215;
+  --cta-rgb: 255 140 40;
+  --working-rgb: 255 214 80;
+  --success-rgb: 110 220 140;
+  --warning-rgb: 255 170 60;
+  --error-rgb: 255 120 120;
+  --shadow-rgb: 0 0 0;
+}
+[data-theme="barry-simpson"] {
+  --ground-rgb: 12 8 24;
+  --panel-rgb: 20 14 36;
+  --surface-rgb: 28 20 50;
+  --hover-rgb: 40 30 68;
+  --border-quiet-rgb: 60 46 98;
+  --border-strong-rgb: 96 76 150;
+  --text-primary-rgb: 248 244 255;
+  --text-secondary-rgb: 205 196 232;
+  --text-muted-rgb: 176 166 208;
+  --accent-rgb: 255 110 190;
+  --accent-hi-rgb: 255 160 215;
+  --cta-rgb: 255 140 40;
+  --working-rgb: 255 214 80;
+  --success-rgb: 110 220 140;
+  --warning-rgb: 255 170 60;
+  --error-rgb: 255 120 120;
+  --shadow-rgb: 0 0 0;
+}
+[data-theme="calm"][data-mode="dark"] {
+  --violet: #a78bfa;
+  --cyan: #38bdf8;
+  --amber-rgb: 251 191 36;
+  --rose-rgb: 244 63 94;
+  --sky-rgb: 56 189 248;
+  --role-user: rgb(251 191 36);
+  --role-assistant: rgb(56 189 248);
+  --role-system: #a78bfa;
+  --role-error: rgb(244 63 94);
+  --status-warn: rgb(251 191 36);
+  --status-info: rgb(200 240 255);
+  --panel-header: rgb(var(--accent-hi-rgb));
+  --accent2-rgb: 95 195 206;
+  --cta-label-rgb: 15 20 27;
+  --font-ui: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-shell: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --motion-ms: 200ms;
+}
+[data-theme="calm"][data-mode="light"] {
+  --ground-rgb: 250 250 248;
+  --panel-rgb: 244 244 241;
+  --surface-rgb: 255 255 255;
+  --hover-rgb: 236 236 231;
+  --border-quiet-rgb: 214 214 208;
+  --border-strong-rgb: 150 150 142;
+  --text-primary-rgb: 28 28 30;
+  --text-secondary-rgb: 66 66 72;
+  --text-muted-rgb: 70 70 78;
+  --accent-rgb: 14 104 98;
+  --accent-hi-rgb: 10 84 80;
+  --cta-rgb: 170 64 16;
+  --working-rgb: 125 82 0;
+  --success-rgb: 18 100 36;
+  --warning-rgb: 135 72 0;
+  --error-rgb: 176 28 28;
+  --shadow-rgb: 0 0 0;
+  --violet: #6d4fd0;
+  --cyan: #0b6f95;
+  --amber-rgb: 130 84 0;
+  --rose-rgb: 176 28 52;
+  --sky-rgb: 10 100 150;
+  --role-user: rgb(130 84 0);
+  --role-assistant: rgb(10 100 150);
+  --role-system: #6d4fd0;
+  --role-error: rgb(176 28 52);
+  --status-warn: rgb(135 72 0);
+  --status-info: rgb(10 100 150);
+  --panel-header: rgb(var(--accent-hi-rgb));
+  --accent2-rgb: 20 110 130;
+  --cta-label-rgb: 255 255 255;
+  --font-ui: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-shell: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --motion-ms: 200ms;
+}
+[data-theme="dense"][data-mode="dark"] {
+  --violet: #a78bfa;
+  --cyan: #38bdf8;
+  --amber-rgb: 251 191 36;
+  --rose-rgb: 244 63 94;
+  --sky-rgb: 56 189 248;
+  --role-user: rgb(251 191 36);
+  --role-assistant: rgb(56 189 248);
+  --role-system: #a78bfa;
+  --role-error: rgb(244 63 94);
+  --status-warn: rgb(251 191 36);
+  --status-info: rgb(200 240 255);
+  --panel-header: rgb(var(--accent-hi-rgb));
+  --accent2-rgb: 95 195 206;
+  --cta-label-rgb: 15 20 27;
+  --font-ui: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-shell: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --motion-ms: 200ms;
+}
+[data-theme="dense"][data-mode="light"] {
+  --ground-rgb: 246 247 250;
+  --panel-rgb: 240 242 246;
+  --surface-rgb: 255 255 255;
+  --hover-rgb: 230 233 240;
+  --border-quiet-rgb: 208 212 222;
+  --border-strong-rgb: 140 146 162;
+  --text-primary-rgb: 28 28 30;
+  --text-secondary-rgb: 66 66 72;
+  --text-muted-rgb: 70 70 78;
+  --accent-rgb: 0 112 114;
+  --accent-hi-rgb: 0 92 94;
+  --cta-rgb: 176 70 10;
+  --working-rgb: 125 82 0;
+  --success-rgb: 18 100 36;
+  --warning-rgb: 135 72 0;
+  --error-rgb: 176 28 28;
+  --shadow-rgb: 0 0 0;
+  --violet: #6d4fd0;
+  --cyan: #0b6f95;
+  --amber-rgb: 130 84 0;
+  --rose-rgb: 176 28 52;
+  --sky-rgb: 10 100 150;
+  --role-user: rgb(130 84 0);
+  --role-assistant: rgb(10 100 150);
+  --role-system: #6d4fd0;
+  --role-error: rgb(176 28 52);
+  --status-warn: rgb(135 72 0);
+  --status-info: rgb(10 100 150);
+  --panel-header: rgb(var(--accent-hi-rgb));
+  --accent2-rgb: 20 110 130;
+  --cta-label-rgb: 255 255 255;
+  --font-ui: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-shell: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --motion-ms: 200ms;
+}
+[data-theme="warm"][data-mode="dark"] {
+  --violet: #a78bfa;
+  --cyan: #38bdf8;
+  --amber-rgb: 251 191 36;
+  --rose-rgb: 244 63 94;
+  --sky-rgb: 56 189 248;
+  --role-user: rgb(251 191 36);
+  --role-assistant: rgb(56 189 248);
+  --role-system: #a78bfa;
+  --role-error: rgb(244 63 94);
+  --status-warn: rgb(251 191 36);
+  --status-info: rgb(200 240 255);
+  --panel-header: rgb(var(--accent-hi-rgb));
+  --accent2-rgb: 95 195 206;
+  --cta-label-rgb: 15 20 27;
+  --font-ui: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-shell: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --motion-ms: 200ms;
+}
+[data-theme="warm"][data-mode="light"] {
+  --ground-rgb: 251 247 241;
+  --panel-rgb: 245 239 231;
+  --surface-rgb: 255 253 249;
+  --hover-rgb: 237 229 217;
+  --border-quiet-rgb: 220 210 196;
+  --border-strong-rgb: 156 140 120;
+  --text-primary-rgb: 40 32 24;
+  --text-secondary-rgb: 80 68 56;
+  --text-muted-rgb: 96 82 68;
+  --accent-rgb: 150 84 20;
+  --accent-hi-rgb: 122 66 8;
+  --cta-rgb: 176 62 30;
+  --working-rgb: 125 82 0;
+  --success-rgb: 18 100 36;
+  --warning-rgb: 135 72 0;
+  --error-rgb: 176 28 28;
+  --shadow-rgb: 0 0 0;
+  --violet: #6d4fd0;
+  --cyan: #0b6f95;
+  --amber-rgb: 130 84 0;
+  --rose-rgb: 176 28 52;
+  --sky-rgb: 10 100 150;
+  --role-user: rgb(130 84 0);
+  --role-assistant: rgb(10 100 150);
+  --role-system: #6d4fd0;
+  --role-error: rgb(176 28 52);
+  --status-warn: rgb(135 72 0);
+  --status-info: rgb(10 100 150);
+  --panel-header: rgb(var(--accent-hi-rgb));
+  --accent2-rgb: 20 110 130;
+  --cta-label-rgb: 255 255 255;
+  --font-ui: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-shell: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --motion-ms: 200ms;
+}
+[data-theme="bold"][data-mode="dark"] {
+  --violet: #a78bfa;
+  --cyan: #38bdf8;
+  --amber-rgb: 251 191 36;
+  --rose-rgb: 244 63 94;
+  --sky-rgb: 56 189 248;
+  --role-user: rgb(251 191 36);
+  --role-assistant: rgb(56 189 248);
+  --role-system: #a78bfa;
+  --role-error: rgb(244 63 94);
+  --status-warn: rgb(251 191 36);
+  --status-info: rgb(200 240 255);
+  --panel-header: rgb(var(--accent-hi-rgb));
+  --accent2-rgb: 95 195 206;
+  --cta-label-rgb: 15 20 27;
+  --font-ui: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-shell: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --motion-ms: 200ms;
+}
+[data-theme="bold"][data-mode="light"] {
+  --ground-rgb: 253 249 255;
+  --panel-rgb: 247 241 252;
+  --surface-rgb: 255 255 255;
+  --hover-rgb: 240 230 248;
+  --border-quiet-rgb: 224 210 236;
+  --border-strong-rgb: 150 120 180;
+  --text-primary-rgb: 30 14 44;
+  --text-secondary-rgb: 70 52 92;
+  --text-muted-rgb: 88 70 112;
+  --accent-rgb: 176 20 110;
+  --accent-hi-rgb: 146 8 88;
+  --cta-rgb: 190 78 0;
+  --working-rgb: 125 82 0;
+  --success-rgb: 18 100 36;
+  --warning-rgb: 135 72 0;
+  --error-rgb: 176 28 28;
+  --shadow-rgb: 0 0 0;
+  --violet: #6d4fd0;
+  --cyan: #0b6f95;
+  --amber-rgb: 130 84 0;
+  --rose-rgb: 176 28 52;
+  --sky-rgb: 10 100 150;
+  --role-user: rgb(130 84 0);
+  --role-assistant: rgb(10 100 150);
+  --role-system: #6d4fd0;
+  --role-error: rgb(176 28 52);
+  --status-warn: rgb(135 72 0);
+  --status-info: rgb(10 100 150);
+  --panel-header: rgb(var(--accent-hi-rgb));
+  --accent2-rgb: 20 110 130;
+  --cta-label-rgb: 255 255 255;
+  --font-ui: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-shell: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --motion-ms: 200ms;
+}
+[data-theme="barry-simpson"][data-mode="dark"] {
+  --violet: #a78bfa;
+  --cyan: #38bdf8;
+  --amber-rgb: 251 191 36;
+  --rose-rgb: 244 63 94;
+  --sky-rgb: 56 189 248;
+  --role-user: rgb(251 191 36);
+  --role-assistant: rgb(56 189 248);
+  --role-system: #a78bfa;
+  --role-error: rgb(244 63 94);
+  --status-warn: rgb(251 191 36);
+  --status-info: rgb(200 240 255);
+  --panel-header: rgb(var(--accent-hi-rgb));
+  --accent2-rgb: 95 195 206;
+  --cta-label-rgb: 15 20 27;
+  --font-ui: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-shell: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --motion-ms: 200ms;
+}
+[data-theme="barry-simpson"][data-mode="light"] {
+  --ground-rgb: 253 249 255;
+  --panel-rgb: 247 241 252;
+  --surface-rgb: 255 255 255;
+  --hover-rgb: 240 230 248;
+  --border-quiet-rgb: 224 210 236;
+  --border-strong-rgb: 150 120 180;
+  --text-primary-rgb: 30 14 44;
+  --text-secondary-rgb: 70 52 92;
+  --text-muted-rgb: 88 70 112;
+  --accent-rgb: 176 20 110;
+  --accent-hi-rgb: 146 8 88;
+  --cta-rgb: 190 78 0;
+  --working-rgb: 125 82 0;
+  --success-rgb: 18 100 36;
+  --warning-rgb: 135 72 0;
+  --error-rgb: 176 28 28;
+  --shadow-rgb: 0 0 0;
+  --violet: #6d4fd0;
+  --cyan: #0b6f95;
+  --amber-rgb: 130 84 0;
+  --rose-rgb: 176 28 52;
+  --sky-rgb: 10 100 150;
+  --role-user: rgb(130 84 0);
+  --role-assistant: rgb(10 100 150);
+  --role-system: #6d4fd0;
+  --role-error: rgb(176 28 52);
+  --status-warn: rgb(135 72 0);
+  --status-info: rgb(10 100 150);
+  --panel-header: rgb(var(--accent-hi-rgb));
+  --accent2-rgb: 20 110 130;
+  --cta-label-rgb: 255 255 255;
+  --font-ui: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-shell: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --motion-ms: 200ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme][data-mode] { --motion-ms: 0ms; }
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -770,6 +1102,7 @@ html, body {
 .msg-assistant { align-self: flex-start; align-items: flex-start; max-width: 90%; }
 
 .msg-bubble {
+  max-width: 100%;
   padding: var(--sp-12) var(--sp-16);
   border-radius: var(--radius-6);
   line-height: 1.6;
@@ -1620,7 +1953,7 @@ details.drawer-advanced[open] .drawer-advanced-summary::before { content: "▼";
 .tp-cat-count {
   font-size: var(--fs-11);
   background: rgba(var(--accent-hi-rgb) / 0.15);
-  color: var(--teal-b);
+  color: var(--text);
   border-radius: var(--radius-10);
   padding: 1px var(--sp-6);
   font-variant-numeric: tabular-nums;
@@ -1684,7 +2017,7 @@ details.drawer-advanced[open] .drawer-advanced-summary::before { content: "▼";
 .tp-cat-document { background: rgba(var(--accent-hi-rgb) / 0.12); color: var(--cyan); }
 .tp-cat-analysis { background: rgba(var(--working-rgb) / 0.12); color: var(--amber); }
 .tp-cat-code { background: rgba(var(--success-rgb) / 0.12); color: var(--emerald); }
-.tp-lock { font-size: var(--fs-11); opacity: 0.6; }
+.tp-lock { font-size: var(--fs-11); opacity: 0.85; }
 .tp-card-desc {
   font-size: var(--fs-11);
   color: var(--text2);
@@ -2035,13 +2368,13 @@ pre { position: relative; }
 .browse-all-link {
   background: none;
   border: none;
-  color: var(--teal);
+  color: var(--teal-b);
   font: inherit;
   font-size: var(--fs-11);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
-  opacity: 0.8;
+  opacity: 1;
 }
 .browse-all-link:hover { opacity: 1; }
 

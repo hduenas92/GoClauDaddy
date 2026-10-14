@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GoClaudaddy</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Weights here must match the weights the CSS actually uses (measured: 400,
      600, 700 plus mono italic for hljs comments). A weight that is used but not
      requested is silently faux-bolded by the browser, which is how DM Sans 700
@@ -21,7 +19,6 @@
      so no rule applies Inter. Fira Code is deliberately NOT requested — it
      would sit behind JetBrains Mono and never render, which is exactly the
      state font-check fails. -->
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;1,400&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/base.css">
 <link rel="stylesheet" href="/static/css/hljs-tokens.css">
 <script>
@@ -31,25 +28,27 @@
 // window.GCA_THEMES). Adding theme #2: add an entry here + a matching
 // [data-theme="..."] block in base.css. Nothing else.
 window.GCA_THEMES = [
-  // P2-U: first entry = default for new users (the bootstrap below falls back
-  // to GCA_THEMES[0].id). Existing users who saved a theme keep it: a saved
-  // gca_theme value wins over the default. Lit Workbench stays selectable.
-  { id: "cyberpunk-console", label: "Cyberpunk Console" },
-  { id: "lit-workbench", label: "Lit Workbench" },
+  // First entry = default for new users (the bootstrap below falls back to GCA_THEMES[0].id); a saved gca_theme wins.
+  // 4 looks + 1 special. The two legacy looks stay registered until WP-RT retires them.
   { id: "calm", label: "Calm" },
   { id: "dense", label: "Dense" },
   { id: "warm", label: "Warm" },
+  { id: "bold", label: "Bold" },
+  { id: "barry-simpson", label: "Barry Simpson", special: true },
+  { id: "cyberpunk-console", label: "Cyberpunk Console", legacy: true },
+  { id: "lit-workbench", label: "Lit Workbench", legacy: true },
 ];
 (function () {
-  var DEFAULT_THEME = window.GCA_THEMES[0].id;
-  var chosen = DEFAULT_THEME;
+  var h = document.documentElement, chosen = window.GCA_THEMES[0].id, mode = "system";
   try {
-    var saved = window.localStorage.getItem("gca_theme");
-    if (saved && window.GCA_THEMES.some(function (t) { return t.id === saved; })) {
-      chosen = saved;
-    }
-  } catch (e) { /* localStorage unavailable (private mode) — use default */ }
-  document.documentElement.setAttribute("data-theme", chosen);
+    var t = window.localStorage.getItem("gca_theme");
+    if (t && window.GCA_THEMES.some(function (x) { return x.id === t; })) chosen = t;
+    var m = window.localStorage.getItem("gca_mode");
+    if (m === "light" || m === "dark" || m === "system") mode = m;
+  } catch (e) { /* localStorage unavailable (private mode): use the defaults */ }
+  if (mode === "system") mode = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  h.setAttribute("data-theme", chosen);
+  h.setAttribute("data-mode", mode);
 })();
 </script>
 <script>

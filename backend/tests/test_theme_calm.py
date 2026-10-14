@@ -201,21 +201,6 @@ def test_calm_token_set_equals_lit_workbench_token_set() -> None:
     )
 
 
-def test_cyberpunk_console_is_still_first_in_registry() -> None:
-    ids = _read_registry_ids()
-    assert ids, f"No theme ids found in {_INDEX_HTML}"
-    assert ids[0] == "cyberpunk-console", (
-        f"cyberpunk-console must stay the first (default) registry entry; got {ids!r}"
-    )
-
-
-def test_calm_is_registered_exactly_once() -> None:
-    ids = _read_registry_ids()
-    assert ids, f"No theme ids found in {_INDEX_HTML}"
-    assert ids.count("calm") == 1, f"calm must be registered exactly once; got {ids!r}"
-    assert ids[0] == "cyberpunk-console", f"cyberpunk-console must stay the default (first); got {ids!r}"
-
-
 @pytest.mark.parametrize("foreground", _FOREGROUNDS)
 @pytest.mark.parametrize("background", _BACKGROUNDS)
 def test_calm_colour_contrast_meets_aa_on_every_background(

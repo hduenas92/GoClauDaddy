@@ -41,15 +41,6 @@ def _css_has_theme_block(css: str, theme_id: str) -> bool:
     return re.search(selector_pattern, css) is not None
 
 
-def test_registry_first_id_is_cyberpunk_console_default() -> None:
-    ids = _read_registry_ids()
-    assert ids, f"No theme ids found in {_INDEX_HTML}"
-    assert ids[0] == "cyberpunk-console", (
-        "The first registry entry must be the default theme for new users; "
-        f"got {ids!r}"
-    )
-
-
 def test_lit_workbench_is_still_registered() -> None:
     ids = _read_registry_ids()
     assert "lit-workbench" in ids, (

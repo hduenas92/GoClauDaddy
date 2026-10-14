@@ -238,14 +238,6 @@ def test_warm_non_colour_tokens_are_declared_in_root() -> None:
     )
 
 
-def test_cyberpunk_console_is_still_first_in_registry() -> None:
-    ids = _read_registry_ids()
-    assert ids, f"No theme ids found in {_INDEX_HTML}"
-    assert ids[0] == "cyberpunk-console", (
-        f"cyberpunk-console must stay the first (default) registry entry; got {ids!r}"
-    )
-
-
 def test_warm_is_registered_exactly_once() -> None:
     ids = _read_registry_ids()
     assert ids, f"No theme ids found in {_INDEX_HTML}"
