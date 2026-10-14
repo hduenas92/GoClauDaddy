@@ -348,6 +348,12 @@
   --warning-rgb: 255 170 60;
   --error-rgb: 255 120 120;
   --shadow-rgb: 0 0 0;
+  --radius: 2px;
+  --radius-lg: 3px;
+  --radius-6: 3px;
+  --radius-10: 4px;
+  --radius-12: 4px;
+  --radius-20: 6px;
 }
 [data-theme="barry-simpson"] {
   --ground-rgb: 12 8 24;
