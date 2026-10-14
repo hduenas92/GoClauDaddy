@@ -3748,3 +3748,16 @@ textarea::placeholder {
     opacity: 0 !important;
   }
 }
+
+/* ============================================================
+   J3 R-J3-2: light-mode contrast (WCAG 1.4.3 console warn lines, 1.4.11 focus ring).
+   LIGHT MODE ONLY; every selector is keyed on [data-mode="light"], so dark is untouched.
+   - warn lines: the dark-tuned 0.65 alpha drops to ~3.0:1 on light grounds, so use the solid working colour.
+   - focus ring: a darker ring (the look's accent-hi mixed 55% toward black), and no other change on focus
+     (fill, border, text, glow, dimming) so the ring is the only thing that changes when a control takes focus.
+   ============================================================ */
+[data-mode="light"] .console-line.lvl-warn { color: rgb(var(--working-rgb)); }
+[data-mode="light"] *:focus-visible { outline-color: color-mix(in srgb, var(--accent-hi) 55%, black) !important; }
+[data-mode="light"] :is(.copy-btn, .msg-action-btn):focus-visible:not(:hover) { background: rgba(var(--accent-rgb) / 0.07); border-color: rgba(var(--accent-rgb) / 0.25); color: var(--text-muted); }
+[data-mode="light"] #conv-search:focus { border-color: rgba(var(--accent-rgb) / 0.3); box-shadow: none; }
+[data-mode="light"] #composer-row button#composer-send[aria-disabled="true"]:focus-visible { opacity: 1; background: color-mix(in srgb, rgb(var(--working-rgb)) 50%, var(--ground)); color: color-mix(in srgb, var(--ground) 50%, rgb(var(--working-rgb))); box-shadow: 0 0 14px rgba(var(--working-rgb) / 0.2); }

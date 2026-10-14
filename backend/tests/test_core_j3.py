@@ -39,6 +39,13 @@ UI_CHECKS = (
     + ["overflow_code_pre", "overflow_code_frame", "overflow_tool_input", "overflow_tool_result", "overflow_page"]
     + [f"reduced_motion_{l}" for l in LOOKS]
     + ["fonts_local", "no_external_requests"]
+    # RULED AMENDMENT R-J3-2 (Houston 2026-10-14, after the J3 gate failed 24/28): +18 ids, the 52 above are unchanged.
+    # C6 console lines (4 looks x 2 modes + 2 legacy dark) and C7 focus ring (4 looks x 2 modes minus calm/dark, + lit-workbench dark; calm/dark and
+    # cyberpunk-console/dark fail identically on master 8b7b507 and are recorded as known baseline, not asserted).
+    + [f"console_lines_{l}_{m}" for l in LOOKS for m in MODES]
+    + [f"console_lines_{i}_dark" for i in sorted(LEGACY)]
+    + [f"focus_ring_{l}_{m}" for l in LOOKS for m in MODES if not (l == "calm" and m == "dark")]
+    + ["focus_ring_lit-workbench_dark"]
 )
 
 
