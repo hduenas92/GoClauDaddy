@@ -79,7 +79,8 @@ await step('Ctrl+B toggles', async () => {
   await page.keyboard.press('Control+b');
   return { ok: (await collapsed()) !== before };
 });
-for (const id of ['feat-assess', 'feat-approval']) {
+// WP-AP removed the #feat-approval switch (approval is now always on, set per chat); only feat-assess remains.
+for (const id of ['feat-assess']) {
   await step(`feature checkbox #${id} toggles`, async () => {
     const r = await page.evaluate((sel) => {
       const el = document.getElementById(sel);
