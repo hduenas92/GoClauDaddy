@@ -2633,6 +2633,16 @@ textarea::placeholder {
   line-height: 1.5;
   border-radius: var(--radius);
 }
+/* J2 SR-4: the reason a failed turn carries inside its assistant bubble. */
+.msg-error {
+  margin-top: var(--sp-6);
+  color: var(--error);
+  font-size: var(--fs-12);
+  font-family: var(--font-shell);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 /* J1: the plan approval auto-approves file edits for THIS turn only. */
 .turn-mode-notice {
   margin: var(--sp-4) 0;

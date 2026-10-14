@@ -496,6 +496,10 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     meta.textContent = "Thinking…";
     // 4.1.3: the streaming indicator is a live status.
     meta.setAttribute("role", "status");
+    // J2 R-J2-1: badge chatter ("Thinking…", "Done") stays visible but silent —
+    // aria-live="off" overrides the role's implicit polite value. The reply is
+    // announced once through #reply-announce instead.
+    meta.setAttribute("aria-live", "off");
 
     const thinkEl = document.createElement("details");
     thinkEl.className = "thinking-block";
@@ -549,6 +553,16 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
     // produce a new live-region announcement.
     replyAnnounceEl.textContent = "";
     setTimeout(() => { replyAnnounceEl.textContent = msg; }, 0);
+  }
+
+  // SR-4: a terminal error must leave its reason in the assistant bubble; the
+  // meta badge only ever says "Error". textContent, so no HTML sink.
+  function _showErrorInBubble(text) {
+    if (!currentBubbleEl || !text) return;
+    const el = document.createElement("div");
+    el.className = "msg-error";
+    el.textContent = text;
+    currentBubbleEl.appendChild(el);
   }
 
   function _buildToolCallEl(name, inputObj, id, output, isError, fromHistory = false) {
@@ -996,6 +1010,8 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
           msg = ev.error || "Claude reported an error. Try again; if it keeps failing, open the LOG panel for details.";
         }
         statusEl.textContent = msg;
+        // SR-4: the failed bubble carries the reason, not an empty "Error" shell.
+        _showErrorInBubble(msg);
         // C3: a key/address problem is fixable on the CaaS keys page, so give
         // the status line a link there. DOM-built — no innerHTML with data.
         if (KEY_LINK_CODES.has(ev.code)) {
@@ -1006,7 +1022,9 @@ export function mountChatPane(root, { onRetry, onExport, onComplete } = {}) {
           link.textContent = "Open CaaS API keys";
           statusEl.append(" ", link);
         }
-        showErrorToast(msg);
+        // SR-2: #chat-status is the one surface that speaks the terminal
+        // sentence; the toast shows the same text on screen, silently.
+        showErrorToast(msg, { announce: false });
         finishAssistantMessage("error", lastUsage);
         setConnState(CONN_ERROR_CODES.has(ev.code) ? ev.code : "error");
       }),

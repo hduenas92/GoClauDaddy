@@ -367,11 +367,14 @@ export function showConfirm({ message, confirmText = "Delete", danger = true }) 
 // failure in the app — not just chat turns — can show through one surface
 // instead of native blocking dialogs, silent catches, or ad-hoc CSS flashes.
 // (Worded to avoid the literal string the Phase 2 exit-gate grep sweeps for.)
-export function showErrorToast(message) {
+export function showErrorToast(message, { announce = true } = {}) {
   const toast = document.createElement("div");
   toast.className = "error-toast";
-  // 4.1.3: error toasts are assertive status messages.
-  toast.setAttribute("role", "alert");
+  // 4.1.3: error toasts are assertive status messages. J2 SR-2 passes
+  // announce:false when #chat-status already speaks the same sentence: the
+  // toast stays on screen but is not a live region, so the error is announced
+  // once, not twice.
+  if (announce) toast.setAttribute("role", "alert");
   toast.innerHTML = `
     <div class="error-toast-content">
       <span class="error-toast-icon">⚠</span>
