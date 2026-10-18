@@ -20,7 +20,6 @@ CHECKS = [
     "card_shows_without_flag", "card_tool", "card_command", "card_cwd", "card_three_buttons", "no_auto_deny",
     "allow_once_frame", "allow_once_closes", "allow_always_frame", "deny_frame", "no_always_when_cannot",
     "resolved_dismisses", "resolved_other_id_keeps", "card_escapes_html", "extend_carries_request_id",
-    "select_four_options", "select_no_blank", "select_null_is_manual", "feat_approval_gone", "select_change_patches",
     "effective_ok", "effective_mismatch", "rules_empty", "rules_listed", "rules_escape_html", "revoke_calls_delete",
     "revoke_rerenders",
 ]

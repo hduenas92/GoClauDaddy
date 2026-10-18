@@ -1,6 +1,6 @@
 import { api } from "../api/http.js";
-import { getState } from "../state/store.js";
-import { setStreaming, loadConversations } from "../state/actions.js";
+import { getState, subscribe } from "../state/store.js";
+import { setStreaming, loadConversations, setPermissionMode } from "../state/actions.js";
 import { getTemplates } from "../api/template_cache.js";
 import { interpolateTemplate, openTemplatePicker } from "./template_picker.js";
 import { showErrorToast, showDialog } from "./modal.js";
@@ -76,19 +76,141 @@ function _showAssessment({ level, summary, concerns = [] }) {
   });
 }
 
-export function mountComposer(root, socket, chatPane) {
+// --- J5: model/effort + permission controls ---------------------------------
+// Effort labels and levels are fixed by SPEC section B. "" is Default and
+// sends no --effort flag; xhigh is accepted by the API but never offered here.
+const EFFORT_LABELS = { "": "Default", low: "Quick", medium: "Balanced", high: "Thorough", max: "Maximum" };
+const SIMPLE_PERMISSIONS = ["manual", "acceptEdits"];
+// /api/config has no option for auto/dontAsk, so their labels are local (YC).
+// They must match main.js's PERM_LABELS fallback word for word: the header and
+// the chip are the same picker (J1 rule, D2 chip_header_words_*).
+const PERM_FALLBACK_LABELS = {
+  manual: "Ask before acting",
+  acceptEdits: "Auto-approve edits",
+  plan: "Plan only",
+  bypassPermissions: "Bypass all prompts",
+  auto: "Full auto",
+  dontAsk: "Never ask",
+};
+// The labels main.js paints in the header (its own PERM_LABELS), kept so a
+// Simple coercion can find and replace the old text without re-rendering the
+// whole subtitle.
+const HEADER_PERM_LABELS = {
+  manual: "Ask before acting",
+  acceptEdits: "Auto-approve edits",
+  plan: "Plan only",
+  bypassPermissions: "Bypass all prompts",
+  auto: "Full auto",
+  dontAsk: "Never ask",
+};
+
+// At most one composer menu is open at a time, app-wide. Module scope so a
+// remount can clean up the previous mount's document listener.
+let _activeMenu = null;
+let _menuOutside = null;
+// The permission-effective live region subscribes to the store; module scope so
+// a remount drops the previous mount's listener instead of stacking one per
+// conversation switch (same pattern as the removed drawer's _unsubscribeSettings).
+let _unsubscribeEffective = null;
+
+function _closeMenu({ focus = false } = {}) {
+  if (!_activeMenu) return;
+  const { button, el } = _activeMenu;
+  _activeMenu = null;
+  if (_menuOutside) {
+    document.removeEventListener("mousedown", _menuOutside, true);
+    _menuOutside = null;
+  }
+  el.remove();
+  button.setAttribute("aria-expanded", "false");
+  if (focus) button.focus();
+}
+
+function _openMenu(button, items, onPick) {
+  const wasSame = _activeMenu?.button === button;
+  _closeMenu();
+  if (wasSame) return; // re-click (or ArrowDown) on the open button closes it
+  const root = button.closest("#composer");
+  if (!root) return;
+
+  const el = document.createElement("div");
+  el.className = "composer-menu";
+  el.setAttribute("role", "menu");
+  items.forEach((item) => {
+    const itemEl = document.createElement("button");
+    itemEl.type = "button";
+    itemEl.setAttribute("role", "menuitemradio");
+    itemEl.dataset.kind = item.kind;
+    itemEl.dataset.value = item.value;
+    itemEl.setAttribute("aria-checked", item.checked ? "true" : "false");
+    itemEl.tabIndex = -1;
+    itemEl.textContent = item.label;
+    itemEl.addEventListener("click", () => {
+      _closeMenu({ focus: true });
+      onPick(item.kind, item.value);
+    });
+    el.appendChild(itemEl);
+  });
+  root.appendChild(el);
+
+  // Sit above the dock, inside the viewport: clamp to the composer box (which
+  // is itself inside the viewport) instead of the button's own left edge.
+  const rootRect = root.getBoundingClientRect();
+  const btnRect = button.getBoundingClientRect();
+  const maxLeft = Math.max(0, root.clientWidth - el.offsetWidth);
+  el.style.left = `${Math.max(0, Math.min(btnRect.left - rootRect.left, maxLeft))}px`;
+
+  button.setAttribute("aria-expanded", "true");
+  _activeMenu = { button, el };
+
+  const checked = el.querySelector('[aria-checked="true"]') || el.querySelector('[role="menuitemradio"]');
+  checked?.focus();
+
+  el.addEventListener("keydown", (e) => {
+    const opts = Array.from(el.querySelectorAll('[role="menuitemradio"]'));
+    const idx = opts.indexOf(document.activeElement);
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      opts[Math.min(idx + 1, opts.length - 1)]?.focus();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      opts[Math.max(idx - 1, 0)]?.focus();
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      document.activeElement?.click?.();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      _closeMenu({ focus: true });
+    }
+  });
+
+  const outside = (e) => {
+    if (!_activeMenu) return;
+    if (_activeMenu.el.contains(e.target) || e.target === _activeMenu.button) return;
+    _closeMenu();
+  };
+  _menuOutside = outside;
+  document.addEventListener("mousedown", outside, true);
+}
+
+export function mountComposer(root, socket, chatPane, opts = {}) {
+  // A previous mount may have left a menu open (and its document mousedown
+  // listener attached). Drop both before this mount rebuilds the composer.
+  _closeMenu();
   root.innerHTML = `
     <div id="attachment-strip"></div>
     <div id="composer-row">
-      <button id="composer-attach" title="Attach file">📎</button>
-      <span class="composer-prompt" aria-hidden="true">&gt;</span>
+      <button id="composer-attach" type="button" title="Attach file" aria-label="Attach file">📎</button>
       <textarea id="composer-input" rows="2" placeholder="Message GoClaudaddy… (drag files, paste image, Enter to send)" aria-label="Message GoClaudaddy"></textarea>
+      <button id="composer-model-effort" type="button" aria-haspopup="menu" aria-expanded="false">Model</button>
+      <button id="permission-chip" type="button" aria-haspopup="menu" aria-expanded="false">Ask before acting</button>
       <button id="composer-send" aria-disabled="true" aria-describedby="composer-empty-hint">Send</button>
       <span id="composer-empty-hint" class="sr-only">Type a message to send.</span>
       <button id="composer-stop" hidden>■ Stop</button>
     </div>
     <div id="composer-footer">
       <span id="char-counter"></span>
+      <span id="permission-effective" class="composer-effective" aria-live="polite"></span>
       <span id="composer-hint">Enter to send · Shift+Enter for newline</span>
     </div>
     <input type="file" id="composer-file-input" multiple hidden aria-label="Attach file">
@@ -100,6 +222,172 @@ export function mountComposer(root, socket, chatPane) {
   const fileInput = root.querySelector("#composer-file-input");
   const attachBtn = root.querySelector("#composer-attach");
   const charCounter = root.querySelector("#char-counter");
+
+  // --- J5: model/effort + permission controls -------------------------------
+  const modelBtn = root.querySelector("#composer-model-effort");
+  const permBtn = root.querySelector("#permission-chip");
+  let config = { models: [], permission_modes: [], permission_mode_options: [] };
+
+  const _activeConv = () =>
+    (getState().conversations || []).find((c) => c.id === getState().activeConversationId) || null;
+  const conv = _activeConv();
+  let currentModel = conv?.model || "";
+  let currentEffort = conv?.effort || "";
+  let currentPermission = conv?.permission_mode || "manual";
+
+  const _uiAdvanced = () => storage.getItem("gca_ui_mode") === "advanced";
+  const _modelLabel = (id) => (config.models || []).find((m) => m.value === id)?.label || id || "Model";
+  const _permLabel = (mode) =>
+    (config.permission_mode_options || []).find((o) => o.value === mode)?.label
+    || PERM_FALLBACK_LABELS[mode] || mode;
+  const _rememberConv = (patch) => {
+    const c = _activeConv();
+    if (c) Object.assign(c, patch);
+  };
+
+  function _setHeaderModel(label) {
+    const el = document.querySelector("#conv-subtitle .sub-model");
+    if (el) el.textContent = label;
+  }
+
+  // main.js owns the header; after a Simple coercion we only swap the old
+  // permission text node so no "Bypass" label survives in Simple (Ruling 11).
+  function _replaceHeaderText(oldText, newText) {
+    const sub = document.querySelector("#conv-subtitle");
+    if (!sub || !oldText || oldText === newText) return;
+    const walker = document.createTreeWalker(sub, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (node.nodeValue && node.nodeValue.includes(oldText)) {
+        node.nodeValue = node.nodeValue.replace(oldText, newText);
+      }
+    }
+  }
+
+  function _renderModelEffort() {
+    const label = _modelLabel(currentModel);
+    modelBtn.textContent = currentEffort
+      ? `${label} · ${EFFORT_LABELS[currentEffort] || currentEffort}`
+      : label;
+    _setHeaderModel(label);
+  }
+
+  function _renderPermission() {
+    permBtn.textContent = _permLabel(currentPermission);
+  }
+
+  // J5/D2: the CLI-reported effective mode moved out of the drawer with the
+  // select. Same three strings the drawer rendered (empty -> "takes effect on
+  // your next message"; ok -> "Claude is using <label>."; mismatch -> warning).
+  const permissionEffective = root.querySelector("#permission-effective");
+  function _renderPermissionEffective() {
+    if (!permissionEffective) return;
+    const info = getState().permissionMode;
+    // Only a mismatch is announced: an ok echo is spoken by nobody (J2 allows one announcement per ordinary turn).
+    permissionEffective.setAttribute("aria-live", info?.requested && !info.ok ? "polite" : "off");
+    if (!info?.requested) {
+      permissionEffective.textContent = "takes effect on your next message";
+      return;
+    }
+    const requestedLabel = _permLabel(info.requested);
+    if (info.ok) {
+      permissionEffective.textContent = `Claude is using ${requestedLabel}.`;
+    } else {
+      permissionEffective.textContent = `Warning: Claude is using ${info.actual ?? "unknown"} instead of ${requestedLabel}.`;
+    }
+  }
+  if (_unsubscribeEffective) _unsubscribeEffective();
+  _unsubscribeEffective = subscribe(_renderPermissionEffective);
+  _renderPermissionEffective();
+
+  const _effortValues = () =>
+    _uiAdvanced() ? ["", "low", "medium", "high", "max"] : ["", "low", "medium", "high"];
+  const _permissionModes = () => {
+    const all = (config.permission_modes || []).length ? config.permission_modes : SIMPLE_PERMISSIONS;
+    return _uiAdvanced() ? all : SIMPLE_PERMISSIONS;
+  };
+
+  function _menuItems(button) {
+    if (button === permBtn) {
+      return _permissionModes().map((mode) => ({
+        kind: "permission", value: mode, label: _permLabel(mode), checked: mode === currentPermission,
+      }));
+    }
+    return [
+      ...(config.models || []).map((m) => ({
+        kind: "model", value: m.value, label: m.label, checked: m.value === currentModel,
+      })),
+      ..._effortValues().map((v) => ({
+        kind: "effort", value: v, label: EFFORT_LABELS[v], checked: v === currentEffort,
+      })),
+    ];
+  }
+
+  async function _pick(kind, value) {
+    const convId = getState().activeConversationId;
+    if (!convId) return;
+    try {
+      if (kind === "permission") {
+        await api.updateConversationSettings(convId, { permission_mode: value });
+        currentPermission = value;
+        _rememberConv({ permission_mode: value });
+        _renderPermission();
+        setPermissionMode(null);
+        opts.onChange?.({ permission_mode: value });
+      } else if (kind === "model") {
+        await api.updateConversationSettings(convId, { model: value });
+        currentModel = value;
+        _rememberConv({ model: value });
+        _renderModelEffort();
+        opts.onChange?.({ model: value });
+      } else {
+        await api.updateConversationSettings(
+          convId, value === "" ? { clear_effort: true } : { effort: value }
+        );
+        currentEffort = value;
+        _rememberConv({ effort: value || null });
+        _renderModelEffort();
+        opts.onChange?.({ effort: value || null });
+      }
+    } catch {
+      showErrorToast("Couldn't save that choice — try again.");
+    }
+  }
+
+  const _toggleMenu = (button) => _openMenu(button, _menuItems(button), _pick);
+  modelBtn.addEventListener("click", () => _toggleMenu(modelBtn));
+  permBtn.addEventListener("click", () => _toggleMenu(permBtn));
+  modelBtn.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); _toggleMenu(modelBtn); }
+  });
+  permBtn.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); _toggleMenu(permBtn); }
+  });
+
+  // Simple coercion (Ruling 11): a stored bypass/plan/auto/dontAsk never shows
+  // in Simple. The chip reads "Ask before acting" immediately and the PATCH
+  // lands before any turn; Advanced never coerces.
+  if (!_uiAdvanced() && conv?.permission_mode && !SIMPLE_PERMISSIONS.includes(conv.permission_mode)) {
+    currentPermission = "manual";
+    const coercedFrom = conv.permission_mode;
+    api.updateConversationSettings(conv.id, { permission_mode: "manual" })
+      .then(() => {
+        _rememberConv({ permission_mode: "manual" });
+        _replaceHeaderText(HEADER_PERM_LABELS[coercedFrom] || coercedFrom, _permLabel("manual"));
+      })
+      .catch(() => { /* chip already reads Ask before acting; the next turn re-coerces */ });
+  }
+
+  modelBtn.textContent = currentModel || "Model";
+  _renderPermission();
+  api.getConfig()
+    .then((cfg) => {
+      if (cfg && typeof cfg === "object") config = cfg;
+      if (!currentModel) currentModel = config.default_model || config.models?.[0]?.value || "";
+      _renderModelEffort();
+      _renderPermission();
+    })
+    .catch(() => { _renderModelEffort(); _renderPermission(); });
 
   const pending = []; // {id, name}
   let isFirstMessage = true;

@@ -1,6 +1,4 @@
 import { api } from "../api/http.js";
-import { getState, subscribe } from "../state/store.js";
-import { setPermissionMode } from "../state/actions.js";
 import { showOnboarding } from "./onboarding_tour.js";
 import { showErrorToast } from "./modal.js";
 // One definition of the key and of what counts as a usable budget. The panel
@@ -8,14 +6,6 @@ import { showErrorToast } from "./modal.js";
 // in sync by hand is how a setting silently stops taking effect.
 import { BUDGET_KEY } from "./right_sidebar.js";
 import * as storage from "../state/storage.js";
-
-const THINKING_OPTIONS = [
-  { value: "", label: "Off" },
-  { value: "1024", label: "Quick" },
-  { value: "4096", label: "Standard" },
-  { value: "10000", label: "Thorough" },
-  { value: "32000", label: "Maximum" },
-];
 
 /**
  * Mounts settings into a drawer element. Returns { open, close } to control visibility.
@@ -41,15 +31,9 @@ function getThemes() {
     : [{ id: "lit-workbench", label: "Lit Workbench" }];
 }
 
-let _unsubscribeSettings = null;
-
 export async function mountSettingsPanel(drawerEl, conversation, { onChange } = {}) {
-  const config = await api.getConfig();
   const themes = getThemes();
   const themeSectionHidden = themes.length > 1 ? "" : "hidden";
-  const MODEL_DESCRIPTIONS = Object.fromEntries(
-    (config.models || []).map((m) => [m.value, m.description || ""])
-  );
 
   drawerEl.innerHTML = `
     <div class="drawer-header">
@@ -58,24 +42,6 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
     </div>
     <div class="drawer-body">
       <h2 class="drawer-section-heading">This conversation</h2>
-      <div class="drawer-section">
-        <label class="drawer-label">Model
-          <select id="model-select" class="drawer-select"></select>
-        </label>
-        <p id="model-desc" class="drawer-hint"></p>
-      </div>
-      <div class="drawer-section">
-        <label class="drawer-label">Permission mode — how much Claude may do without asking. "Bypass all prompts" allows everything; "Manual approval" asks first.
-          <select id="permission-select" class="drawer-select"></select>
-        </label>
-        <p id="permission-effective" class="drawer-hint" aria-live="polite"></p>
-      </div>
-      <div class="drawer-section">
-        <label class="drawer-label">Extended thinking
-          <select id="thinking-select" class="drawer-select"></select>
-        </label>
-        <p class="drawer-hint">Gives Claude more time to reason before answering.</p>
-      </div>
       <div class="drawer-section">
         <label class="drawer-label">Max output tokens
           <select id="max-tokens-select" class="drawer-select"></select>
@@ -165,92 +131,11 @@ export async function mountSettingsPanel(drawerEl, conversation, { onChange } = 
     try { storage.setItem(FONT_SIZE_STORAGE_KEY, size); } catch { /* private mode — still applied for this session */ }
   });
 
-  const modelSelect = drawerEl.querySelector("#model-select");
-  const modelDesc = drawerEl.querySelector("#model-desc");
-  config.models.forEach((m) => {
-    const opt = document.createElement("option");
-    opt.value = m.value;
-    opt.textContent = m.label;
-    modelSelect.appendChild(opt);
-  });
-  modelSelect.value = conversation.model;
-  modelDesc.textContent = MODEL_DESCRIPTIONS[modelSelect.value] || "";
-
   function _flashError(el, message) {
     el.classList.add("drawer-select-error");
     setTimeout(() => el.classList.remove("drawer-select-error"), 2000);
     showErrorToast(message);
   }
-
-  modelSelect.addEventListener("change", async () => {
-    try {
-      await api.updateConversationSettings(conversation.id, { model: modelSelect.value });
-      modelDesc.textContent = MODEL_DESCRIPTIONS[modelSelect.value] || "";
-      onChange?.({ model: modelSelect.value });
-    } catch { _flashError(modelSelect, "Couldn't switch models — your change wasn't saved. Try again."); }
-  });
-
-  const permissionSelect = drawerEl.querySelector("#permission-select");
-  (config.permission_mode_options || []).forEach((mode) => {
-    const opt = document.createElement("option");
-    opt.value = mode.value;
-    opt.textContent = mode.label;
-    permissionSelect.appendChild(opt);
-  });
-  const hasStoredMode = (config.permission_mode_options || []).some(
-    (mode) => mode.value === conversation.permission_mode,
-  );
-  permissionSelect.value = hasStoredMode ? conversation.permission_mode : "manual";
-
-  function _permissionLabel(mode) {
-    return (config.permission_mode_options || []).find((o) => o.value === mode)?.label ?? mode;
-  }
-
-  function renderPermissionEffective() {
-    const el = drawerEl.querySelector("#permission-effective");
-    if (!el) return;
-    const info = getState().permissionMode;
-    if (!info?.requested) {
-      el.textContent = "takes effect on your next message";
-      return;
-    }
-    const requestedLabel = _permissionLabel(info.requested);
-    if (info.ok) {
-      el.textContent = `Claude is using ${requestedLabel}.`;
-    } else {
-      el.textContent = `Warning: Claude is using ${info.actual ?? "unknown"} instead of ${requestedLabel}.`;
-    }
-  }
-
-  if (_unsubscribeSettings) _unsubscribeSettings();
-  _unsubscribeSettings = subscribe(renderPermissionEffective);
-  renderPermissionEffective();
-
-  permissionSelect.addEventListener("change", async () => {
-    const mode = permissionSelect.value;
-    try {
-      await api.updateConversationSettings(conversation.id, { permission_mode: mode });
-      setPermissionMode(null);
-      onChange?.({ permission_mode: mode });
-    } catch { _flashError(permissionSelect, "Couldn't change the permission mode — your change wasn't saved. Try again."); }
-  });
-
-  const thinkingSelect = drawerEl.querySelector("#thinking-select");
-  THINKING_OPTIONS.forEach((o) => {
-    const opt = document.createElement("option");
-    opt.value = o.value;
-    opt.textContent = o.label;
-    thinkingSelect.appendChild(opt);
-  });
-  thinkingSelect.value = conversation.thinking_budget ? String(conversation.thinking_budget) : "";
-  thinkingSelect.addEventListener("change", async () => {
-    const val = thinkingSelect.value;
-    try {
-      await api.updateConversationSettings(conversation.id,
-        val ? { thinking_budget: parseInt(val, 10) } : { clear_thinking_budget: true }
-      );
-    } catch { _flashError(thinkingSelect, "Couldn't change the thinking budget — your change wasn't saved. Try again."); }
-  });
 
   const MAX_TOKEN_OPTIONS = [
     { value: "", label: "Default" },

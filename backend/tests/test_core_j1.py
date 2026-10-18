@@ -136,7 +136,6 @@ CHECKS = [
     "plan_card_shows_plan", "plan_card_no_raw_tool_name", "plan_card_no_always", "plan_card_one_decision", "plan_card_escapes_html",
     "turn_mode_notice_visible", "turn_mode_notice_gone_after_done",
     "saved_rule_notice_absent_without_rule", "saved_rule_notice_after_done",
-    "mode_label_manual", "mode_label_acceptEdits", "mode_label_plan", "mode_label_bypassPermissions",
     "interrupted_row_terminal_label", "live_tool_row_still_running",
 ]
 

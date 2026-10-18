@@ -158,8 +158,8 @@ await step(['extend_carries_request_id'], async () => {
 // ---- B. the permission-mode picker + the CLI-reported effective mode ----
 const openDrawer = async () => {
   if (!(await page.evaluate(() => document.getElementById('settings-drawer')?.classList.contains('drawer-open')
-    ?? !!document.querySelector('.drawer-open #permission-select')))) await page.click('#settings-btn');
-  await page.waitForSelector('#permission-select', { state: 'visible', timeout: 3000 });
+    ?? !!document.querySelector('.drawer-open #system-prompt-input')))) await page.click('#settings-btn');
+  await page.waitForSelector('#system-prompt-input', { state: 'visible', timeout: 3000 });
 };
 const reopenDrawer = async () => {
   await page.click('#settings-btn');
@@ -167,23 +167,6 @@ const reopenDrawer = async () => {
   await openDrawer();
   await page.waitForTimeout(500);
 };
-await step(['select_four_options', 'select_no_blank', 'select_null_is_manual', 'feat_approval_gone'], async () => {
-  await openDrawer();
-  const s = await page.evaluate(() => {
-    const el = document.getElementById('permission-select');
-    return { values: [...el.options].map((o) => o.value), value: el.value, feat: document.querySelectorAll('#feat-approval').length };
-  });
-  ok('select_four_options', JSON.stringify(s.values) === JSON.stringify(['manual', 'acceptEdits', 'plan', 'bypassPermissions']), JSON.stringify(s.values));
-  ok('select_no_blank', !s.values.includes(''), JSON.stringify(s.values));
-  ok('select_null_is_manual', s.value === 'manual', s.value);
-  ok('feat_approval_gone', s.feat === 0, 'count=' + s.feat);
-});
-await step(['select_change_patches'], async () => {
-  await page.selectOption('#permission-select', 'plan');
-  await page.waitForTimeout(600);
-  const last = patches[patches.length - 1];
-  ok('select_change_patches', !!last && last.permission_mode === 'plan' && !('clear_permission_mode' in last && last.clear_permission_mode), JSON.stringify(patches));
-});
 let okText = null;
 await step(['effective_ok'], async () => {
   push({ type: 'permission_mode', requested: 'plan', actual: 'plan', ok: true });

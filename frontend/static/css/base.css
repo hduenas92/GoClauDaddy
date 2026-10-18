@@ -2517,6 +2517,13 @@ pre { position: relative; }
 }
 #char-counter { transition: color 0.2s; }
 #char-counter.char-warn { color: var(--rose); }
+/* J5/D2: the CLI-reported effective-mode hint, outside the settings drawer.
+   Compact token-only text; --text-secondary-rgb clears 4.5:1 on the composer
+   ground in every look/mode. */
+.composer-effective {
+  color: rgb(var(--text-secondary-rgb));
+  font-size: var(--fs-11);
+}
 
 /* ============================================================
    TEMPLATE AUTOSUGGEST DROPDOWN
@@ -3827,3 +3834,95 @@ html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"])[dat
 /* J4a: no dashed borders and no idle infinite animation for every look except the two legacy ones. Live-state spinners stay: they only run while a turn is in flight. */
 html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) :is(#new-project-btn, #new-conv-btn, .tp-new-btn) { border-style: solid; }
 html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .empty-state-glyph { animation: none; }
+
+/* ============================================================
+   J5 — compact model/effort + permission controls
+   Two quiet, token-only buttons in the composer row and their
+   shared popup menu. No colour literals, no glow, no dashed
+   borders, no infinite animation; text >= 11px and hit targets
+   >= 24px. Selectors match the specificity of the generic
+   "#composer-row button:not(#composer-attach)" rules above and
+   win by coming later in the file.
+   ============================================================ */
+#composer-row button#composer-model-effort,
+#composer-row button#permission-chip {
+  height: auto;
+  min-height: 24px;
+  max-width: 220px;
+  padding: var(--sp-3) var(--sp-8);
+  background: rgba(var(--surface-rgb) / 0.9);
+  border: 1px solid rgba(var(--border-quiet-rgb) / 0.9);
+  border-radius: var(--radius);
+  color: rgb(var(--text-primary-rgb));
+  font-family: inherit;
+  font-size: var(--fs-11);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: none;
+}
+#composer-row button#composer-model-effort:hover,
+#composer-row button#permission-chip:hover {
+  background: rgba(var(--surface-rgb) / 1);
+  border-color: rgba(var(--accent-rgb) / 0.7);
+  color: rgb(var(--text-primary-rgb));
+  box-shadow: none;
+  transform: none;
+}
+#composer-row button#composer-model-effort:focus-visible,
+#composer-row button#permission-chip:focus-visible {
+  outline: 2px solid rgb(var(--accent-rgb));
+  outline-offset: 1px;
+}
+
+.composer-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  min-width: 180px;
+  max-width: min(280px, calc(100vw - 48px));
+  max-height: 220px;
+  overflow-y: auto;
+  padding: var(--sp-4);
+  background: rgb(var(--panel-rgb));
+  border: 1px solid rgba(var(--border-quiet-rgb) / 0.9);
+  border-radius: var(--radius);
+}
+.composer-menu [role="menuitemradio"] {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  width: 100%;
+  min-height: 24px;
+  padding: var(--sp-3) var(--sp-8);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-3);
+  color: rgb(var(--text-primary-rgb));
+  font-family: inherit;
+  font-size: var(--fs-11);
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+}
+.composer-menu [role="menuitemradio"]:hover,
+.composer-menu [role="menuitemradio"]:focus-visible {
+  background: rgba(var(--accent-rgb) / 0.14);
+  outline: none;
+}
+.composer-menu [role="menuitemradio"]::before {
+  content: "";
+  flex-shrink: 0;
+  width: 1em;
+  text-align: center;
+}
+.composer-menu [role="menuitemradio"][aria-checked="true"] {
+  color: rgb(var(--text-primary-rgb));
+  font-weight: 600;
+}
+.composer-menu [role="menuitemradio"][aria-checked="true"]::before {
+  content: "✓";
+}

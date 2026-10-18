@@ -138,21 +138,6 @@ await step(['saved_rule_notice_after_done', 'saved_rule_notice_absent_without_ru
   ok('saved_rule_notice_after_done', shown, 'notice not visible after the turn landed');
 });
 
-// ---- 4. one name per approval mode ----
-await step(['mode_label_manual', 'mode_label_acceptEdits', 'mode_label_plan', 'mode_label_bypassPermissions'], async () => {
-  for (const mode of ['manual', 'acceptEdits', 'plan', 'bypassPermissions']) {
-    await page.evaluate(async ([id, m]) => fetch('/api/conversations/' + id + '/settings', { method: 'PATCH', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ permission_mode: m }) }), [convId, mode]);
-    await boot();
-    await page.waitForTimeout(500);
-    const header = (await txt('#conv-subtitle')) ?? '';
-    if (!(await page.evaluate(() => document.getElementById('permission-select')?.offsetParent !== null))) await page.click('#settings-btn').catch(() => {});
-    await page.waitForSelector('#permission-select', { state: 'attached', timeout: 3000 });
-    const label = await page.evaluate((m) => [...document.getElementById('permission-select').options].find((o) => o.value === m)?.textContent.trim() ?? null, mode);
-    ok('mode_label_' + mode, !!label && header.includes(label), `header="${header}" picker="${label}"`);
-  }
-});
-
 // ---- 5. a tool row cut off by a reload ----
 await step(['interrupted_row_terminal_label', 'live_tool_row_still_running'], async () => {
   await page.evaluate(async ([id]) => fetch('/api/conversations/' + id + '/settings', { method: 'PATCH', headers: { 'content-type': 'application/json' },

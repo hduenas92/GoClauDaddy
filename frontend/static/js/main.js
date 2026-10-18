@@ -142,7 +142,14 @@ async function switchToConversation(id, chatPane, compRoot) {
   socket.checkResync();
 
   // Remount composer with fresh auto-title flag
-  mountComposer(compRoot, socket, chatPane);
+  mountComposer(compRoot, socket, chatPane, {
+    onChange: (updates) => {
+      if (currentConversation) {
+        currentConversation = { ...currentConversation, ...updates };
+        updateTelemetry(currentConversation);
+      }
+    },
+  });
   if (compRoot._resetFirstMessage) compRoot._resetFirstMessage();
 
   // Update header title
