@@ -65,12 +65,17 @@ async function discoverToken() {
   const names = convs.map((c) => (c.name || '').toLowerCase());
   const inAnyName = (w) => names.some((n) => n.includes(w));
 
-  // Newest first: most likely to hold substantial content.
-  for (const c of convs.slice(0, 6)) {
+  // Newest first, and ALL of them: a DB whose only messages sit in old
+  // conversations behind hundreds of empty ones must still yield a token.
+  const ordered = [...convs].sort((a, b) =>
+    String(b.updated_at ?? '').localeCompare(String(a.updated_at ?? '')));
+  for (const c of ordered) {
     const one = await fetch(`${APP}/api/conversations/${c.id}`);
     if (!one.ok) continue;
     const body = await one.json();
-    for (const m of body.messages ?? []) {
+    const messages = body.messages ?? [];
+    if (messages.length === 0) continue;   // nothing readable here; keep walking back
+    for (const m of messages) {
       const words = String(m.content || '').toLowerCase().match(/[a-z]{6,14}/g) ?? [];
       for (const w of words) {
         if (STOPWORDS.has(w) || inAnyName(w)) continue;
@@ -236,46 +241,50 @@ try {
   // --- 4. out-of-order responses: the LAST query wins ---------------------
   {
     const label = '4. a slow earlier response cannot overwrite a newer one';
-    const { ctx, page } = await freshPage();
-    try {
-      let n = 0;
-      await page.route('**/*', async (route) => {
-        const url = new URL(route.request().url());
-        if (url.pathname !== '/api/search') return route.continue();
-        n += 1;
-        const q = url.searchParams.get('q') ?? '';
-        // The FIRST search is held back deliberately so it lands LAST.
-        if (n === 1) await new Promise((r) => setTimeout(r, 2500));
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            truncated: false,
-            results: [{
-              conversation_id: 'c', conversation_name: `RESULT FOR ${q}`, message_id: 'm',
-              role: 'user', snippet: `snippet for ${q}`, created_at: new Date().toISOString(),
-            }],
-          }),
+    if (!haveToken) {
+      add(label, 'INCONCLUSIVE', 'no discovered token; cannot run the stale-response race');
+    } else {
+      const { ctx, page } = await freshPage();
+      try {
+        let n = 0;
+        await page.route('**/*', async (route) => {
+          const url = new URL(route.request().url());
+          if (url.pathname !== '/api/search') return route.continue();
+          n += 1;
+          const q = url.searchParams.get('q') ?? '';
+          // The FIRST search is held back deliberately so it lands LAST.
+          if (n === 1) await new Promise((r) => setTimeout(r, 2500));
+          return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              truncated: false,
+              results: [{
+                conversation_id: 'c', conversation_name: `RESULT FOR ${q}`, message_id: 'm',
+                role: 'user', snippet: `snippet for ${q}`, created_at: new Date().toISOString(),
+              }],
+            }),
+          });
         });
-      });
 
-      await page.fill('#conv-search', TOKEN);
-      await page.waitForTimeout(400);      // past the debounce: request 1 is away and stalled
-      await page.fill('#conv-search', OTHER);
-      await page.waitForTimeout(4000);     // request 2 returns, then request 1 finally lands
+        await page.fill('#conv-search', TOKEN);
+        await page.waitForTimeout(400);      // past the debounce: request 1 is away and stalled
+        await page.fill('#conv-search', OTHER);
+        await page.waitForTimeout(4000);     // request 2 returns, then request 1 finally lands
 
-      const g = await groups(page);
-      const shows = g.hits.join(' ');
-      const stale = shows.includes(TOKEN);
-      const fresh = shows.includes(OTHER);
-      if (n < 2) {
-        add(label, 'INCONCLUSIVE', `only ${n} search request(s) were made; the race never happened`);
-      } else {
-        add(label, fresh && !stale ? 'PASS' : 'FAIL',
-            `${n} requests; displayed=${JSON.stringify(shows.slice(0, 80))} ` +
-            `(stale "${TOKEN}" present: ${stale})`);
-      }
-    } finally { await ctx.close(); }
+        const g = await groups(page);
+        const shows = g.hits.join(' ');
+        const stale = shows.includes(TOKEN);
+        const fresh = shows.includes(OTHER);
+        if (n < 2) {
+          add(label, 'INCONCLUSIVE', `only ${n} search request(s) were made; the race never happened`);
+        } else {
+          add(label, fresh && !stale ? 'PASS' : 'FAIL',
+              `${n} requests; displayed=${JSON.stringify(shows.slice(0, 80))} ` +
+              `(stale "${TOKEN}" present: ${stale})`);
+        }
+      } finally { await ctx.close(); }
+    }
   }
 
   // --- 5. a 400 surfaces and leaves Chats alone ---------------------------

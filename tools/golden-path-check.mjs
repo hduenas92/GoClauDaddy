@@ -432,29 +432,70 @@ async function run() {
         }
 
         // -- 8 ---------------------------------------------------------------
-        step(8, 'change model and thinking mid-conversation');
-        await page.click('#settings-btn');
-        await page.waitForSelector('#model-select', { timeout: 10_000 });
+        step(8, 'change model and effort mid-conversation');
         const before8 = (await api(`/api/conversations/${convId}`)).conversation;
-        const modelOpts = await page.$$eval('#model-select option', (els) => els.map((e) => e.value).filter(Boolean));
-        const thinkOpts = await page.$$eval('#thinking-select option', (els) => els.map((e) => e.value).filter(Boolean));
-        check('8 the drawer offers models and thinking levels to choose from',
-            modelOpts.length > 1 && thinkOpts.length > 0,
-            `models=${modelOpts.length} thinking=${thinkOpts.length}`);
-        const newModel = modelOpts.find((m) => m !== before8.model) ?? modelOpts[0];
-        const newThink = thinkOpts[thinkOpts.length - 1];
-        if (newModel) await page.selectOption('#model-select', newModel);
-        if (newThink) await page.selectOption('#thinking-select', newThink);
-        const p8 = await poll('settings persist', async () => {
-            const c = (await api(`/api/conversations/${convId}`)).conversation;
-            return {
-                done: c.model === newModel && String(c.thinking_budget ?? '') === String(newThink),
-                seen: `server model=${c.model} thinking=${c.thinking_budget}`,
-            };
-        }, 20_000);
-        check('8 the change reached the server', p8.ok,
-            `${p8.seen} · chose model=${newModel} thinking=${newThink}`);
-        await page.click('#settings-btn');   // close the drawer again
+        const modelBtn8 = await page.$('#composer-model-effort');
+        if (!modelBtn8) {
+            check('8 the composer control offers models and effort levels to choose from',
+                false, '#composer-model-effort not found');
+            check('8 the change reached the server', false, 'no #composer-model-effort to pick from');
+        } else {
+            await modelBtn8.click();
+            const menuReady = await page.waitForSelector(
+                '.composer-menu [role="menuitemradio"][data-kind="model"]', { timeout: 10_000 }).catch(() => null);
+            if (!menuReady) {
+                check('8 the composer control offers models and effort levels to choose from',
+                    false, 'the composer menu did not open with model items');
+                check('8 the change reached the server', false, 'composer menu did not open');
+            } else {
+                const items8 = await page.$$eval('.composer-menu [role="menuitemradio"]', (els) =>
+                    els.map((e) => ({
+                        kind: e.dataset.kind,
+                        value: e.dataset.value || '',
+                        label: (e.textContent || '').trim(),
+                        checked: e.getAttribute('aria-checked') === 'true',
+                    })));
+                const rawModelItems = items8.filter((m) => m.kind === 'model');
+                const rawEffortItems = items8.filter((m) => m.kind === 'effort');
+                const modelItems = rawModelItems.filter((m) => m.value !== '');
+                const effortItems = rawEffortItems.filter((m) => m.value !== '');
+                check('8 the composer control offers models and effort levels to choose from',
+                    modelItems.length > 1 && effortItems.length > 0,
+                    `models=${modelItems.length} effort=${effortItems.length}`);
+                const newModel = modelItems.find((m) => m.value !== String(before8.model ?? '')) ?? null;
+                const newEffort = effortItems.find((m) => m.value !== String(before8.effort ?? '')) ?? null;
+                if (newModel) {
+                    await page.locator('.composer-menu [role="menuitemradio"][data-kind="model"]')
+                        .nth(rawModelItems.indexOf(newModel)).click();
+                }
+                if (newEffort) {
+                    await page.click('#composer-model-effort');   // reopen the menu for the second pick
+                    await page.waitForSelector('.composer-menu [role="menuitemradio"][data-kind="effort"]', { timeout: 10_000 });
+                    await page.locator('.composer-menu [role="menuitemradio"][data-kind="effort"]')
+                        .nth(rawEffortItems.indexOf(newEffort)).click();
+                }
+                if (!newModel || !newEffort) {
+                    check('8 the change reached the server', false,
+                        `could only pick model=${newModel?.value ?? 'none'} effort=${newEffort?.value ?? 'none'}`);
+                } else {
+                    const p8 = await poll('settings persist', async () => {
+                        const c = (await api(`/api/conversations/${convId}`)).conversation;
+                        return {
+                            done: String(c.model ?? '') === String(newModel.value) &&
+                                String(c.effort ?? '') === String(newEffort.value),
+                            seen: `server model=${c.model} effort=${c.effort}`,
+                        };
+                    }, 20_000);
+                    check('8 the change reached the server', p8.ok,
+                        `${p8.seen} · chose model=${newModel.value} effort=${newEffort.value}`);
+                    const buttonText = ((await page.textContent('#composer-model-effort')) || '')
+                        .replace(/\s+/g, ' ').trim();
+                    check('8 the composer button shows the chosen model and effort',
+                        buttonText.includes(newModel.label) && buttonText.includes(newEffort.label),
+                        `button="${buttonText}" · expected model label="${newModel.label}" effort label="${newEffort.label}"`);
+                }
+            }
+        }
 
         // -- 9 ---------------------------------------------------------------
         step(9, 'rename the conversation');

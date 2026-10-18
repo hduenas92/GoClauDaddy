@@ -170,22 +170,40 @@ async function expectToast(page, name, mustContain) {
 {
   const name = '6. settings change failure shows a toast (not just a flash)';
   const { ctx, page } = await freshPage();
-  await page.route('**/api/conversations/*/settings', (r) =>
-    r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"cannot save"}' }));
+  let patchCount = 0;
+  await page.route('**/api/conversations/*/settings', (r) => {
+    if (r.request().method() === 'PATCH') patchCount += 1;
+    return r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"cannot save"}' });
+  });
   await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
-  await page.keyboard.press('Control+Comma');
-  const sel = await page.waitForSelector('#model-select', { state: 'visible', timeout: 4000 }).catch(() => null);
-  if (!sel) {
-    skip(name, '#model-select not reachable — no active conversation?');
+  const control = await page.waitForSelector('#composer-model-effort', { state: 'visible', timeout: 4000 }).catch(() => null);
+  if (!control) {
+    skip(name, '#composer-model-effort not reachable — no active conversation?');
   } else {
-    const options = await page.$$eval('#model-select option', (o) => o.map((x) => x.value));
-    const current = await page.$eval('#model-select', (s) => s.value);
-    const other = options.find((v) => v && v !== current);
-    if (!other) skip(name, 'only one model option available; cannot trigger a change');
-    else {
-      await page.selectOption('#model-select', other);
-      await expectToast(page, name, "couldn't");
+    await control.click();
+    const menuItem = await page.waitForSelector(
+      '.composer-menu [role="menuitemradio"][data-kind="model"]',
+      { state: 'visible', timeout: 4000 }).catch(() => null);
+    if (!menuItem) {
+      skip(name, 'the composer model/effort menu did not open with model items');
+    } else {
+      const models = await page.$$eval(
+        '.composer-menu [role="menuitemradio"][data-kind="model"]',
+        (els) => els.map((e) => ({ value: e.dataset.value || '', checked: e.getAttribute('aria-checked') === 'true' })));
+      const usable = models.filter((m) => m.value);
+      const other = usable.find((m) => !m.checked);
+      if (usable.length < 2 || !other) {
+        skip(name, `only ${usable.length} model option(s) available; cannot trigger a change`);
+      } else {
+        const otherIndex = models.indexOf(other);
+        await page.locator('.composer-menu [role="menuitemradio"][data-kind="model"]').nth(otherIndex).click();
+        const ok = await expectToast(page, name, "couldn't");
+        if (patchCount === 0) {
+          results.pop();
+          skip(name, `no PATCH /api/conversations/*/settings request was sent (toast ${ok ? 'shown' : 'absent'}); the change path was not exercised`);
+        }
+      }
     }
   }
   await ctx.close();
