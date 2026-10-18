@@ -3,7 +3,7 @@ import dataclasses
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, constr, field_validator
 
-from app.config import MODELS, PERMISSION_MODES
+from app.config import EFFORT_LEVELS, MODELS, PERMISSION_MODES
 from app.db.connection import get_connection
 from app.services import conversations_service as svc
 from app.services.cost import compute_cost_usd
@@ -44,16 +44,25 @@ class UpdateConversationSettingsRequest(_ModelValidatedRequest):
     system_prompt: str | None = None
     thinking_budget: int | None = None
     max_tokens: int | None = None
+    effort: str | None = None
     clear_permission_mode: bool = False
     clear_system_prompt: bool = False
     clear_thinking_budget: bool = False
     clear_max_tokens: bool = False
+    clear_effort: bool = False
 
     @field_validator("permission_mode")
     @classmethod
     def _validate_permission_mode(cls, v):
         if v is not None and v not in PERMISSION_MODES:
             raise ValueError(f"permission_mode must be one of {PERMISSION_MODES}")
+        return v
+
+    @field_validator("effort")
+    @classmethod
+    def _validate_effort(cls, v):
+        if v is not None and v not in EFFORT_LEVELS:
+            raise ValueError(f"effort must be one of {EFFORT_LEVELS}")
         return v
 
 
@@ -136,10 +145,12 @@ def update_settings(conversation_id: str, body: UpdateConversationSettingsReques
         system_prompt=body.system_prompt,
         thinking_budget=body.thinking_budget,
         max_tokens=body.max_tokens,
+        effort=body.effort,
         clear_permission_mode=body.clear_permission_mode,
         clear_system_prompt=body.clear_system_prompt,
         clear_thinking_budget=body.clear_thinking_budget,
         clear_max_tokens=body.clear_max_tokens,
+        clear_effort=body.clear_effort,
     )
     return svc.get_conversation(conversation_id)
 

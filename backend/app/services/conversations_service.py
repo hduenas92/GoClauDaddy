@@ -104,10 +104,12 @@ def update_conversation_settings(
     system_prompt: str | None = None,
     thinking_budget: int | None = None,
     max_tokens: int | None = None,
+    effort: str | None = None,
     clear_permission_mode: bool = False,
     clear_system_prompt: bool = False,
     clear_thinking_budget: bool = False,
     clear_max_tokens: bool = False,
+    clear_effort: bool = False,
 ) -> None:
     fields, params = [], []
     if model is not None:
@@ -133,6 +135,11 @@ def update_conversation_settings(
         params.append(max_tokens)
     elif clear_max_tokens:
         fields.append("max_tokens = NULL")
+    if effort is not None:
+        fields.append("effort = ?")
+        params.append(effort)
+    elif clear_effort:
+        fields.append("effort = NULL")
     if not fields:
         return
     fields.append("updated_at = ?")

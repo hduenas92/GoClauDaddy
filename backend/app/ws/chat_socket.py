@@ -235,7 +235,9 @@ async def _handle_send_inner(
     # Conversation-level prompt overrides project-level; payload is not a source
     # of truth for system_prompt (the settings panel PATCHes the DB directly).
     system_prompt = conv.system_prompt or (project.system_prompt if project else None)
-    thinking_budget = conv.thinking_budget
+    # Read fresh from this turn's conversation row: a PATCH between turns must
+    # take effect on the next turn, never lag one behind.
+    effort = conv.effort
     max_tokens = conv.max_tokens
     cwd = (project.working_dir if project else None) or DEFAULT_WORKING_DIR
 
@@ -367,7 +369,7 @@ async def _handle_send_inner(
             cwd=cwd,
             permission_mode=permission_mode,
             system_prompt=system_prompt,
-            thinking_budget=thinking_budget,
+            effort=effort,
             max_tokens=max_tokens,
             session_id=conv.session_id,
             on_process_started=_on_started,

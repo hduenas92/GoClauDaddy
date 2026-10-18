@@ -43,6 +43,10 @@ REQUIRED_AUTH_ENV_VARS = ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL")
 
 PERMISSION_MODES = ("acceptEdits", "auto", "bypassPermissions", "manual", "dontAsk", "plan")
 
+# The five levels `claude --effort` accepts (verified against the installed CLI
+# 2.1.296 --help output). Anything else is rejected before it reaches argv.
+EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
+
 # The four modes the approval UI offers. ``expected_echo`` is the value the CLI
 # echoes back in stream-json system/init permissionMode for that mode (verified
 # against the installed CLI --help output).

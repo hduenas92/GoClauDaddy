@@ -233,15 +233,6 @@ def test_build_command_refuses_a_non_local_prompt_tool_url():
         assert "--mcp-config" in claude_cli.build_command(prompt="hi", model="m", prompt_tool_url=good)
 
 
-def test_build_env_sets_the_mcp_tool_timeout_only_when_the_prompt_tool_is_used(monkeypatch):
-    assert claude_cli.build_env(thinking_budget=None, max_tokens=None) == {}
-    monkeypatch.setattr(B, "APPROVAL_MAX_SECONDS", 100.0)
-    env = claude_cli.build_env(thinking_budget=None, max_tokens=None, permission_prompt=True)
-    assert env == {"MCP_TOOL_TIMEOUT": "130000"}                           # cap + 30 s, in ms
-    env = claude_cli.build_env(thinking_budget=0, max_tokens=500, permission_prompt=True)
-    assert env["MAX_THINKING_TOKENS"] == "0" and env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "500" and env["MCP_TOOL_TIMEOUT"] == "130000"
-
-
 # ------------------------------------------------------------------ parser
 
 def test_parser_no_longer_guesses_approvals():

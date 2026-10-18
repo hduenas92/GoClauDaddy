@@ -19,6 +19,7 @@ class Conversation:
     updated_at: str
     started_at: str | None = None
     completed_at: str | None = None
+    effort: str | None = None
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "Conversation":
@@ -39,4 +40,5 @@ class Conversation:
             updated_at=row["updated_at"],
             started_at=row["started_at"] if "started_at" in keys else None,
             completed_at=row["completed_at"] if "completed_at" in keys else None,
+            effort=row["effort"] if "effort" in keys else None,
         )

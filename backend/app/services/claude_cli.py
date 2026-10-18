@@ -16,7 +16,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import app.services.permission_broker as permission_broker
-from app.config import PERMISSION_MODES, RESPONSE_TIMEOUT_SECONDS
+from app.config import EFFORT_LEVELS, PERMISSION_MODES, RESPONSE_TIMEOUT_SECONDS
 from app.logging_setup import get_logger
 from app.services.redact import redact_secrets
 from app.services.stream_parser import parse_line
@@ -71,6 +71,7 @@ def build_command(
     session_id: str | None = None,
     thinking_budget: int | None = None,
     max_tokens: int | None = None,
+    effort: str | None = None,
     prompt_tool_url: str | None = None,
 ) -> list[str]:
     # --verbose is required by the CLI when combining --print with
@@ -79,6 +80,11 @@ def build_command(
 
     if permission_mode and permission_mode in PERMISSION_MODES:
         cmd += ["--permission-mode", permission_mode]
+
+    # Effort is whitelisted before it reaches argv, same as permission_mode.
+    # None / "" / any unknown value leaves the flag off entirely.
+    if effort and effort in EFFORT_LEVELS:
+        cmd += ["--effort", effort]
 
     if prompt_tool_url is not None:
         if not isinstance(prompt_tool_url, str) or not _PROMPT_TOOL_URL_RE.match(prompt_tool_url):
@@ -116,18 +122,19 @@ def build_env(
 
     The CLI rejects `--max-tokens` and `--thinking` (unknown option on
     2.1.286), so the token controls are passed as environment variables
-    instead. max_tokens must be a positive int to be included;
-    thinking_budget is included whenever it is not None, because 0 is
-    meaningful (it disables thinking). When the CLI is talking to the
-    in-app permission MCP server, MCP_TOOL_TIMEOUT gives it enough time
-    for the user to answer; the value is read at call time so tests can
-    monkeypatch the broker's APPROVAL_MAX_SECONDS.
+    instead. max_tokens must be a positive int to be included. When the CLI is
+    talking to the in-app permission MCP server, MCP_TOOL_TIMEOUT gives it
+    enough time for the user to answer; the value is read at call time so tests
+    can monkeypatch the broker's APPROVAL_MAX_SECONDS.
+
+    `thinking_budget` is accepted but IGNORED: MAX_THINKING_TOKENS is no longer
+    set. The per-conversation control is `effort` (a --effort CLI flag set in
+    build_command), and a stored legacy thinking_budget must never reach the
+    spawn env. The kwarg stays so old callers/tests keep importing cleanly.
     """
     env: dict[str, str] = {}
     if max_tokens is not None and max_tokens > 0:
         env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(max_tokens)
-    if thinking_budget is not None:
-        env["MAX_THINKING_TOKENS"] = str(thinking_budget)
     if permission_prompt:
         env["MCP_TOOL_TIMEOUT"] = str(int((permission_broker.APPROVAL_MAX_SECONDS + 30) * 1000))
     return env
@@ -180,6 +187,7 @@ async def run(
     session_id: str | None = None,
     thinking_budget: int | None = None,
     max_tokens: int | None = None,
+    effort: str | None = None,
     on_process_started: Any = None,
     prompt_tool_url: str | None = None,
 ) -> AsyncIterator[dict]:
@@ -197,6 +205,7 @@ async def run(
         session_id=session_id,
         thinking_budget=thinking_budget,
         max_tokens=max_tokens,
+        effort=effort,
         prompt_tool_url=prompt_tool_url,
     )
 

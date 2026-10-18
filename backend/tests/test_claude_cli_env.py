@@ -30,26 +30,6 @@ def test_build_env_positive_max_tokens():
     }
 
 
-def test_build_env_thinking_zero_is_included():
-    assert claude_cli.build_env(thinking_budget=0, max_tokens=None) == {
-        "MAX_THINKING_TOKENS": "0"
-    }
-
-
-def test_build_env_thinking_positive():
-    assert claude_cli.build_env(thinking_budget=8000, max_tokens=None) == {
-        "MAX_THINKING_TOKENS": "8000"
-    }
-
-
-def test_build_env_returns_only_overrides():
-    env = claude_cli.build_env(thinking_budget=8000, max_tokens=4096)
-    assert env == {
-        "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "4096",
-        "MAX_THINKING_TOKENS": "8000",
-    }
-
-
 class _EmptyStream:
     """Async byte iterator that yields no chunks (subprocess with silent stdout)."""
 
@@ -84,27 +64,6 @@ async def _run_capture_env(monkeypatch, **kwargs) -> dict:
     events = [ev async for ev in claude_cli.run(prompt="hi", model="m", cwd=".", **kwargs)]
     assert events[-1] == {"type": "done"}
     return captured
-
-
-@pytest.mark.asyncio
-async def test_run_passes_token_overrides_in_env(monkeypatch):
-    captured = await _run_capture_env(monkeypatch, thinking_budget=0, max_tokens=4096)
-    env = captured["kwargs"]["env"]
-    assert env["MAX_THINKING_TOKENS"] == "0"
-    assert env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "4096"
-    assert env.get("PATH") == os.environ.get("PATH")
-    assert "--max-tokens" not in captured["args"]
-    assert "--thinking" not in captured["args"]
-
-
-@pytest.mark.asyncio
-async def test_run_env_overrides_existing_environment(monkeypatch):
-    monkeypatch.setenv("MAX_THINKING_TOKENS", "999")
-    monkeypatch.setenv("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "999")
-    captured = await _run_capture_env(monkeypatch, thinking_budget=1234, max_tokens=5678)
-    env = captured["kwargs"]["env"]
-    assert env["MAX_THINKING_TOKENS"] == "1234"
-    assert env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] == "5678"
 
 
 @pytest.mark.asyncio

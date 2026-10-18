@@ -205,6 +205,11 @@ END""",
   resolved_at     TEXT
 )""",
     ]),
+
+    # --- v22: per-conversation effort level (WP4 J5) ------------------------
+    # NULL = Default (no --effort flag). The five accepted levels live in
+    # app.config.EFFORT_LEVELS; the router validates before this column is set.
+    (22, "conversations effort column", "ALTER TABLE conversations ADD COLUMN effort TEXT"),
 ]
 
 
