@@ -113,6 +113,56 @@ let _menuOutside = null;
 // conversation switch (same pattern as the removed drawer's _unsubscribeSettings).
 let _unsubscribeEffective = null;
 
+// --- J6: per-conversation message queue -------------------------------------
+// At most this many queued messages per conversation (SPEC A6, ruling Q3).
+const QUEUE_LIMIT = 10;
+// One ResizeObserver per composer root: remounts reuse it instead of stacking a
+// second observer on the same #composer element.
+const _composerResizeObservers = new WeakMap();
+// A remount must stop the previous mount's approval poll. The serial is bumped
+// on every mountComposer call; a poll whose serial is stale clears itself.
+let _composerMountSerial = 0;
+let _queueHoldTimer = null;
+
+/**
+ * The persisted queue for one conversation. Only a JSON array whose every
+ * element is a string is accepted; anything else means "no queue" without
+ * throwing (SPEC A5).
+ */
+function _readQueue(key) {
+  if (!key) return [];
+  const raw = storage.getItem(key);
+  if (!raw) return [];
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed) || parsed.some((value) => typeof value !== "string")) return [];
+  return parsed;
+}
+
+/**
+ * #composer is a fixed dock and #chat-scroll only reserves a constant 148px
+ * (base.css), so a taller dock would cover the last message. Follow the real
+ * height with an inline padding-bottom on the scroller.
+ */
+function _observeComposerHeight(root) {
+  if (typeof ResizeObserver === "undefined") return;
+  if (_composerResizeObservers.has(root)) return;
+  const apply = () => {
+    const scroller = document.getElementById("chat-scroll");
+    if (!scroller) return;
+    const height = root.getBoundingClientRect().height;
+    scroller.style.paddingBottom = `${Math.max(148, Math.ceil(height) + 24)}px`;
+  };
+  const observer = new ResizeObserver(apply);
+  observer.observe(root);
+  _composerResizeObservers.set(root, observer);
+  apply();
+}
+
 function _closeMenu({ focus = false } = {}) {
   if (!_activeMenu) return;
   const { button, el } = _activeMenu;
@@ -197,7 +247,14 @@ export function mountComposer(root, socket, chatPane, opts = {}) {
   // A previous mount may have left a menu open (and its document mousedown
   // listener attached). Drop both before this mount rebuilds the composer.
   _closeMenu();
+  const mountId = ++_composerMountSerial;
+  if (_queueHoldTimer) {
+    clearInterval(_queueHoldTimer);
+    _queueHoldTimer = null;
+  }
   root.innerHTML = `
+    <div id="composer-queue" role="region" aria-label="Queued messages" hidden></div>
+    <div id="queue-limit" role="status" hidden></div>
     <div id="attachment-strip"></div>
     <div id="composer-row">
       <button id="composer-attach" type="button" title="Attach file" aria-label="Attach file">📎</button>
@@ -222,6 +279,8 @@ export function mountComposer(root, socket, chatPane, opts = {}) {
   const fileInput = root.querySelector("#composer-file-input");
   const attachBtn = root.querySelector("#composer-attach");
   const charCounter = root.querySelector("#char-counter");
+  const queueEl = root.querySelector("#composer-queue");
+  const limitEl = root.querySelector("#queue-limit");
 
   // --- J5: model/effort + permission controls -------------------------------
   const modelBtn = root.querySelector("#composer-model-effort");
@@ -694,6 +753,29 @@ export function mountComposer(root, socket, chatPane, opts = {}) {
       }
     }
 
+    if (!_acceptedSend(text, pending.map((a) => a.id), { restoreToBox: true })) return false;
+    input.value = "";
+    charCounter.textContent = "";
+    input.style.height = "";
+    clearDraft(getState().activeConversationId);
+    pending.length = 0;
+    renderStrip();
+    return true;
+  }
+
+  /**
+   * J6: the accepted part of send() — everything after the guards. A manual
+   * Send and the queue drain share it, so a dispatched item gets the same
+   * bubble, turn reset, button swap, socket frame, history entry and connection
+   * state as a typed message (SPEC A2). It never reads or writes #composer-input.
+   *
+   * @param {string} text                 the message text (already trimmed)
+   * @param {string[]} attachmentIds      staged attachment ids, [] for a queue item
+   * @param {{restoreToBox?: boolean}} [o] base behaviour restores a failed send
+   *                                       into the box; a queue dispatch must not
+   * @returns {boolean} whether the frame was sent
+   */
+  function _acceptedSend(text, attachmentIds, { restoreToBox = false } = {}) {
     if (text) { _history.push(text); _histIdx = -1; }
     const optimisticBubble = chatPane.appendUserMessage(text || "(attachment)");
     chatPane.resetForNewTurn();
@@ -701,18 +783,17 @@ export function mountComposer(root, socket, chatPane, opts = {}) {
     sendBtn.hidden = true;
     stopBtn.hidden = false;
     try {
-      socket.send(text, { attachment_ids: pending.map((a) => a.id) });
+      socket.send(text, { attachment_ids: attachmentIds });
     } catch (err) {
-      _undoFailedSend(err, optimisticBubble, text);
+      _undoFailedSend(
+        err,
+        optimisticBubble,
+        restoreToBox ? text : null,
+        restoreToBox ? undefined : "It is still queued — resume when the connection is back."
+      );
       return false;
     }
     setConnState("sending");
-    input.value = "";
-    charCounter.textContent = "";
-    input.style.height = "";
-    clearDraft(getState().activeConversationId);
-    pending.length = 0;
-    renderStrip();
     return true;
   }
 
@@ -726,8 +807,9 @@ export function mountComposer(root, socket, chatPane, opts = {}) {
    * @param {Error} err       what socket.send() refused with
    * @param {Element} [bubble] the optimistic bubble to remove, if one was added
    * @param {string} [text]    the message, restored to the input so it is not lost
+   * @param {string} [hint]    the recovery sentence shown after the reason
    */
-  function _undoFailedSend(err, bubble, text) {
+  function _undoFailedSend(err, bubble, text, hint = "Your message is back in the box — try again.") {
     bubble?.remove();
     // Also drop the assistant placeholder. resetForNewTurn() paints "Thinking…"
     // before the send is attempted, and no `done` can ever arrive to clear it
@@ -741,11 +823,196 @@ export function mountComposer(root, socket, chatPane, opts = {}) {
       input.dispatchEvent(new Event("input"));
     }
     showErrorToast(
-      `${err?.message || "Message not sent."} Your message is back in the box — try again.`
+      `${err?.message || "Message not sent."} ${hint}`
     );
   }
 
+  // --- J6: per-conversation message queue -----------------------------------
+  // Scoped to the conversation this composer was mounted for (SPEC A5): the id
+  // is captured once, here, and every read/write goes through the same storage
+  // layer the drafts use.
+  const queueConvId = getState().activeConversationId;
+  const queueKey = queueConvId ? `gca_queue_${queueConvId}` : null;
+  let queue = _readQueue(queueKey);
+  // A queue that survived a reload is never auto-dispatched: nothing proves the
+  // earlier turn ended (SPEC A3, ruling Q1).
+  let queueState = queue.length ? "paused" : "queued";
+
+  const _approvalOpen = () => !!document.querySelector('[data-testid="approval-tool"]');
+
+  function _saveQueue() {
+    if (!queueKey) return;
+    if (queue.length) storage.setItem(queueKey, JSON.stringify(queue));
+    else storage.removeItem(queueKey); // never store []
+  }
+
+  // DOM-built from data only: createElement / textContent / value, never
+  // innerHTML with user text.
+  function _renderQueue() {
+    queueEl.dataset.state = queueState;
+    queueEl.hidden = queue.length === 0;
+    limitEl.hidden = true;
+    queueEl.replaceChildren();
+    if (!queue.length) return;
+
+    const status = document.createElement("div");
+    status.className = "queue-status";
+    status.textContent = queueState === "paused" ? "Paused" : "Sends after the current reply";
+    queueEl.appendChild(status);
+
+    const resume = document.createElement("button");
+    resume.type = "button";
+    resume.id = "queue-resume";
+    resume.textContent = "Resume";
+    resume.hidden = queueState !== "paused";
+    resume.addEventListener("click", _resumeQueue);
+    queueEl.appendChild(resume);
+
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.id = "queue-clear";
+    clear.textContent = "Clear";
+    clear.hidden = queueState !== "paused";
+    clear.addEventListener("click", _clearQueue);
+    queueEl.appendChild(clear);
+
+    const list = document.createElement("div");
+    list.className = "queue-items";
+    queue.forEach((text, index) => {
+      const item = document.createElement("div");
+      item.className = "queue-item";
+
+      const field = document.createElement("textarea");
+      field.className = "queue-item-text";
+      field.rows = 1;
+      field.value = text;
+      field.setAttribute("aria-label", `Queued message ${index + 1}`);
+      field.addEventListener("input", () => {
+        queue[index] = field.value; // as currently edited, untrimmed
+        _saveQueue();
+      });
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "queue-item-remove";
+      remove.textContent = "✕";
+      remove.setAttribute("aria-label", `Remove queued message ${index + 1}`);
+      remove.addEventListener("click", () => {
+        queue.splice(index, 1);
+        _saveQueue();
+        _renderQueue();
+      });
+
+      item.appendChild(field);
+      item.appendChild(remove);
+      list.appendChild(item);
+    });
+    queueEl.appendChild(list);
+  }
+
+  // Enter while a turn is in flight stages the text instead of sending it.
+  function _queueEnter() {
+    const text = input.value;
+    if (!text.trim()) return;
+    if (queue.length >= QUEUE_LIMIT) {
+      // Refused: queue, storage and box are unchanged (SPEC A6).
+      limitEl.textContent =
+        `The queue holds ${QUEUE_LIMIT} messages. Remove one or wait for a reply.`;
+      limitEl.hidden = false;
+      return;
+    }
+    queue.push(text);
+    _saveQueue();
+    // Clear the box through the existing input listener path so the draft
+    // autosave removes gca_draft_<id>, exactly as an accepted send does.
+    input.value = "";
+    charCounter.textContent = "";
+    input.style.height = "";
+    input.dispatchEvent(new Event("input"));
+    _renderQueue();
+  }
+
+  function _pauseQueue() {
+    if (!queue.length) return;
+    queueState = "paused";
+    _renderQueue();
+  }
+
+  function _resumeQueue() {
+    if (!queue.length) return;
+    queueState = "queued";
+    _renderQueue();
+    if (!getState().streaming) _drainQueue();
+  }
+
+  function _clearQueue() {
+    queue = [];
+    _saveQueue();
+    _renderQueue();
+  }
+
+  // A `done` while an approval card is open must not send; wait (200 ms poll)
+  // until the card closes, then dispatch once (SPEC A4). Stops on remount.
+  function _holdForApproval() {
+    if (_queueHoldTimer) return;
+    const mount = mountId;
+    _queueHoldTimer = setInterval(() => {
+      if (mount !== _composerMountSerial || !queueEl.isConnected) {
+        clearInterval(_queueHoldTimer);
+        _queueHoldTimer = null;
+        return;
+      }
+      if (_approvalOpen()) return;
+      clearInterval(_queueHoldTimer);
+      _queueHoldTimer = null;
+      _drainQueue();
+    }, 200);
+  }
+
+  /**
+   * Dispatch exactly one queued item: the first non-blank one. Blank items are
+   * dropped (never sent as an empty message); a failed send leaves the item at
+   * the head and pauses.
+   */
+  function _drainQueue() {
+    if (queueState !== "queued" || !queue.length) return false;
+    // Never start a second turn. A `done` has already cleared `streaming`, so
+    // this only guards the approval poll against a manual send landing in
+    // between the `done` and the card closing.
+    if (getState().streaming) return false;
+    if (_approvalOpen()) {
+      _holdForApproval();
+      return false;
+    }
+    while (queue.length) {
+      const text = queue[0].trim();
+      if (!text) {
+        queue.shift();
+        _saveQueue();
+        continue;
+      }
+      if (!_acceptedSend(text, [])) {
+        queueState = "paused"; // the item was never shifted, so it is back at the head
+        _renderQueue();
+        return false;
+      }
+      queue.shift();
+      _saveQueue();
+      _renderQueue();
+      return true;
+    }
+    _saveQueue();
+    _renderQueue();
+    return false;
+  }
+
+  // Initial paint: an empty queue stays hidden, a loaded one comes back paused.
+  _renderQueue();
+
   function stop() {
+    // J6: a Stop answers the running turn, so a queue waiting on it will not
+    // drain by itself (SPEC A3).
+    if (queue.length) { queueState = "paused"; _renderQueue(); }
     // 2.9 made stop() report refusal instead of throwing. A refusal means the
     // socket is already gone, so the turn cannot still be running however the
     // UI looks — restore the composer rather than leaving a Stop button that
@@ -779,6 +1046,9 @@ export function mountComposer(root, socket, chatPane, opts = {}) {
   socket.on("done", async () => {
     sendBtn.hidden = false;
     stopBtn.hidden = true;
+    // J6: the ONE drain point (SPEC A2). Runs first, before the auto-title
+    // round trip, so a slow network there cannot hold the next queued message.
+    _drainQueue();
     // Auto-title on first completed turn
     if (isFirstMessage) {
       isFirstMessage = false;
@@ -792,6 +1062,14 @@ export function mountComposer(root, socket, chatPane, opts = {}) {
     }
   });
 
+  // J6: a stopped/error/timeout frame (and an unintended disconnect) pauses a
+  // non-empty queue BEFORE the `done` that follows, so that `done` dispatches
+  // nothing (SPEC A3). Nothing here ever dispatches.
+  socket.on("stopped", _pauseQueue);
+  socket.on("error", _pauseQueue);
+  socket.on("timeout", _pauseQueue);
+  socket.on("_disconnected", _pauseQueue);
+
   // send() now handles a REFUSED send itself (_undoFailedSend). These outer
   // catches therefore no longer hide that case — but a bare `catch(() => {})`
   // would still swallow anything unexpected, which is the same silence 2.4
@@ -804,6 +1082,12 @@ export function mountComposer(root, socket, chatPane, opts = {}) {
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      // J6: while a turn is in flight, Enter stages the text instead of
+      // sending it (SPEC A1). Idle Enter and Send are unchanged.
+      if (getState().streaming) {
+        _queueEnter();
+        return;
+      }
       send().catch(_sendUnexpected);
       return;
     }
@@ -850,4 +1134,7 @@ export function mountComposer(root, socket, chatPane, opts = {}) {
 
   // Reset first-message flag when this composer is remounted for a new conversation
   root._resetFirstMessage = () => { isFirstMessage = true; };
+
+  // J6 layout: keep the last message clear of the real dock height.
+  _observeComposerHeight(root);
 }

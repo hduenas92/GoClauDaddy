@@ -1,5 +1,6 @@
 import { api } from "../api/http.js";
 import { getState, setState } from "./store.js";
+import * as storage from "./storage.js";
 
 export function setStreaming(v) {
   setState({ streaming: v });
@@ -61,6 +62,9 @@ export async function renameConversation(conversationId, name) {
 
 export async function deleteConversation(conversationId) {
   await api.deleteConversation(conversationId);
+  // J6: a deleted conversation's queued messages go with it; other
+  // conversations' queue keys are untouched.
+  storage.removeItem(`gca_queue_${conversationId}`);
   const conversations = await loadConversations();
   if (getState().activeConversationId === conversationId) {
     setState({ activeConversationId: null, messages: [] });

@@ -3926,3 +3926,102 @@ html:not([data-theme="cyberpunk-console"]):not([data-theme="lit-workbench"]) .em
 .composer-menu [role="menuitemradio"][aria-checked="true"]::before {
   content: "✓";
 }
+
+/* ============================================================
+   J6 — COMPOSER MESSAGE QUEUE
+   A compact strip above #composer-row. It is its own scroll
+   container: #composer is a fixed dock, so a long queue must not
+   push the row off screen. Text reuses the same
+   --text-primary-rgb / opaque surface pairing as the J5 composer
+   controls (>= 4.5:1 in every look and mode) and focus reuses
+   their accent outline (>= 3:1). No colour literals.
+   ============================================================ */
+#composer-queue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-8);
+  max-height: 40vh;
+  overflow-y: auto;
+  margin-bottom: var(--sp-6);
+  padding: var(--sp-8);
+  background: rgb(var(--surface-rgb));
+  border: 1px solid rgba(var(--border-quiet-rgb) / 0.9);
+  border-radius: var(--radius-6);
+  color: rgb(var(--text-primary-rgb));
+  font-family: inherit;
+  font-size: var(--fs-12);
+}
+#composer-queue[hidden] { display: none; }
+#composer-queue .queue-status {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: rgb(var(--text-primary-rgb));
+  font-size: var(--fs-11);
+  font-weight: 600;
+}
+#composer-queue button {
+  flex: 0 0 auto;
+  min-height: 24px;
+  padding: var(--sp-3) var(--sp-8);
+  background: rgb(var(--hover-rgb));
+  border: 1px solid rgba(var(--border-quiet-rgb) / 0.9);
+  border-radius: var(--radius-3);
+  color: rgb(var(--text-primary-rgb));
+  font-family: inherit;
+  font-size: var(--fs-11);
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+#composer-queue button:hover {
+  background: rgba(var(--accent-rgb) / 0.14);
+  border-color: rgba(var(--accent-rgb) / 0.7);
+}
+#composer-queue button:focus,
+#composer-queue button:focus-visible,
+#composer-queue textarea:focus,
+#composer-queue textarea:focus-visible {
+  outline: 2px solid rgb(var(--accent-rgb));
+  outline-offset: 1px;
+}
+#composer-queue .queue-items {
+  display: flex;
+  flex: 1 1 100%;
+  flex-direction: column;
+  gap: var(--sp-6);
+  min-width: 0;
+}
+#composer-queue .queue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-8);
+  min-width: 0;
+}
+#composer-queue .queue-item-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  resize: none;
+  padding: var(--sp-3) var(--sp-6);
+  background: rgb(var(--panel-rgb));
+  border: 1px solid rgba(var(--border-quiet-rgb) / 0.9);
+  border-radius: var(--radius-3);
+  color: rgb(var(--text-primary-rgb));
+  font-family: var(--font-shell);
+  font-size: var(--fs-12);
+  line-height: 1.4;
+  overflow-y: auto;
+}
+#composer-queue .queue-item-remove {
+  min-width: 24px;
+}
+#queue-limit {
+  margin-bottom: var(--sp-6);
+  padding: var(--sp-6) var(--sp-8);
+  background: rgba(var(--warning-rgb) / 0.12);
+  border: 1px solid rgba(var(--warning-rgb) / 0.45);
+  border-radius: var(--radius-3);
+  color: var(--warning);
+  font-size: var(--fs-11);
+}
+#queue-limit[hidden] { display: none; }
