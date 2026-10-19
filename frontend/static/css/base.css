@@ -1628,24 +1628,53 @@ html, body {
 /* ============================================================
    SETTINGS DRAWER
    ============================================================ */
-.settings-drawer {
-  position: fixed;
-  top: 56px;
-  right: 0;
-  width: 300px;
-  height: calc(100vh - 56px);
-  background: rgba(var(--ground-rgb) / 0.97);
-  backdrop-filter: blur(14px);
-  border-left: 1px solid rgba(var(--accent-rgb) / 0.55);
-  box-shadow: -6px 0 30px rgba(var(--accent-rgb) / 0.15);
-  z-index: 50;
+/* J7: Simple/Advanced. ONE rule hides every Advanced-only right-rail panel and
+   every Advanced-only control (marked data-ui-advanced by panel_registry.js and
+   by the Settings card's own markup). A CSS rule rather than the `hidden`
+   attribute on purpose: these elements already carry author `display` rules,
+   and those beat `hidden`, so the attribute alone would leave them on screen. */
+html[data-ui-mode="simple"] [data-ui-advanced] { display: none !important; }
+
+/* J7: the Settings popup card. It IS a .modal-box (same family as the approval
+   card, built by ui/modal.js); these rules only size it so it fits 1280x720 and
+   let its body scroll while the title and the action row stay put. */
+#settings-card {
+  width: min(560px, calc(100vw - var(--sp-24) * 2));
+  max-width: 560px;
+  max-height: calc(100vh - var(--sp-24) * 2);
+}
+#settings-card > .modal-title,
+#settings-card > .modal-actions { flex-shrink: 0; }
+.settings-card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  transform: translateX(100%);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow-y: auto;
+  gap: var(--sp-16);
+  /* keeps the scrollbar off the controls */
+  padding-right: var(--sp-4);
 }
-.settings-drawer.drawer-open { transform: translateX(0); }
+/* A2: the mode switch row. The label is the clickable target, so it carries the
+   24px minimum height; the input alone is smaller than the pointer target. */
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  min-height: var(--sp-24);
+  cursor: pointer;
+}
+.settings-toggle-row input { accent-color: var(--teal); cursor: pointer; }
+/* A8: a visible >= 3:1 focus ring on every keyboard-reachable control in the
+   card, in every look. Same ring the modal inputs already use. */
+#settings-card input:focus-visible,
+#settings-card select:focus-visible,
+#settings-card textarea:focus-visible,
+#settings-card button:focus-visible,
+#settings-card summary:focus-visible {
+  outline: 2px solid var(--teal-b);
+  outline-offset: 1px;
+}
 
 .drawer-header {
   display: flex;

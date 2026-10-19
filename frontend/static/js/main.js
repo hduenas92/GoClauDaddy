@@ -64,7 +64,12 @@ import { mountComposer } from "./ui/composer.js";
 import { mountSidebarConversations } from "./ui/sidebar_conversations.js";
 import { endSentence } from "./ui/sentence.js";
 import { mountSidebarProjects } from "./ui/sidebar_projects.js";
-import { mountSettingsPanel, openDrawer, closeDrawer } from "./ui/settings_panel.js";
+import {
+  closeSettingsCard,
+  isSettingsCardOpen,
+  openSettingsCard,
+} from "./ui/settings_panel.js";
+import { applyPanels, uiMode } from "./ui/panel_registry.js";
 import { mountRightSidebar } from "./ui/right_sidebar.js";
 import { initConnState } from "./ui/conn_state.js";
 import { maybeShowOnboarding } from "./ui/onboarding_tour.js";
@@ -75,10 +80,25 @@ import { mountTooltips } from "./ui/tooltips.js";
 let currentSocket = null;
 let currentConversation = null;
 let sidebarConvsRoot = null;
-let settingsDrawerEl = null;
 let chatPaneRef = null;
 let composerRoot = null;
 let rightSidebarRef = null;
+
+// Settings is a popup card now (J7): it is built on demand from the ACTIVE
+// conversation, so each open shows that conversation's saved values. A saved
+// system prompt updates the header subtitle through the same handler the
+// composer uses.
+function settingsChanged(updates) {
+  if (currentConversation) {
+    currentConversation = { ...currentConversation, ...updates };
+    updateTelemetry(currentConversation);
+  }
+}
+
+function openSettings() {
+  if (!currentConversation) return;
+  openSettingsCard(currentConversation, { onChange: settingsChanged });
+}
 
 function showChatConnectionError(compRoot, chatPane, conversationId) {
   // P2-B E2: the WebSocket could not be opened. Give the user a visible message
@@ -114,14 +134,6 @@ async function switchToConversation(id, chatPane, compRoot) {
   }
 
   updateTelemetry(conversation);
-  await mountSettingsPanel(settingsDrawerEl, conversation, {
-    onChange: (updates) => {
-      if (currentConversation) {
-        currentConversation = { ...currentConversation, ...updates };
-        updateTelemetry(currentConversation);
-      }
-    },
-  });
 
   const socket = new ChatSocket(id);
   try {
@@ -158,6 +170,10 @@ async function switchToConversation(id, chatPane, compRoot) {
 }
 
 async function boot() {
+  // J7: the mode must be on <html> before the first conversation is shown.
+  // index.html already sets it pre-paint; this is the module's own boot answer
+  // (and the one that survives if that inline script is ever dropped).
+  document.documentElement.dataset.uiMode = uiMode();
   const app = document.getElementById("app");
   app.innerHTML = `
     <nav id="sidebar" aria-label="Primary">
@@ -182,16 +198,15 @@ async function boot() {
           <span id="conn-state" role="status" aria-live="polite" data-state="ready">Ready</span>
           <button id="export-btn" title="Export conversation (Ctrl+E)" class="header-btn" data-tooltip="Export (Ctrl+E)">⬇ Export</button>
           <button id="shortcuts-btn" title="Keyboard shortcuts (?)" class="header-btn" data-tooltip="Shortcuts (?)">⌨</button>
-          <button id="settings-btn" title="Settings (Ctrl+,)" class="header-btn" data-tooltip="Settings (Ctrl+,)">⚙</button>
+          <button id="settings-btn" title="Settings (Ctrl+,)" class="header-btn" data-tooltip="Settings (Ctrl+,)" aria-haspopup="dialog" aria-label="Settings">⚙</button>
           <button id="sb-toggle-btn" title="Toggle sidebar (Ctrl+B)" class="header-btn" data-tooltip="Sidebar (Ctrl+B)" aria-controls="right-sidebar" aria-expanded="true">◫</button>
         </div>
       </div>
-      <div id="settings-drawer" class="settings-drawer" aria-hidden="true" inert></div>
       <div id="chat-scroll"></div>
       <div id="composer"></div>
     </main>
 
-    <aside id="right-sidebar" aria-label="Session, month, project and server panels"></aside>
+    <aside id="right-sidebar" aria-label="Session and month panels"></aside>
 
     <div id="shortcuts-overlay" class="shortcuts-overlay" hidden>
       <div class="shortcuts-box">
@@ -230,6 +245,9 @@ async function boot() {
   }
   setSidebarCollapsed(window.innerWidth < 1280 || storage.getItem("gca_sb_open") !== "1");
   rightSidebarRef = mountRightSidebar(rightSidebarEl);
+  // J7: mark the Advanced-only panels and the SESSION title for the boot mode.
+  applyPanels(document);
+  window.addEventListener("gca:ui-mode", () => applyPanels(document));
   await loadModelLabels();
 
   const chatScrollEl = document.getElementById("chat-scroll");
@@ -243,18 +261,16 @@ async function boot() {
   });
   chatPaneRef = chatPane;
   composerRoot = document.getElementById("composer");
-  settingsDrawerEl = document.getElementById("settings-drawer");
   sidebarConvsRoot = document.getElementById("sidebar-conversations");
 
   // Expose openTemplatePicker for the empty-state "Browse all" link
   window._openTemplatePicker = openTemplatePicker;
 
-  // Header buttons
+  // Header buttons. Settings is a TOGGLE: the button and Ctrl+, open the card,
+  // and either one closes it again while it is open.
   document.getElementById("settings-btn").addEventListener("click", () => {
-    if (settingsDrawerEl.classList.contains("drawer-open")) {
-      closeDrawer(settingsDrawerEl);
-      document.getElementById("settings-btn")?.focus();
-    } else openDrawer(settingsDrawerEl);
+    if (isSettingsCardOpen()) closeSettingsCard();
+    else openSettings();
   });
   sbToggleBtn.addEventListener("click", () => {
     setSidebarCollapsed(!rightSidebarEl.classList.contains("sb-collapsed"), true);
@@ -355,15 +371,11 @@ async function boot() {
     const mod = e.ctrlKey || e.metaKey;
 
     // Escape is evaluated FIRST so no guard below can ever block it. Its
-    // precedence is unchanged: shortcuts overlay, then drawer, then modal.
+    // precedence is unchanged: shortcuts overlay, then the settings card (which
+    // also owns its own Escape handler), then any other modal.
     if (e.key === "Escape") {
       if (!shortcutsOverlay.hidden) { shortcutsOverlay.hidden = true; return; }
-      if (settingsDrawerEl.classList.contains("drawer-open")) {
-        closeDrawer(settingsDrawerEl);
-        // 2.4.3: hand focus back to the settings trigger.
-        document.getElementById("settings-btn")?.focus();
-        return;
-      }
+      if (isSettingsCardOpen()) { closeSettingsCard(); return; }
       const escOverlay = document.querySelector(".modal-overlay");
       if (escOverlay?._reject) escOverlay._reject();
       return;
@@ -375,11 +387,11 @@ async function boot() {
     //
     // This is deliberately NOT a single guard above the branch table. Ctrl+, and
     // ? are TOGGLES: each closes its own surface. A blanket guard would make the
-    // drawer and the shortcuts overlay openable and then un-closable by the very
-    // key that opened them — two new dead ends in place of one bug.
+    // settings card and the shortcuts overlay openable and then un-closable by
+    // the very key that opened them — two new dead ends in place of one bug.
     const overlayOpen =
       !shortcutsOverlay.hidden ||
-      settingsDrawerEl.classList.contains("drawer-open") ||
+      isSettingsCardOpen() ||
       !!document.querySelector(".modal-overlay");
 
     // Ctrl+Shift+N — new conversation
@@ -396,11 +408,13 @@ async function boot() {
       openTemplatePicker({ onSelect: (text) => { composerRoot.setText?.(text); } });
       return;
     }
-    // Ctrl+, — toggle settings
-    if (mod && e.key === "," && !inInput) {
+    // Ctrl+, — toggle settings. While the card is open its own first control
+    // (the Simple/Advanced switch, an INPUT) holds focus, so the inInput guard
+    // would make Ctrl+, a dead end: an open card must always be closable.
+    if (mod && e.key === "," && (!inInput || isSettingsCardOpen())) {
       e.preventDefault();
-      if (settingsDrawerEl.classList.contains("drawer-open")) closeDrawer(settingsDrawerEl);
-      else openDrawer(settingsDrawerEl);
+      if (isSettingsCardOpen()) closeSettingsCard();
+      else openSettings();
       return;
     }
     // Ctrl+B — toggle right sidebar

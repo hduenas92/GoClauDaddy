@@ -191,6 +191,22 @@ async function bootToComposer(page, { messages = [] } = {}) {
   return page.waitForSelector('#composer-input', { timeout: 8000 }).catch(() => null);
 }
 
+/**
+ * Open Settings and return the F3 font-size control (or null).
+ *
+ * J7: Settings is a popup card, built on demand — it only exists while it is
+ * open. The base build's drawer is mounted up front. Ctrl+, is gated on
+ * !inInput and the composer autofocuses on boot, so fall back to the trigger
+ * button when the shortcut cannot open either surface.
+ */
+async function openSettings(page) {
+  await page.keyboard.press('Control+Comma');
+  const opened = await page.evaluate(() => !!document.getElementById('settings-card')
+    || !!document.querySelector('.settings-drawer.drawer-open'));
+  if (!opened) await page.click('#settings-btn');
+  return page.waitForSelector('#chat-font-size', { state: 'visible', timeout: 4000 }).catch(() => null);
+}
+
 // ---------------------------------------------------------------------------
 // 0. Non-empty guard: the composer must exist before any draft case runs.
 // ---------------------------------------------------------------------------
@@ -534,8 +550,7 @@ async function bootToComposer(page, { messages = [] } = {}) {
     if (!input) {
       skip(name, 'composer never mounted');
     } else {
-      await page.keyboard.press('Control+Comma');
-      const sel = await page.waitForSelector('#chat-font-size', { state: 'visible', timeout: 4000 }).catch(() => null);
+      const sel = await openSettings(page);
       if (!sel) {
         fail(name, 'no #chat-font-size control in the settings drawer');
       } else {
@@ -566,8 +581,7 @@ async function bootToComposer(page, { messages = [] } = {}) {
     if (!input) {
       skip(name, 'composer never mounted');
     } else {
-      await page.keyboard.press('Control+Comma');
-      const sel = await page.waitForSelector('#chat-font-size', { state: 'visible', timeout: 4000 }).catch(() => null);
+      const sel = await openSettings(page);
       if (!sel) {
         fail(name, 'no #chat-font-size control in the settings drawer');
       } else {
@@ -579,8 +593,7 @@ async function bootToComposer(page, { messages = [] } = {}) {
           null,
           { timeout: 8000 },
         );
-        await page.keyboard.press('Control+Comma');
-        await page.waitForSelector('#chat-font-size', { state: 'visible', timeout: 4000 }).catch(() => null);
+        await openSettings(page);
         const sizes = await page.evaluate(() => ({
           bubble: getComputedStyle(document.querySelector('.msg-bubble')).fontSize,
           composer: getComputedStyle(document.getElementById('composer-input')).fontSize,

@@ -24,7 +24,7 @@
 <script>
 // Theme bootstrap — runs before first paint so there is never a flash of the
 // wrong theme. Registry is the single source of truth for both this and the
-// settings drawer switcher (frontend/static/js/ui/settings_panel.js reads
+// Settings card switcher (frontend/static/js/ui/settings_panel.js reads
 // window.GCA_THEMES). Adding theme #2: add an entry here + a matching
 // [data-theme="..."] block in base.css. Nothing else.
 window.GCA_THEMES = [
@@ -49,6 +49,14 @@ window.GCA_THEMES = [
   if (mode === "system") mode = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
   h.setAttribute("data-theme", chosen);
   h.setAttribute("data-mode", mode);
+  // J7: Simple is the default, and the mode must be on <html> before first
+  // paint or the Advanced-only panels flash. Only the exact stored value
+  // "advanced" opens Advanced; absent/""/"ADVANCED"/"1" all mean Simple.
+  var uiMode = "simple";
+  try {
+    if (window.localStorage.getItem("gca_ui_mode") === "advanced") uiMode = "advanced";
+  } catch (e) { /* localStorage unavailable (private mode) — Simple */ }
+  h.setAttribute("data-ui-mode", uiMode);
 })();
 </script>
 <script>

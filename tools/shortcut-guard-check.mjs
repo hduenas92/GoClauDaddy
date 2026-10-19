@@ -66,7 +66,9 @@ const OVERLAYS = {
       await page.keyboard.press('Control+Comma');
     },
     isOpen: (page) => page.evaluate(() =>
-      !!document.querySelector('.drawer-open')),
+      // J7: Settings opens as a popup card (#settings-card); the base build's
+      // drawer still marks itself with .drawer-open.
+      !!document.querySelector('.drawer-open') || !!document.getElementById('settings-card')),
   },
   modal: {
     open: async (page) => { const b = await page.$('#new-project-btn'); if (b) await b.click(); },

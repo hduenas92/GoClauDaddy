@@ -80,8 +80,14 @@ await step('Ctrl+B toggles', async () => {
   return { ok: (await collapsed()) !== before };
 });
 // WP-AP removed the #feat-approval switch (approval is now always on, set per chat); only feat-assess remains.
+// J7: the control lives in the Settings popup card, which is built on demand, so
+// the card must be open for the control to exist at all. Advanced cannot be
+// seeded here (localStorage is the thing that throws), so the control is present
+// in the DOM but not painted in Simple — the DOM click below is the same toggle.
 for (const id of ['feat-assess']) {
   await step(`feature checkbox #${id} toggles`, async () => {
+    await page.click('#settings-btn', { timeout: 3000 }).catch(() => {});
+    await page.waitForSelector(`#${id}`, { state: 'attached', timeout: 3000 }).catch(() => {});
     const r = await page.evaluate((sel) => {
       const el = document.getElementById(sel);
       if (!el) return null;

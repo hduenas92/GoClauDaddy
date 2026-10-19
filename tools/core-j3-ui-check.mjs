@@ -63,6 +63,7 @@ async function open({ theme, mode, scheme = 'dark', reduced = 'no-preference', w
   await page.addInitScript(({ theme, mode, seed, ls }) => {
     try {
       localStorage.setItem('gca_onboarded', '1');
+      localStorage.setItem('gca_ui_mode', 'advanced'); // J7 amendment: developer panels are Advanced-only since J7; Advanced = the pre-J7 surface
       for (const k of Object.keys(ls)) localStorage.setItem(k, ls[k]);
       if (seed && theme) localStorage.setItem('gca_theme', theme);
       if (seed && mode) localStorage.setItem('gca_mode', mode);

@@ -112,6 +112,9 @@ let _menuOutside = null;
 // a remount drops the previous mount's listener instead of stacking one per
 // conversation switch (same pattern as the removed drawer's _unsubscribeSettings).
 let _unsubscribeEffective = null;
+// J7: the 'gca:ui-mode' listener that re-runs the Simple coercion. Module scope
+// for the same reason: a remount must replace it, not add a second copy.
+let _offUiMode = null;
 
 // --- J6: per-conversation message queue -------------------------------------
 // At most this many queued messages per conversation (SPEC A6, ruling Q3).
@@ -425,17 +428,30 @@ export function mountComposer(root, socket, chatPane, opts = {}) {
 
   // Simple coercion (Ruling 11): a stored bypass/plan/auto/dontAsk never shows
   // in Simple. The chip reads "Ask before acting" immediately and the PATCH
-  // lands before any turn; Advanced never coerces.
-  if (!_uiAdvanced() && conv?.permission_mode && !SIMPLE_PERMISSIONS.includes(conv.permission_mode)) {
+  // lands before any turn; Advanced never coerces. Runs at mount and again on
+  // every 'gca:ui-mode' event, so leaving Advanced mid-conversation coerces
+  // without a reload.
+  function _coerceSimplePermission() {
+    if (_uiAdvanced()) return;
+    if (!currentPermission || SIMPLE_PERMISSIONS.includes(currentPermission)) return;
+    const convId = getState().activeConversationId;
+    if (!convId) return;
+    const coercedFrom = currentPermission;
     currentPermission = "manual";
-    const coercedFrom = conv.permission_mode;
-    api.updateConversationSettings(conv.id, { permission_mode: "manual" })
+    _renderPermission();
+    api.updateConversationSettings(convId, { permission_mode: "manual" })
       .then(() => {
         _rememberConv({ permission_mode: "manual" });
         _replaceHeaderText(HEADER_PERM_LABELS[coercedFrom] || coercedFrom, _permLabel("manual"));
       })
       .catch(() => { /* chip already reads Ask before acting; the next turn re-coerces */ });
   }
+
+  _coerceSimplePermission();
+  if (_offUiMode) _offUiMode();
+  const _onUiMode = () => { _coerceSimplePermission(); };
+  window.addEventListener("gca:ui-mode", _onUiMode);
+  _offUiMode = () => { window.removeEventListener("gca:ui-mode", _onUiMode); };
 
   modelBtn.textContent = currentModel || "Model";
   _renderPermission();

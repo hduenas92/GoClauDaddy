@@ -18,7 +18,7 @@ const calls = () => (fs.existsSync(CALLS) ? fs.readFileSync(CALLS, 'utf8').split
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 await page.addInitScript(() => {
-  try { localStorage.setItem('gca_onboarded', '1'); localStorage.setItem('gca_sb_open', '1'); } catch { /* blocked storage */ }
+  try { localStorage.setItem('gca_onboarded', '1'); localStorage.setItem('gca_sb_open', '1'); localStorage.setItem('gca_ui_mode', 'advanced'); } catch { /* blocked storage */ }
   window.__ws = [];
   const send = WebSocket.prototype.send;
   WebSocket.prototype.send = function (d) { try { window.__ws.push(JSON.parse(d).type); } catch { window.__ws.push('?'); } return send.call(this, d); };
@@ -134,7 +134,10 @@ try {
   const reported = await page.evaluate(() => fetch('/api/server/info').then((r) => r.json()).then((i) => i.url).catch(() => null));
   ok(!!reported && adv.addr === reported, 'Advanced shows the server address the server reports', `${adv.addr} vs ${reported}`);
   ok(adv.ver.includes('2.1.291'), 'Advanced shows the CLI version the CLI reported', adv.ver);
-  await page.click('#settings-btn');
+  // J7: the card is modal (its overlay intercepts clicks), so Escape closes it;
+  // the base build's drawer still closes with a second click on the trigger.
+  if (await page.evaluate(() => !!document.getElementById('settings-card'))) await page.keyboard.press('Escape');
+  else await page.click('#settings-btn');
   await page.waitForTimeout(400);
 
   r = await turn('deadproxy');

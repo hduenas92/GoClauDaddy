@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-MJS = r"C:\Users\hduenas\LLMs\Claude\Projects\plans\swarm\oraclesUI\core_j4_ui.mjs"
+MJS = r"C:\Users\hduenas\LLMs\Claude\Projects\plans\swarm\oraclesUI\core_j4_ui.j7.mjs"
 ROOT = Path(__file__).resolve().parents[2]
 INDEX = ROOT / "frontend" / "index.html"
 LOOKS = ["calm", "dense", "warm", "bold"]

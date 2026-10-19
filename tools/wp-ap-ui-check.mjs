@@ -156,13 +156,21 @@ await step(['extend_carries_request_id'], async () => {
 });
 
 // ---- B. the permission-mode picker + the CLI-reported effective mode ----
+// J7: Settings is a popup card (#settings-card inside a .modal-overlay) instead
+// of the drawer. Both ways of being open are accepted, so the same helper drives
+// the base build (drawer) and this one (card).
+const settingsOpen = () => page.evaluate(() => !!document.getElementById('settings-card')
+  || (document.getElementById('settings-drawer')?.classList.contains('drawer-open')
+    ?? !!document.querySelector('.drawer-open #system-prompt-input')));
 const openDrawer = async () => {
-  if (!(await page.evaluate(() => document.getElementById('settings-drawer')?.classList.contains('drawer-open')
-    ?? !!document.querySelector('.drawer-open #system-prompt-input')))) await page.click('#settings-btn');
+  if (!(await settingsOpen())) await page.click('#settings-btn');
   await page.waitForSelector('#system-prompt-input', { state: 'visible', timeout: 3000 });
 };
 const reopenDrawer = async () => {
-  await page.click('#settings-btn');
+  // The card is modal: its overlay intercepts clicks, so Escape is the close.
+  // The drawer closes with a second click on the trigger, as before.
+  if (await page.evaluate(() => !!document.getElementById('settings-card'))) await page.keyboard.press('Escape');
+  else await page.click('#settings-btn');
   await page.waitForTimeout(300);
   await openDrawer();
   await page.waitForTimeout(500);

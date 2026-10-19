@@ -35,20 +35,23 @@ const skip = (name, detail) => results.push({ name, state: 'INCONCLUSIVE', detai
 
 const browser = await chromium.launch();
 
-async function freshPage({ teams = false } = {}) {
+async function freshPage({ teams = false, advanced = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  await ctx.addInitScript(({ teams }) => {
+  await ctx.addInitScript(({ teams, advanced }) => {
     try {
       localStorage.setItem('gca_onboarded', '1');
       localStorage.setItem('gca_feat_assess', '0');
       localStorage.setItem('gca_sb_open', '1');
       localStorage.setItem('gca_cost_notified', new Date().toISOString().slice(0, 10));
+      // J7: the developer panels (SERVER among them) are Advanced-only now, so a
+      // case that reads one seeds Advanced — the pre-J7 surface.
+      if (advanced) localStorage.setItem('gca_ui_mode', 'advanced');
     } catch {}
     window.__unhandled = [];
     window.addEventListener('unhandledrejection', (e) => {
       window.__unhandled.push(String((e.reason && e.reason.message) || e.reason));
     });
-  }, { teams });
+  }, { teams, advanced });
   const page = await ctx.newPage();
   const pageErrors = [];
   page.on('pageerror', (e) => pageErrors.push(String(e)));
@@ -287,7 +290,7 @@ async function stubBoot(page, { messages = [] } = {}) {
 // ---------------------------------------------------------------------------
 {
   const name = 'E4. /api/server/info failure shows an explicit offline state and recovers';
-  const { ctx, page } = await freshPage();
+  const { ctx, page } = await freshPage({ advanced: true });
   try {
     await stubBoot(page);
     let infoCalls = 0;

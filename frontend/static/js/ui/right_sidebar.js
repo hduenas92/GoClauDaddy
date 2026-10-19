@@ -59,7 +59,9 @@ export function mountRightSidebar(root) {
         <span class="rsb-panel-arrow">▶</span>
       </summary>
       <div class="rsb-panel-body">
-        <div class="metric-row">
+        <!-- J7: MODEL and TOKENS are Advanced-only rows; MESSAGES, COST and the
+             context meter stay in Simple. -->
+        <div class="metric-row" data-ui-advanced>
           <span class="metric-label">MODEL</span>
           <span class="metric-value" id="met-model">—</span>
         </div>
@@ -67,7 +69,7 @@ export function mountRightSidebar(root) {
           <span class="metric-label">MESSAGES</span>
           <span class="metric-value" id="met-messages">—</span>
         </div>
-        <div class="metric-row">
+        <div class="metric-row" data-ui-advanced>
           <span class="metric-label">TOKENS</span>
           <span class="metric-value" id="met-tokens">—</span>
         </div>
@@ -77,7 +79,8 @@ export function mountRightSidebar(root) {
         </div>
         <div class="meter-row">
           <div class="meter-left">
-            <span class="metric-label">CTX</span>
+            <!-- J7: "CTX" is a developer word; the meter reads CONTEXT in both modes. -->
+            <span class="metric-label">CONTEXT</span>
             <span class="meter-ref" id="met-ctx-ref">—</span>
           </div>
           <div class="meter-bar"><div class="budget-bar-fill budget-normal" id="ctx-bar-fill"></div></div>

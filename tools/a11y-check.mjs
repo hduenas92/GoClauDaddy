@@ -134,7 +134,12 @@ async function stubBoot(page, { projects = [PROJ], conversations = [CONV], messa
 
 const SEED = {
   onboarded: true, sbOpen: true, teams: false, terminal: false, assess: false, approval: false,
+  advanced: false,
 };
+
+// J7: Settings is a popup card (#settings-card) instead of the drawer; the base
+// build's drawer is still accepted so one selector serves both.
+const SETTINGS_OPEN = '#settings-card, .settings-drawer.drawer-open';
 
 async function newPage(seed = {}) {
   const s = { ...SEED, ...seed };
@@ -148,6 +153,9 @@ async function newPage(seed = {}) {
       localStorage.setItem('gca_feat_terminal', s.terminal ? '1' : '0');
       localStorage.setItem('gca_feat_assess', s.assess ? '1' : '0');
       localStorage.setItem('gca_feat_approval', s.approval ? '1' : '0');
+      // J7: the developer panels (PROJECT, SERVER, ...) and the SESSION title are
+      // Advanced-only; seed Advanced for a case that asserts on them.
+      if (s.advanced) localStorage.setItem('gca_ui_mode', 'advanced');
     } catch { /* private mode */ }
   }, { s });
   const page = await ctx.newPage();
@@ -255,7 +263,7 @@ await axeCase('shortcuts overlay', {}, async (page) => {
 await axeCase('onboarding tour', { onboarded: false }, null);
 await axeCase('settings panel', {}, async (page) => {
   await page.click('#settings-btn');
-  await page.waitForSelector('.settings-drawer.drawer-open', { state: 'visible', timeout: 5000 });
+  await page.waitForSelector(SETTINGS_OPEN, { state: 'visible', timeout: 5000 });
 });
 await axeCase('right sidebar expanded', { sbOpen: true }, async (page) => {
   await page.waitForSelector('#right-sidebar:not(.sb-collapsed)', { timeout: 5000 });
@@ -268,7 +276,9 @@ await axeCase('right sidebar expanded', { sbOpen: true }, async (page) => {
 // panels present and titled, and keyboard collapsibility.
 // ===========================================================================
 {
-  const { ctx, page } = await newPage({ sbOpen: true });
+  // J7: PROJECT and SERVER are developer panels and the SESSION panel is titled
+  // "THIS CHAT" in Simple; the assertion below is the pre-J7 surface, so Advanced.
+  const { ctx, page } = await newPage({ sbOpen: true, advanced: true });
   try {
     await bootPage(page);
     const shape = await page.evaluate(() => {
@@ -669,7 +679,7 @@ async function focusReturnCase(label, seed, openTrigger, closeAction, triggerSel
 await focusReturnCase('shortcuts overlay', {}, async (page, trig) => { await trig.click(); await page.waitForSelector('#shortcuts-overlay:not([hidden])', { state: 'visible', timeout: 5000 }); }, async (page) => { await page.keyboard.press('Escape'); }, '#shortcuts-btn', '#shortcuts-overlay:not([hidden])');
 await focusReturnCase('new-project modal', {}, async (page, trig) => { await trig.click(); await page.waitForSelector('.modal-overlay', { state: 'visible', timeout: 5000 }); }, async (page) => { await page.keyboard.press('Escape'); }, '#new-project-btn', '.modal-overlay');
 await focusReturnCase('template picker', {}, async (page, trig) => { await trig.click(); await page.waitForSelector('.tp-overlay', { state: 'visible', timeout: 5000 }); }, async (page) => { await page.keyboard.press('Escape'); }, '#template-btn', '.tp-overlay');
-await focusReturnCase('settings drawer', {}, async (page, trig) => { await trig.click(); await page.waitForSelector('.settings-drawer.drawer-open', { state: 'visible', timeout: 5000 }); }, async (page) => { await page.keyboard.press('Escape'); }, '#settings-btn', '.settings-drawer.drawer-open');
+await focusReturnCase('settings drawer', {}, async (page, trig) => { await trig.click(); await page.waitForSelector(SETTINGS_OPEN, { state: 'visible', timeout: 5000 }); }, async (page) => { await page.keyboard.press('Escape'); }, '#settings-btn', SETTINGS_OPEN);
 
 // Onboarding has no trigger button (auto-shown on first visit): assert that
 // dismissing it leaves focus in a usable place (the composer) rather than body.
